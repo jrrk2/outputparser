@@ -1,0 +1,11 @@
+*~
+*.cmi
+*.cmo
+*.cmx
+*.o
+ord.ml
+output_lexer.ml
+output_parser.ml
+output_parser.mli
+outputparser
+outputparser.top
