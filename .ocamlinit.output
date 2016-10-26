@@ -1,0 +1,9 @@
+open Output_types
+open Output_parser
+open Output
+open Template
+
+let ch = open_in "c-parse.output";;
+let (u,g,t,n,s) = parse_output_ast_from_chan ch;;
+close_in ch;;
+

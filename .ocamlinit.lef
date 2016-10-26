@@ -1,0 +1,21 @@
+open Lef_file_edited
+open Lef_file_main
+
+let rec lst = function
+| EMPTY_TOKEN -> []
+| ERROR_TOKEN -> []
+| TUPLE2(lst', itm) -> itm :: lst lst'
+| err -> failwith "lst"
+;;
+
+let rec tolst = function
+| TUPLE4(K_PROPDEF,arg2,K_END,K_PROPDEF) -> map' arg2
+| TUPLE1(a) -> TUPLE1(tolst a)
+| TUPLE2(a,b) -> TUPLE2(tolst a, tolst b)
+| TUPLE3(a,b,c) -> TUPLE3(tolst a, tolst b, tolst c)
+| TUPLE4(a,b,c,d) -> TUPLE4(tolst a, tolst b, tolst c, tolst d)
+| oth -> oth
+
+and map' arg = TLIST (List.map tolst (List.rev (lst arg)))
+
+let rslt = match parse "complete.5.8.lef" with TUPLE3(a,b,c) -> map' a | oth -> oth
