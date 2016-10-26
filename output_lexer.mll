@@ -60,7 +60,7 @@ rule token = parse
   | ident as s
       { tok ( try keyword s with Not_found -> ID s ) }
   | eof
-      { tok ( EOF ) }
+      { tok ( EOF_TOKEN ) }
 | '!'
 { tok ( PLING ) }
 

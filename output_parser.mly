@@ -70,7 +70,7 @@
 %token <char>   CHAR
 %token <int>   NUMBER
 %token <string>   ID;
-%token    EOF
+%token    EOF_TOKEN
 %token    STATE
 %token    GRAMMAR
 %token    TERMINALS
@@ -92,10 +92,10 @@
 
 /* Parser rules */
 
-start: unused grammar terminals nonterminals statelst EOF { ($1, $2, $3, List.rev $4, List.rev $5); }
+start: unused grammar terminals nonterminals statelst EOF_TOKEN { ($1, $2, $3, List.rev $4, List.rev $5); }
 
 unused:
-	TERMINALS ID ID ID unlst { List.rev $5; }
+	TERMINALS ID ID ID unlst conflst { List.rev $5; }
 
 grammar:
 	GRAMMAR gramitmlst { List.mapi (fun ix (n,lft,rght) -> assert (ix=n); GRAMITM(lft,rght)) (List.rev $2) }
@@ -105,6 +105,13 @@ terminals:
 
 nonterminals:
 	NONTERMINALS COMMA ID ID ID ID ID nontermlst { $8 } 
+
+conflst:
+	/*empty*/ { [ ] }
+    | conflst confitm { $2 :: $1 }
+
+confitm:
+    |   STATE NUMBER ID COLON NUMBER ID SLASH ID { STATEITM(NUMBER $2,[]) }
 
 statelst:
 	stateitm { [ $1 ] }
@@ -211,6 +218,7 @@ dolitm:
 
 dolat:
 	DOLLAR AT NUMBER { DOLLAR_AT $3 }
+    |   AT NUMBER { DOLLAR_AT $2 }
 
 rulst:
     | ru { [ $1 ] }
