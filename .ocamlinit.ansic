@@ -2,124 +2,28 @@ open Translation_unit_list
 open Translation_unit_list_types
 open Translation_unit_list_main
 
-let rec tolst = function
-| CONS2(a,b) -> tlst b :: tolst a
-| CONS3(a,COMMA,b) -> tlst b :: tolst a
-| CONS4(a,COMMA,b,c) -> TUPLE2(tlst b, tlst c) :: tolst a
-| TUPLE2(a,b) -> [TUPLE2(tlst a, tlst b)]
-| TUPLE3(a,b,c) -> [TUPLE3(tlst a, tlst b, tlst c)]
-| TUPLE4(a,b,c,d) -> [TUPLE4(tlst a, tlst b, tlst c, tlst d)]
-| TUPLE5(a,b,c,d,e) -> [TUPLE5(tlst a, tlst b, tlst c, tlst d, tlst e)]
-| oth -> [oth]
+let _ = List.iter getrslt ["convert.i"; "dSFMT.i"; "dump.i"; "dynamics.i"; "kernel.i"; "main.i"; "support.i"];;
 
-and tlst lst = match tolst lst with
-| [] -> EMPTY_TOKEN
-| hd :: [] -> hd
-| hd :: tl -> TLIST (List.rev (tlst hd::List.flatten (List.map tolst tl)))
+let typlst = ref [];;
+Hashtbl.iter (fun k _ -> typlst := k :: !typlst) typehash;;
 
-let rslt = match parse "kernel.i" with TUPLE2(tran,_) -> List.rev (tolst tran) | oth -> [oth]
+let fnlst = ref [];;
+Hashtbl.iter (fun k _ -> fnlst := k :: !fnlst) fns;;
 
-let lst = ref [];;
-Hashtbl.iter (fun k _ -> lst := k :: !lst) typehash;;
+let extlst = ref [];;
+Hashtbl.iter (fun k _ -> extlst := k :: !extlst) externs;;
 
-let filt = List.filter (function
-| TUPLE3
-  (typ,
-   TUPLE4
-    (IDENTIFIER fn, LPAREN,
-     params,
-     RPAREN),
-   SEMICOLON) -> false
-| TUPLE3
-  (TUPLE2 (STATIC, TUPLE2 (INLINE, typ)),
-   TUPLE4
-    (IDENTIFIER fn, LPAREN,
-     args,
-     RPAREN),
-   TUPLE3
-    (LBRACE, body, RBRACE)) -> false
-| TUPLE3
-  (TUPLE2 (EXTERN, rtyp),
-    TUPLE2(STAR, 
-     TUPLE4
-      (IDENTIFIER fn, LPAREN,
-       params,
-     RPAREN)),
-   SEMICOLON) -> false
-| TUPLE3
-  (TUPLE2 (EXTERN, rtyp),
-   TUPLE2
-    (TUPLE2 (STAR, CONST), TUPLE3 (IDENTIFIER id, LBRACK, RBRACK)),
-   SEMICOLON) -> false
-| TUPLE2
-  (TUPLE5
-    (STRUCT, IDENTIFIER fn, LBRACE,
-     TLIST params,
-     RBRACE),
-   SEMICOLON) -> false
-| TUPLE2
-  (TUPLE4
-    (ENUM, LBRACE,
-     enumerations,
-     RBRACE),
-   SEMICOLON) -> false
-| TUPLE3
-  (TUPLE2
-    (TYPEDEF,
-     TUPLE4
-      (ENUM, LBRACE,
-       TLIST enumerations,
-       RBRACE)),
-   IDENTIFIER id_t, SEMICOLON) -> false
-| TUPLE3
-  (TUPLE2 (TYPEDEF, typ),
-   TUPLE4
-    (TUPLE3 (LPAREN, TUPLE2 (STAR, IDENTIFIER fn_t), RPAREN),
-     LPAREN,
-     TLIST args,
-     RPAREN),
-   SEMICOLON) -> false
-| TUPLE2
-  (TUPLE5
-    (ENUM, IDENTIFIER enum_id, LBRACE,
-     TLIST enumlst,
-     RBRACE),
-   SEMICOLON) -> false
-| TUPLE3
-  (TUPLE2
-    (TYPEDEF,
-     TUPLE5
-      (STRUCT, IDENTIFIER struct_id, LBRACE,
-       TLIST items,
-       RBRACE)),
-   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> false
-| TUPLE2 (TUPLE2 (STRUCT, IDENTIFIER struct_id), SEMICOLON) -> false
-| TUPLE3
-  (TUPLE2 (EXTERN, TUPLE2 (STRUCT, struct_id)),
-   TUPLE2 (STAR, IDENTIFIER nam), SEMICOLON) -> false
-| TUPLE3
-  (TUPLE2 (TYPEDEF, typedef),
-   IDENTIFIER id_t, SEMICOLON) -> false
-| TUPLE3
-  (TUPLE2 (TYPEDEF, typedef),
-   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> false
-| TUPLE3 (TUPLE2 (EXTERN, typ), IDENTIFIER nam, SEMICOLON) -> false
-| TUPLE2
-  (TUPLE5 (UNION, IDENTIFIER uid, LBRACE, TLIST ulst, RBRACE), SEMICOLON) -> false
-| TUPLE3
-  (typ,
-   TUPLE4
-    (IDENTIFIER fn, LPAREN,
-     params,
-     RPAREN),
-   TUPLE3
-    (LBRACE, body, RBRACE)) -> false
-| TUPLE3(typ,
-   TUPLE2(STAR,
-     TUPLE4
-      (IDENTIFIER fn, LPAREN,
-       args,
-       RPAREN)),
-   SEMICOLON) -> false
-| oth -> true) rslt
-;;
+let enumlst = ref [];;
+Hashtbl.iter (fun k _ -> enumlst := k :: !enumlst) enums;;
+
+let structlst = ref [];;
+Hashtbl.iter (fun k _ -> structlst := k :: !structlst) structs;;
+
+let unionlst = ref [];;
+Hashtbl.iter (fun k _ -> unionlst := k :: !unionlst) unions;;
+
+let ftyplst = ref [];;
+Hashtbl.iter (fun k _ -> ftyplst := k :: !ftyplst) ftypes;;
+
+let typlst = ref [];;
+Hashtbl.iter (fun k _ -> typlst := k :: !typlst) typedefs;;

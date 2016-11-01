@@ -19,12 +19,12 @@ let reserved = function
 
 let typ' str = try Sys.getenv str with _ -> "unit"
 
-let typhash = Hashtbl.create 257
+let termhash = Hashtbl.create 257
 
 let typ is_terminal str =
-  if not (Hashtbl.mem typhash str) then
-    Hashtbl.add typhash str (is_terminal, typ' str);
-  Hashtbl.find typhash str
+  if not (Hashtbl.mem termhash str) then
+    Hashtbl.add termhash str (is_terminal, typ' str);
+  Hashtbl.find termhash str
 
 let items mlyfile oldlhs txt rulst =
               let used = ref 0 in
@@ -124,10 +124,10 @@ let template toklst gramlst =
         | oth -> failwith (Ord.getstr oth)) gramlst;
     List.iter (fun (str,max) -> for i = 2 to max do
       let itm = str^string_of_int i in
-      Hashtbl.add typhash itm (true, (String.concat "*" (Array.to_list (Array.make i "token"))));
+      Hashtbl.add termhash itm (true, (String.concat "*" (Array.to_list (Array.make i "token"))));
       toklst' := itm :: !toklst'
     done) ["TUPLE",!maxlen;"CONS",4];
-    List.iter (fun (typ,itm) -> Hashtbl.add typhash itm (true, typ);
+    List.iter (fun (typ,itm) -> Hashtbl.add termhash itm (true, typ);
                if not (List.mem itm !toklst') then toklst' := itm :: !toklst')
       [
       "string list", "SLIST";

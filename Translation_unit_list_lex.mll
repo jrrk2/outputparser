@@ -99,9 +99,6 @@ rule token = parse
   | '0'['x' 'X']H+(IS)? as s       { if !verbose then print_endline ("B: "^s); tok(CONSTANT s); }
   | '0'['0'-'7']*(IS)? as s        { if !verbose then print_endline ("C: "^s); tok(CONSTANT s); }
   | ['1'-'9'](D)*(IS)? as s        { if !verbose then print_endline ("D: "^s); tok(CONSTANT s); }
-(*
-  | L?('\\''.'|[^'\\''\n'])+ as s  { if !verbose then print_endline ("E: "^s); tok(CONSTANT s); }
-*)
   | (D)+(E)(FS)? as s              { if !verbose then print_endline ("F: "^s); tok(CONSTANT s); }
   | (D)*"."(D)+(E)?(FS)? as s      { if !verbose then print_endline ("G: "^s); tok(CONSTANT s); }
   | (D)+"."(D)*(E)?(FS)? as s      { if !verbose then print_endline ("H: "^s); tok(CONSTANT s); }
@@ -152,6 +149,9 @@ rule token = parse
 
 | '&'
 { tok ( AMPERSAND ) }
+
+| ''' ([^'\n'] as s) '''
+{ tok(CONSTANT (String.make 1 s)); }
 
 | '''
 { tok ( QUOTE ) }
