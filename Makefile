@@ -44,7 +44,7 @@ leftest: output_parser
 ctest: output_parser
 	env OCAMLRUNPARAM=b STRING=string IDENTIFIER=string CONSTANT=float ./output_parser c-parse.output
 
-MENHIRFLAGS=--trace
+MENHIRFLAGS=#--trace
 
 lef_file: lef_file_edited.cmo lef_file_lex.ml lef_file_main.ml
 	ocamlc -g -o $@ lef_file_edited.cmo lef_file_lex.ml lef_file_main.ml
@@ -71,3 +71,31 @@ Program_lex.ml: Program_lex.mll
 Program_edited.cmo: Program_edited.mly
 	menhir $(MENHIRFLAGS) $<
 	ocamlc -c -g Program_edited.mli Program_types.ml Program_edited.ml
+
+############################################################################
+
+ansic: y.tab.o lex.yy.o ansimain.o
+	gcc -o $@ y.tab.o lex.yy.o ansimain.o
+
+y.tab.c y.tab.h: ansic.y
+	bison -v -y -d ansic.y
+
+lex.yy.c: ansic.l
+	flex ansic.l
+
+ansitest: ansic kernel.i output_parser
+	-./ansic <kernel.i >& kernel.log
+	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string CONSTANT=string TYPE_NAME=string ./output_parser y.output
+
+kernel.i: ../simpleDMC_restructure/src/kernel.c
+	cpp -P -D__extension__= -D__restrict= -D__const=const -D__attribute__\(x\)= -D__asm__\(x\)= -D__PRETTY_FUNCTION__=__FILE__ -I ../simpleDMC_restructure/dest ../simpleDMC_restructure/src/kernel.c >kernel.i
+
+Translation_unit_list: Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml Translation_unit_list_lex.ml Translation_unit_list_main.ml
+	 ocamlmktop -o $@ Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml Translation_unit_list_lex.ml Translation_unit_list_main.ml
+
+Translation_unit_list_lex.ml: Translation_unit_list_lex.mll
+	ocamllex Translation_unit_list_lex.mll
+
+Translation_unit_list.mli Translation_unit_list.ml: Translation_unit_list.mly Translation_unit_list_types.ml
+	menhir $(MENHIRFLAGS) $<
+	ocamlc -c -g Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml

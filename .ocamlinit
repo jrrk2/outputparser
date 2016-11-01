@@ -25,6 +25,7 @@
 *)
 
 (*
+#use ".ocamlinit.program"
 *)
 
-#use ".ocamlinit.program"
+#use ".ocamlinit.ansic"

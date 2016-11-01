@@ -95,7 +95,8 @@
 start: unused grammar terminals nonterminals statelst EOF_TOKEN { ($1, $2, $3, List.rev $4, List.rev $5); }
 
 unused:
-	TERMINALS ID ID ID unlst conflst { List.rev $5; }
+	conflst { [] }
+    |	TERMINALS ID ID ID unlst conflst { List.rev $5; }
 
 grammar:
 	GRAMMAR gramitmlst { List.mapi (fun ix (n,lft,rght) -> assert (ix=n); GRAMITM(lft,rght)) (List.rev $2) }

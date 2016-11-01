@@ -1,0 +1,9 @@
+	       let decl = TUPLE3($1,$2,SEMICOLON) in
+	       (match ($1,$2) with
+	       	      | (TUPLE2(TYPEDEF, _), IDENTIFIER id_t) -> Hashtbl.add typehash id_t ()
+	       	      | (TUPLE2(TYPEDEF, _), TUPLE2(STAR, (IDENTIFIER id_t))) -> Hashtbl.add typehash id_t ()
+		      | (TUPLE2(TYPEDEF, _),
+		         TUPLE4(TUPLE3(LPAREN, TUPLE2(STAR, IDENTIFIER id_t), RPAREN), _, _, RPAREN)) ->
+			   Hashtbl.add typehash id_t ()
+		      | _ -> ());
+	       decl
