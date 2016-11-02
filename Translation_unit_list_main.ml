@@ -22,22 +22,35 @@ let parse arg =
   close_in ch;
   rslt
 
-let rec tolst = function
-| CONS2(a,b) -> tlst b :: tolst a
-| CONS3(a,COMMA,b) -> tlst b :: tolst a
-| CONS4(a,COMMA,b,c) -> TUPLE2(tlst b, tlst c) :: tolst a
-| TUPLE2(a,b) -> [TUPLE2(tlst a, tlst b)]
-| TUPLE3(a,b,c) -> [TUPLE3(tlst a, tlst b, tlst c)]
-| TUPLE4(a,b,c,d) -> [TUPLE4(tlst a, tlst b, tlst c, tlst d)]
-| TUPLE5(a,b,c,d,e) -> [TUPLE5(tlst a, tlst b, tlst c, tlst d, tlst e)]
-| oth -> [oth]
+let rec findlst2 = function
+| CONS1 a -> a :: []
+| CONS2(a,b) -> b :: findlst2 a
+| oth -> oth :: []
 
-and tlst lst = match tolst lst with
-| [] -> EMPTY_TOKEN
-| hd :: [] -> hd
-| hd :: tl -> TLIST (List.rev (tlst hd::List.flatten (List.map tolst tl)))
+let rec findlst3 = function
+| CONS1 a -> a :: []
+| CONS3(a,COMMA,b) -> b :: findlst3 a
+| oth -> oth :: []
+
+let rec findlst4 = function
+| CONS1 a -> a :: []
+| CONS4(a,COMMA,b,c) -> TUPLE2(b,c) :: findlst4 a
+| oth -> oth :: []
+
+let rec tolst = function
+| CONS1(a) -> TLIST (tolst a :: [])
+| CONS2(a,b) -> TLIST (List.rev_map tolst (b :: findlst2 a))
+| CONS3(a,COMMA,b) -> TLIST (List.rev_map tolst (tolst b :: findlst3 a))
+| CONS4(a,COMMA,b,c) -> TLIST (List.rev_map tolst (TUPLE2(b, c) :: findlst4 a))
+| TUPLE2(a,b) -> TUPLE2(tolst a, tolst b)
+| TUPLE3(a,b,c) -> TUPLE3(tolst a, tolst b, tolst c)
+| TUPLE4(a,b,c,d) -> TUPLE4(tolst a, tolst b, tolst c, tolst d)
+| TUPLE5(a,b,c,d,e) -> TUPLE5(tolst a, tolst b, tolst c, tolst d, tolst e)
+| oth -> oth
 
 let errlst = ref []
+let othlst = ref []
+let declst = ref []
 let fns = Hashtbl.create 257
 let enums = Hashtbl.create 257
 let externs = Hashtbl.create 257
@@ -50,6 +63,7 @@ let globals = Hashtbl.create 257
 let inits = Hashtbl.create 257
 
 let rec dumptree = function
+| CONS1(a) -> "CONS1 ("^dumptree a^")"
 | CONS2(a,b) -> "CONS2 ("^dumptree a^", "^dumptree b^")"
 | CONS3(a,b,c) -> "CONS3 ("^dumptree a^", "^dumptree b^", "^dumptree c^")"
 | CONS4(a,b,c,d) -> "CONS4 ("^dumptree a^", "^dumptree b^", "^dumptree c^")"
@@ -58,11 +72,11 @@ let rec dumptree = function
 | TUPLE4(a,b,c,d) -> "TUPLE4 ("^dumptree a^", "^dumptree b^", "^dumptree c^", "^dumptree d^")"
 | TYPE_NAME str -> "TYPE_NAME \""^str^"\""
 | IDENTIFIER str -> "IDENTIFIER \""^str^"\""
-| CONSTANT num -> "IDENTIFIER \""^num^"\""
+| CONSTANT num -> "CONSTANT \""^num^"\""
 | TLIST lst -> "TLIST ["^String.concat "; " (List.map dumptree lst)^"]"
 | oth -> getstr oth
 
-let failtree oth = failwith (dumptree oth)
+let failtree oth = print_endline "failtree:"; failwith (dumptree oth)
 
 let filt rslt = List.iter (function
 | TUPLE3
@@ -175,13 +189,16 @@ let filt rslt = List.iter (function
     Hashtbl.add inits data (typ,num)
 | TUPLE3 (TUPLE2 (CONST, typ), TUPLE2 (STAR, TUPLE4 (IDENTIFIER fn, LPAREN, VOID, RPAREN)),
     TUPLE3 (LBRACE, body, RBRACE)) -> Hashtbl.add inlines fn (typ,body)
-| oth -> errlst := oth :: !errlst; failtree oth) rslt
+| TUPLE3 (TUPLE2 (TYPEDEF, typedef), TUPLE4 (IDENTIFIER id_t, LBRACK, CONSTANT width, RBRACK), SEMICOLON) ->
+    Hashtbl.add typedefs id_t typedef
+| oth -> errlst := oth :: !errlst) rslt
 
 let getrslt arg =
    Printf.fprintf stderr "%s: " arg; flush stderr;
    match parse arg with
+    | TUPLE2(ERROR_TOKEN, TLIST lst) -> declst := lst; print_endline "syntax error handler called"
     | TUPLE2(tran,_) -> 
-        filt (List.rev (tolst tran));
+        filt (match tolst tran with TLIST lst -> lst | oth -> []);
         let typlst = ref [] in
 	Hashtbl.iter (fun k _ -> typlst := k :: !typlst) typehash;
 	let fnlst = ref [] in
@@ -199,7 +216,7 @@ let getrslt arg =
 	let typlst = ref [] in
 	Hashtbl.iter (fun k _ -> typlst := k :: !typlst) typedefs;
         Printf.fprintf stderr
-"Types=%d, Functions=%d, externs=%d, enums=%d, structs=%d, unions=%d, ftyp=%d, types=%d\n"
+"Types=%d, Functions=%d, externs=%d, enums=%d, structs=%d, unions=%d, ftyp=%d, types=%d, unclassified=%d\n"
 (List.length !typlst)
 (List.length !fnlst)
 (List.length !extlst)
@@ -208,7 +225,8 @@ let getrslt arg =
 (List.length !unionlst)
 (List.length !ftyplst)
 (List.length !typlst)
-    | oth -> failtree oth
+(List.length !errlst)
+    | oth -> othlst := oth :: !othlst; failtree oth
 
 let _ = for i = 1 to Array.length Sys.argv - 1 do getrslt Sys.argv.(i) done
 

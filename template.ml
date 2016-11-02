@@ -40,7 +40,8 @@ let items mlyfile oldlhs txt rulst =
               if txt <> "" then fprintf mlyfile "{\n%s }\n" txt
               else if !used <> 0 then
 	          begin
-		  if !used > 1 then fprintf mlyfile "{ %s%d" tuple !used else fprintf mlyfile "{ ";
+		  if !used > 1 then fprintf mlyfile "{ %s%d" tuple !used
+                  else if islist then fprintf mlyfile "{ CONS1 " else fprintf mlyfile "{ ";
 		  let delim = ref '(' and ix = ref 0 in List.iter (function 
 		      | EMPTY -> incr ix; fprintf mlyfile "%c ()" !delim; delim := ','
 		      | END -> incr ix; fprintf mlyfile "%cEOF_TOKEN" !delim; delim := ','
@@ -122,11 +123,11 @@ let template toklst gramlst =
     let maxlen = ref 0 in List.iter (function
         | GRAMITM (_, rulst) -> let len = List.length rulst in if !maxlen < len then maxlen := len
         | oth -> failwith (Ord.getstr oth)) gramlst;
-    List.iter (fun (str,max) -> for i = 2 to max do
+    List.iter (fun (str,min,max) -> for i = min to max do
       let itm = str^string_of_int i in
       Hashtbl.add termhash itm (true, (String.concat "*" (Array.to_list (Array.make i "token"))));
       toklst' := itm :: !toklst'
-    done) ["TUPLE",!maxlen;"CONS",4];
+    done) ["TUPLE",2,!maxlen;"CONS",1,4];
     List.iter (fun (typ,itm) -> Hashtbl.add termhash itm (true, typ);
                if not (List.mem itm !toklst') then toklst' := itm :: !toklst')
       [

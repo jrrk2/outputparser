@@ -21,13 +21,13 @@
   open Translation_unit_list
   open Translation_unit_list_types
 
-  let verbose = ref false
+  let verbose = ref (try Sys.getenv ("LEX_VERBOSE") <> "" with _ -> false)
   let lincnt = ref 0
 
   let keyword =
     let h = Hashtbl.create 17 in
     List.iter 
-      (fun (s,k) -> Hashtbl.add h s k)
+     (fun (s,k) -> Hashtbl.add h s k)
       [
 	"auto",(AUTO); 
 	"_Bool",(BOOL); 
@@ -71,12 +71,12 @@
 
 let toklst = ref []
 
-let tok arg =
+let tok lexbuf arg =
   let tran = function
   | CONSTANT s -> "Constant: "^s
   | IDENTIFIER s -> "Ident: "^s
   | arg -> Translation_unit_list_types.getstr arg in
-if !verbose then print_endline (tran arg);
+if !verbose then print_endline (string_of_int (lexeme_start lexbuf)^": "^tran arg);
 toklst := arg :: !toklst;
 arg
 }
@@ -85,9 +85,9 @@ let D	=		['0'-'9']
 let L	=		['a'-'z' 'A'-'Z' '_']
 let H	=		['a'-'f' 'A'-'F' '0'-'9']
 let E	=		(['E' 'e']['+' '-']?D+)
-let P   =               (['P' 'p']['+' '-']?D+)
+let P   =              (['P' 'p']['+' '-']?D+)
 let FS	=		('f'|'F'|'l'|'L')
-let IS  =               (('u'|'U')|('u'|'U')?('l'|'L'|'l''l'|'L''L')|('l'|'L'|'l''l'|'L''L')('u'|'U'))
+let IS  =              (('u'|'U')|('u'|'U')?('l'|'L'|'l''l'|'L''L')|('l'|'L'|'l''l'|'L''L')('u'|'U'))
 
 rule token = parse
   | [ ' ' '\t' ]  { token lexbuf }
@@ -95,144 +95,142 @@ rule token = parse
   | "//"[^'\n']* 			{ token lexbuf }
   | L(L|D)* as s        {
      if !verbose then print_endline ("A: "^s);
-     tok(try keyword s with Not_found -> if Hashtbl.mem typehash s then TYPE_NAME s else IDENTIFIER s); }
-  | '0'['x' 'X']H+(IS)? as s       { if !verbose then print_endline ("B: "^s); tok(CONSTANT s); }
-  | '0'['0'-'7']*(IS)? as s        { if !verbose then print_endline ("C: "^s); tok(CONSTANT s); }
-  | ['1'-'9'](D)*(IS)? as s        { if !verbose then print_endline ("D: "^s); tok(CONSTANT s); }
-  | (D)+(E)(FS)? as s              { if !verbose then print_endline ("F: "^s); tok(CONSTANT s); }
-  | (D)*"."(D)+(E)?(FS)? as s      { if !verbose then print_endline ("G: "^s); tok(CONSTANT s); }
-  | (D)+"."(D)*(E)?(FS)? as s      { if !verbose then print_endline ("H: "^s); tok(CONSTANT s); }
-  | '0'['x' 'X'](H)+(P)(FS)? as s  { if !verbose then print_endline ("I: "^s); tok(CONSTANT s); }
-  | '0'['x' 'X'](H)*"."(H)+(P)?(FS)? as s   { if !verbose then print_endline ("J: "^s); tok(CONSTANT s); }
-  | '0'['x' 'X'](H)+"."(H)*(P)?(FS)? as s   { if !verbose then print_endline ("K: "^s); tok(CONSTANT s); }
-  | '\"'[^'"']*'\"' as s	{ if !verbose then print_endline ("L: "^s); tok(STRING_LITERAL s); }
-  | "..."			{ tok(ELLIPSIS); }
-  | ">>="			{ tok(RIGHT_ASSIGN); }
-  | "<<="			{ tok(LEFT_ASSIGN); }
-  | "+="			{ tok(ADD_ASSIGN); }
-  | "-="			{ tok(SUB_ASSIGN); }
-  | "*="			{ tok(MUL_ASSIGN); }
-  | "/="			{ tok(DIV_ASSIGN); }
-  | "%="			{ tok(MOD_ASSIGN); }
-  | "&="			{ tok(AND_ASSIGN); }
-  | "^="			{ tok(XOR_ASSIGN); }
-  | "|="			{ tok(OR_ASSIGN); }
-  | ">>"			{ tok(RIGHT_OP); }
-  | "<<"			{ tok(LEFT_OP); }
-  | "++"			{ tok(INC_OP); }
-  | "--"			{ tok(DEC_OP); }
-  | "->"			{ tok(PTR_OP); }
-  | "&&"			{ tok(AND_OP); }
-  | "||"			{ tok(OR_OP); }
-  | "<="			{ tok(LE_OP); }
-  | ">="			{ tok(GE_OP); }
-  | "=="			{ tok(EQ_OP); }
-  | "!="			{ tok(NE_OP); }
-  | ("{"|"<%")		{ tok(LBRACE); }
-  | ("}"|"%>")		{ tok(RBRACE); }
-  | ("["|"<:")		{ tok(LBRACK); }
-  | ("]"|":>")		{ tok(RBRACK); }
+     tok lexbuf (try keyword s with Not_found -> if Hashtbl.mem typehash s then TYPE_NAME s else IDENTIFIER s); }
+  | '0'['x' 'X']H+(IS)? as s       { if !verbose then print_endline ("B: "^s); tok lexbuf (CONSTANT s); }
+  | '0'['0'-'7']*(IS)? as s        { if !verbose then print_endline ("C: "^s); tok lexbuf (CONSTANT s); }
+  | ['1'-'9'](D)*(IS)? as s        { if !verbose then print_endline ("D: "^s); tok lexbuf (CONSTANT s); }
+  | (D)+(E)(FS)? as s              { if !verbose then print_endline ("F: "^s); tok lexbuf (CONSTANT s); }
+  | (D)*"."(D)+(E)?(FS)? as s      { if !verbose then print_endline ("G: "^s); tok lexbuf (CONSTANT s); }
+  | (D)+"."(D)*(E)?(FS)? as s      { if !verbose then print_endline ("H: "^s); tok lexbuf (CONSTANT s); }
+  | '0'['x' 'X'](H)+(P)(FS)? as s  { if !verbose then print_endline ("I: "^s); tok lexbuf (CONSTANT s); }
+  | '0'['x' 'X'](H)*"."(H)+(P)?(FS)? as s   { if !verbose then print_endline ("J: "^s); tok lexbuf (CONSTANT s); }
+  | '0'['x' 'X'](H)+"."(H)*(P)?(FS)? as s   { if !verbose then print_endline ("K: "^s); tok lexbuf (CONSTANT s); }
+  | '\"'[^'"']*'\"' as s	{ if !verbose then print_endline ("L: "^s); tok lexbuf (STRING_LITERAL s); }
+  | '\''[^''']*'\'' as s	{ if !verbose then print_endline ("L: "^s); tok lexbuf (CONSTANT s); }
+  | "..."			{ tok lexbuf (ELLIPSIS); }
+  | ">>="			{ tok lexbuf (RIGHT_ASSIGN); }
+  | "<<="			{ tok lexbuf (LEFT_ASSIGN); }
+  | "+="			{ tok lexbuf (ADD_ASSIGN); }
+  | "-="			{ tok lexbuf (SUB_ASSIGN); }
+  | "*="			{ tok lexbuf (MUL_ASSIGN); }
+  | "/="			{ tok lexbuf (DIV_ASSIGN); }
+  | "%="			{ tok lexbuf (MOD_ASSIGN); }
+  | "&="			{ tok lexbuf (AND_ASSIGN); }
+  | "^="			{ tok lexbuf (XOR_ASSIGN); }
+  | "|="			{ tok lexbuf (OR_ASSIGN); }
+  | ">>"			{ tok lexbuf (RIGHT_OP); }
+  | "<<"			{ tok lexbuf (LEFT_OP); }
+  | "++"			{ tok lexbuf (INC_OP); }
+  | "--"			{ tok lexbuf (DEC_OP); }
+  | "->"			{ tok lexbuf (PTR_OP); }
+  | "&&"			{ tok lexbuf (AND_OP); }
+  | "||"			{ tok lexbuf (OR_OP); }
+  | "<="			{ tok lexbuf (LE_OP); }
+  | ">="			{ tok lexbuf (GE_OP); }
+  | "=="			{ tok lexbuf (EQ_OP); }
+  | "!="			{ tok lexbuf (NE_OP); }
+  | ("{"|"<%")		{ tok lexbuf (LBRACE); }
+  | ("}"|"%>")		{ tok lexbuf (RBRACE); }
+  | ("["|"<:")		{ tok lexbuf (LBRACK); }
+  | ("]"|":>")		{ tok lexbuf (RBRACK); }
 | '!'
-{ tok ( PLING ) }
+{ tok lexbuf ( PLING ) }
 
 | '"'
-{ tok ( DOUBLEQUOTE ) }
+{ tok lexbuf ( DOUBLEQUOTE ) }
 
 | '#'
-{ tok ( HASH ) }
+{ tok lexbuf ( HASH ) }
 
 | '$'
-{ tok ( DOLLAR ) }
+{ tok lexbuf ( DOLLAR ) }
 
 | '%'
-{ tok ( PERCENT ) }
+{ tok lexbuf ( PERCENT ) }
 
 | '&'
-{ tok ( AMPERSAND ) }
+{ tok lexbuf ( AMPERSAND ) }
 
-| ''' ([^'\n'] as s) '''
-{ tok(CONSTANT (String.make 1 s)); }
-
-| '''
-{ tok ( QUOTE ) }
+| '\''
+{ tok lexbuf ( QUOTE ) }
 
 | '('
-{ tok ( LPAREN ) }
+{ tok lexbuf ( LPAREN ) }
 
 | '['
-{ tok ( LBRACK ) }
+{ tok lexbuf ( LBRACK ) }
 
 | '{'
-{ tok ( LBRACE ) }
+{ tok lexbuf ( LBRACE ) }
 
 | '<'
-{ tok ( LESS ) }
+{ tok lexbuf ( LESS ) }
 
 | ')'
-{ tok ( RPAREN ) }
+{ tok lexbuf ( RPAREN ) }
 
 | ']'
-{ tok ( RBRACK ) }
+{ tok lexbuf ( RBRACK ) }
 
 | '}'
-{ tok ( RBRACE ) }
+{ tok lexbuf ( RBRACE ) }
 
 | '>'
-{ tok ( GREATER ) }
+{ tok lexbuf ( GREATER ) }
 
 | '*'
-{ tok ( STAR ) }
+{ tok lexbuf ( STAR ) }
 
 | '+'
-{ tok ( PLUS ) }
+{ tok lexbuf ( PLUS ) }
 
 | ','
-{ tok ( COMMA ) }
+{ tok lexbuf ( COMMA ) }
 
 | '-'
-{ tok ( HYPHEN ) }
+{ tok lexbuf ( HYPHEN ) }
 
 | '.'
-{ tok ( DOT ) }
+{ tok lexbuf ( DOT ) }
 
 | '/'
-{ tok ( SLASH ) }
+{ tok lexbuf ( SLASH ) }
 
 | '\\'
-{ tok ( BACKSLASH ) }
+{ tok lexbuf ( BACKSLASH ) }
 
 | ':'
-{ tok ( COLON ) }
+{ tok lexbuf ( COLON ) }
 
 | ';'
-{ tok ( SEMICOLON ) }
+{ tok lexbuf ( SEMICOLON ) }
 
 | '='
-{ tok ( EQUALS ) }
+{ tok lexbuf ( EQUALS ) }
 
 | '?'
-{ tok ( QUERY ) }
+{ tok lexbuf ( QUERY ) }
 
 | '@'
-{ tok ( AT ) }
+{ tok lexbuf ( AT ) }
 
 | '^'
-{ tok ( CARET ) }
+{ tok lexbuf ( CARET ) }
 
 | '_'
-{ tok ( UNDERSCORE ) }
+{ tok lexbuf ( UNDERSCORE ) }
 
 | '`'
-{ tok ( BACKQUOTE ) }
+{ tok lexbuf ( BACKQUOTE ) }
 
 | '|'
-{ tok ( VBAR ) }
+{ tok lexbuf ( VBAR ) }
 
 | '~'
-{ tok ( TILDE ) }
+{ tok lexbuf ( TILDE ) }
 
 | eof
-      { tok ( EOF_TOKEN ) }
+      { tok lexbuf ( EOF_TOKEN ) }
 
 | _ as oth
-{ tok ( failwith ("lex_file_lex: "^String.make 1 oth) ) }
+{ tok lexbuf ( failwith ("lex_file_lex: "^String.make 1 oth) ) }
