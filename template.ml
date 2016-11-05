@@ -115,6 +115,7 @@ let template toklst gramlst =
     fprintf mlyfile "%%{\n";
     fprintf mlyfile "  open Parsing\n";
     fprintf mlyfile "  open %s_types\n" (capitalise stem);
+    fprintf mlyfile "  let declst = ref []\n";
 (*
     fprintf mlyfile "  open %s_aux\n" (capitalise stem);
 *)

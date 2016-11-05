@@ -1,9 +1,16 @@
 	       let decl = TUPLE3($1,$2,SEMICOLON) in
 	       (match ($1,$2) with
+	              | (TUPLE2 (TYPEDEF, TUPLE2 (STRUCT, IDENTIFIER str_id)),
+   		          	      CONS1 (TUPLE2 (STAR, IDENTIFIER id_t))) -> Hashtbl.add typehash id_t ()
+		      | (TUPLE2 (TYPEDEF, typ),
+					 CONS1 (TUPLE4 (IDENTIFIER id_t, LBRACK, CONSTANT _, RBRACK))) -> Hashtbl.add typehash id_t ()
 	       	      | (TUPLE2(TYPEDEF, _), IDENTIFIER id_t) -> Hashtbl.add typehash id_t ()
 	       	      | (TUPLE2(TYPEDEF, _), TUPLE2(STAR, (IDENTIFIER id_t))) -> Hashtbl.add typehash id_t ()
 		      | (TUPLE2(TYPEDEF, _),
 		         TUPLE4(TUPLE3(LPAREN, TUPLE2(STAR, IDENTIFIER id_t), RPAREN), _, _, RPAREN)) ->
 			   Hashtbl.add typehash id_t ()
-		      | _ -> ());
+		      | (TUPLE2 (TYPEDEF, TUPLE4 (UNION, LBRACE, contents, RBRACE)), CONS1 (IDENTIFIER id_t)) ->
+			   Hashtbl.add typehash id_t ()
+		      | (TUPLE2 (TYPEDEF, typ), CONS1 (IDENTIFIER id_t)) -> Hashtbl.add typehash id_t ()
+		      | oth -> declst := oth :: !declst);
 	       decl

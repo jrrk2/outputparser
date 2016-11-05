@@ -87,7 +87,7 @@ lex.yy.c: ansic.l
 
 ansitest: Translation_unit_list.mly
 
-Translation_unit_list.mly: ansic convert.i dSFMT.i dump.i dynamics.i kernel.i main.i support.i output_parser
+Translation_unit_list.mly: ansic convert.i dSFMT.i dump.i dynamics.i kernel.i main.i support.i output_parser Translation_unit_list_78
 	-./ansic <kernel.i >& kernel.log
 	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string CONSTANT=string TYPE_NAME=string ./output_parser y.output
 
@@ -122,8 +122,8 @@ Translation_unit_list_lex.ml: Translation_unit_list_lex.mll
 	ocamllex Translation_unit_list_lex.mll
 
 Translation_unit_list.mli Translation_unit_list.ml: Translation_unit_list.mly Translation_unit_list_types.ml
-	ocamlyacc $<
-#	menhir $(MENHIRFLAGS) $<
+#	ocamlyacc $<
+	menhir $(MENHIRFLAGS) $<
 	ocamlc -c -g Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
 
 parsetest: Translation_unit_list Translation_unit_list.top convert.i dSFMT.i dump.i dynamics.i kernel.i main.i support.i

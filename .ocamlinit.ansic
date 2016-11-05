@@ -2,28 +2,7 @@ open Translation_unit_list
 open Translation_unit_list_types
 open Translation_unit_list_main
 
+let filtd () = List.filter (search (function TUPLE2(TUPLE2(TYPEDEF _, _), _) -> true | _ -> false)) (List.map (fun (a,b) -> TUPLE2(a,b)) !(Translation_unit_list.declst));;
+
 let _ = List.iter getrslt ["convert.i"; "dSFMT.i"; "dump.i"; "dynamics.i"; "kernel.i"; "main.i"; "support.i"];;
 
-let typlst = ref [];;
-Hashtbl.iter (fun k _ -> typlst := k :: !typlst) typehash;;
-
-let fnlst = ref [];;
-Hashtbl.iter (fun k _ -> fnlst := k :: !fnlst) fns;;
-
-let extlst = ref [];;
-Hashtbl.iter (fun k _ -> extlst := k :: !extlst) externs;;
-
-let enumlst = ref [];;
-Hashtbl.iter (fun k _ -> enumlst := k :: !enumlst) enums;;
-
-let structlst = ref [];;
-Hashtbl.iter (fun k _ -> structlst := k :: !structlst) structs;;
-
-let unionlst = ref [];;
-Hashtbl.iter (fun k _ -> unionlst := k :: !unionlst) unions;;
-
-let ftyplst = ref [];;
-Hashtbl.iter (fun k _ -> ftyplst := k :: !ftyplst) ftypes;;
-
-let typlst = ref [];;
-Hashtbl.iter (fun k _ -> typlst := k :: !typlst) typedefs;;

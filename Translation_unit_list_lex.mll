@@ -70,6 +70,7 @@
     fun s -> Hashtbl.find h s
 
 let toklst = ref []
+let semicolon_seen = ref false
 
 let tok lexbuf arg =
   let tran = function
@@ -78,7 +79,15 @@ let tok lexbuf arg =
   | arg -> Translation_unit_list_types.getstr arg in
 if !verbose then print_endline (string_of_int (lexeme_start lexbuf)^": "^tran arg);
 toklst := arg :: !toklst;
+semicolon_seen := arg = SEMICOLON; 
 arg
+
+let probable_type s =
+let len = String.length s in
+let rslt = len >= 3 && String.sub s (len-2) 2 = "_t" && !semicolon_seen in
+semicolon_seen := false;
+print_endline ("!!!! "^s^": "^string_of_bool rslt);
+rslt
 }
 
 let D	=		['0'-'9']
@@ -95,7 +104,7 @@ rule token = parse
   | "//"[^'\n']* 			{ token lexbuf }
   | L(L|D)* as s        {
      if !verbose then print_endline ("A: "^s);
-     tok lexbuf (try keyword s with Not_found -> if Hashtbl.mem typehash s then TYPE_NAME s else IDENTIFIER s); }
+     tok lexbuf (try keyword s with Not_found -> if Hashtbl.mem typehash s || probable_type s then TYPE_NAME s else IDENTIFIER s); }
   | '0'['x' 'X']H+(IS)? as s       { if !verbose then print_endline ("B: "^s); tok lexbuf (CONSTANT s); }
   | '0'['0'-'7']*(IS)? as s        { if !verbose then print_endline ("C: "^s); tok lexbuf (CONSTANT s); }
   | ['1'-'9'](D)*(IS)? as s        { if !verbose then print_endline ("D: "^s); tok lexbuf (CONSTANT s); }

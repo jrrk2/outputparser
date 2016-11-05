@@ -38,7 +38,7 @@ let rec findlst4 = function
 | oth -> oth :: []
 
 let rec tolst = function
-| CONS1(a) -> TLIST (tolst a :: [])
+| CONS1(a) -> tolst a
 | CONS2(a,b) -> TLIST (List.rev_map tolst (b :: findlst2 a))
 | CONS3(a,COMMA,b) -> TLIST (List.rev_map tolst (tolst b :: findlst3 a))
 | CONS4(a,COMMA,b,c) -> TLIST (List.rev_map tolst (TUPLE2(b, c) :: findlst4 a))
@@ -47,6 +47,17 @@ let rec tolst = function
 | TUPLE4(a,b,c,d) -> TUPLE4(tolst a, tolst b, tolst c, tolst d)
 | TUPLE5(a,b,c,d,e) -> TUPLE5(tolst a, tolst b, tolst c, tolst d, tolst e)
 | oth -> oth
+
+let rec search fn = function
+| CONS1(a) -> search fn a
+| CONS2(a,b) -> (search fn) a || (search fn) b
+| CONS3(a,b,c) -> (search fn) a || (search fn) b || (search fn) c
+| CONS4(a,b,c,d) -> (search fn) a || (search fn) b || (search fn) c || (search fn) d
+| TUPLE2(a,b) -> (search fn) a || (search fn) b
+| TUPLE3(a,b,c) -> (search fn) a || (search fn) b || (search fn) c
+| TUPLE4(a,b,c,d) -> (search fn) a || (search fn) b || (search fn) c || (search fn) d
+| TUPLE5(a,b,c,d,e) -> (search fn) a || (search fn) b || (search fn) c || (search fn) d || (search fn) e
+| oth -> fn oth
 
 let errlst = ref []
 let othlst = ref []
@@ -61,6 +72,7 @@ let typedefs = Hashtbl.create 257
 let inlines = Hashtbl.create 257
 let globals = Hashtbl.create 257
 let inits = Hashtbl.create 257
+let fbody = Hashtbl.create 257
 
 let rec dumptree = function
 | CONS1(a) -> "CONS1 ("^dumptree a^")"
@@ -79,6 +91,15 @@ let rec dumptree = function
 let failtree oth = print_endline "failtree:"; failwith (dumptree oth)
 
 let filt rslt = List.iter (function
+| TUPLE3
+    (typ,
+     TUPLE2
+      (STAR,
+       TUPLE4
+        (IDENTIFIER fn, LPAREN,
+         TLIST params,
+         RPAREN)),
+     TUPLE3 (LBRACE, body, RBRACE)) -> Hashtbl.add fbody fn (typ,params,body)
 | TUPLE3
   (typ,
    TUPLE4
@@ -181,12 +202,31 @@ let filt rslt = List.iter (function
        params,
        RPAREN)),
    SEMICOLON) -> Hashtbl.add fns fn (typ,params)
+| TUPLE3 (typ,
+     TUPLE4
+      (TUPLE3
+        (LPAREN,
+         TUPLE2
+          (STAR,
+           TUPLE4
+            (IDENTIFIER fn, LPAREN,
+             params,
+             RPAREN)),
+         RPAREN),
+       LPAREN, INT, RPAREN),
+     SEMICOLON) -> Hashtbl.add fns fn (typ,params)
 | TUPLE3 (TUPLE2 (INLINE, TUPLE2 (STATIC, typ)),
     TUPLE2 (STAR, TUPLE4 (IDENTIFIER fn, LPAREN, VOID, _)),
     TUPLE3 (LBRACE, body, RBRACE)) -> Hashtbl.add inlines fn (typ,body)
 | TUPLE3 (TYPE_NAME id_t as t, IDENTIFIER data, SEMICOLON) -> Hashtbl.add globals data t
-| TUPLE3 (TUPLE2 (STATIC, TUPLE2 (CONST, typ)), TUPLE3 (IDENTIFIER data, EQUALS, CONSTANT num), SEMICOLON) ->
+| TUPLE3 (TUPLE2 (STATIC, TUPLE2 (CONST, typ)), TUPLE3 (IDENTIFIER data, EQUALS, (CONSTANT _ as num)), SEMICOLON) ->
     Hashtbl.add inits data (typ,num)
+| TUPLE3 (typ, TUPLE3 (IDENTIFIER data, EQUALS, TUPLE3(LBRACE, (TLIST _ as contents), RBRACE)), SEMICOLON) ->
+    Hashtbl.add inits data (typ,contents)
+| TUPLE3 (typ, TUPLE3 (IDENTIFIER data, EQUALS, TUPLE4(LBRACE, (TLIST _ as contents), COMMA, RBRACE)), SEMICOLON) ->
+    Hashtbl.add inits data (typ,contents)
+| TUPLE3 (TUPLE2 (STATIC, typ), TUPLE2 (STAR, IDENTIFIER data), SEMICOLON) ->
+    Hashtbl.add globals data typ
 | TUPLE3 (TUPLE2 (CONST, typ), TUPLE2 (STAR, TUPLE4 (IDENTIFIER fn, LPAREN, VOID, RPAREN)),
     TUPLE3 (LBRACE, body, RBRACE)) -> Hashtbl.add inlines fn (typ,body)
 | TUPLE3 (TUPLE2 (TYPEDEF, typedef), TUPLE4 (IDENTIFIER id_t, LBRACK, CONSTANT width, RBRACK), SEMICOLON) ->
