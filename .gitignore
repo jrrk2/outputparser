@@ -2,6 +2,7 @@
 *.cmi
 *.cmo
 *.cmx
+*.i
 *.o
 ord.ml
 output_lexer.ml
@@ -17,6 +18,7 @@ Program.mly
 Program_lex.ml
 Program_types.ml
 Translation_unit_list
+Translation_unit_list.top
 Translation_unit_list.ml
 Translation_unit_list.mli
 Translation_unit_list.mly
