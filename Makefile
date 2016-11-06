@@ -46,7 +46,7 @@ leftest: output_parser
 ctest: output_parser
 	env OCAMLRUNPARAM=b STRING=string IDENTIFIER=string CONSTANT=float ./output_parser c-parse.output
 
-MENHIRFLAGS=--trace
+MENHIRFLAGS=#--trace
 
 lef_file: lef_file_edited.cmo lef_file_lex.ml lef_file_main.ml
 	ocamlc -g -o $@ lef_file_edited.cmo lef_file_lex.ml lef_file_main.ml

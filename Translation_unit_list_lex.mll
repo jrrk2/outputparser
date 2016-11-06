@@ -86,7 +86,7 @@ let probable_type s =
 let len = String.length s in
 let rslt = len >= 3 && String.sub s (len-2) 2 = "_t" && !semicolon_seen in
 semicolon_seen := false;
-print_endline ("!!!! "^s^": "^string_of_bool rslt);
+if !verbose then print_endline ("!!!! "^s^": "^string_of_bool rslt);
 rslt
 }
 
@@ -114,7 +114,7 @@ rule token = parse
   | '0'['x' 'X'](H)+(P)(FS)? as s  { if !verbose then print_endline ("I: "^s); tok lexbuf (CONSTANT s); }
   | '0'['x' 'X'](H)*"."(H)+(P)?(FS)? as s   { if !verbose then print_endline ("J: "^s); tok lexbuf (CONSTANT s); }
   | '0'['x' 'X'](H)+"."(H)*(P)?(FS)? as s   { if !verbose then print_endline ("K: "^s); tok lexbuf (CONSTANT s); }
-  | '\"'[^'"']*'\"' as s	{ if !verbose then print_endline ("L: "^s); tok lexbuf (STRING_LITERAL s); }
+  | '\"' ( [ '\\' '\"' ] | [^ '\\' '"' '\n' ] )* '\"' as s	{ if !verbose then print_endline ("L: "^s); tok lexbuf (STRING_LITERAL s); }
   | '\''[^''']*'\'' as s	{ if !verbose then print_endline ("L: "^s); tok lexbuf (CONSTANT s); }
   | "..."			{ tok lexbuf (ELLIPSIS); }
   | ">>="			{ tok lexbuf (RIGHT_ASSIGN); }

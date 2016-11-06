@@ -1,8 +1,8 @@
 open Translation_unit_list
 open Translation_unit_list_types
 open Translation_unit_list_main
-
+(*
 let filtd () = List.filter (search (function TUPLE2(TUPLE2(TYPEDEF _, _), _) -> true | _ -> false)) (List.map (fun (a,b) -> TUPLE2(a,b)) !(Translation_unit_list.declst));;
-
+*)
 let _ = List.iter getrslt ["convert.i"; "dSFMT.i"; "dump.i"; "dynamics.i"; "kernel.i"; "main.i"; "support.i"];;
 
