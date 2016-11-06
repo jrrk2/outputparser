@@ -89,6 +89,63 @@ let rec dumptree = function
 | oth -> getstr oth
 
 let failtree oth = print_endline "failtree:"; failwith (dumptree oth)
+let redeflst = ref []
+
+let hash_add_globals key typ =
+  if Hashtbl.mem globals key then redeflst := ('g',key) :: !redeflst;
+  Hashtbl.add globals key typ
+
+let hash_add_fbody key (typ,params,body) =
+  if Hashtbl.mem fbody key then redeflst := ('b',key) :: !redeflst;
+  Hashtbl.add fbody key (typ,params,body)
+
+let hash_add_fns key (typ,params) =
+  if Hashtbl.mem fns key then
+    begin
+    let old = Hashtbl.find fns key in
+    if old <> (typ,params) then redeflst := ('f',key) :: !redeflst;
+    end;
+  Hashtbl.add fns key (typ,params)
+
+let hash_add_structs key params =
+  if Hashtbl.mem structs key then
+    begin
+    let old = Hashtbl.find structs key in
+    if old <> params then redeflst := ('s',key) :: !redeflst;
+    end;
+  Hashtbl.add structs key params
+
+let hash_add_enums key enumerations =
+  if Hashtbl.mem enums key then redeflst := ('e',key) :: !redeflst;
+  Hashtbl.add enums key enumerations
+
+let hash_add_ftypes key (typ,params) =
+  if Hashtbl.mem ftypes key then redeflst := ('T', key) :: !redeflst;
+  Hashtbl.add ftypes key (typ,params)
+
+let hash_add_typedefs key typedef =
+  if Hashtbl.mem typedefs key then
+    begin
+    let old = Hashtbl.find typedefs key in
+    if old <> typedef then redeflst := ('t',key) :: !redeflst
+    end;
+  Hashtbl.add typedefs key typedef
+
+let hash_add_externs key typ =
+  if Hashtbl.mem externs key then redeflst := ('x',key) :: !redeflst;
+  Hashtbl.add externs key typ
+
+let hash_add_unions key ulst =
+  if Hashtbl.mem unions key then redeflst := ('u',key) :: !redeflst;
+  Hashtbl.add unions key ulst
+
+let hash_add_inlines key (typ,body) =
+  if Hashtbl.mem inlines key then redeflst := ('I',key) :: !redeflst;
+  Hashtbl.add inlines key (typ,body)
+
+let hash_add_inits key (typ,num) =
+  if Hashtbl.mem inits key then redeflst := ('i', key) :: !redeflst;
+  Hashtbl.add inits key (typ,num)
 
 let filt rslt = List.iter (function
 | TUPLE3
@@ -99,14 +156,14 @@ let filt rslt = List.iter (function
         (IDENTIFIER fn, LPAREN,
          TLIST params,
          RPAREN)),
-     TUPLE3 (LBRACE, body, RBRACE)) -> Hashtbl.add fbody fn (typ,params,body)
+     TUPLE3 (LBRACE, body, RBRACE)) -> hash_add_fbody fn (typ,params,body)
 | TUPLE3
   (typ,
    TUPLE4
     (IDENTIFIER fn, LPAREN,
      params,
      RPAREN),
-   SEMICOLON) -> Hashtbl.add fns fn (typ,params)
+   SEMICOLON) -> hash_add_fns fn (typ,params)
 | TUPLE3
   (TUPLE2 (STATIC, TUPLE2 (INLINE, typ)),
    TUPLE4
@@ -114,7 +171,7 @@ let filt rslt = List.iter (function
      params,
      RPAREN),
    TUPLE3
-    (LBRACE, body, RBRACE)) -> Hashtbl.add fns fn (typ,params)
+    (LBRACE, body, RBRACE)) -> hash_add_fns fn (typ,params)
 | TUPLE3
   (TUPLE2 (EXTERN, typ),
     TUPLE2(STAR, 
@@ -122,24 +179,24 @@ let filt rslt = List.iter (function
       (IDENTIFIER fn, LPAREN,
        params,
      RPAREN)),
-   SEMICOLON) -> Hashtbl.add fns fn (typ,params)
+   SEMICOLON) -> hash_add_fns fn (typ,params)
 | TUPLE3
   (TUPLE2 (EXTERN, typ),
    (TUPLE2
     (TUPLE2 (STAR, CONST), TUPLE3 (IDENTIFIER fn, LBRACK, RBRACK)) as params),
-   SEMICOLON) -> Hashtbl.add fns fn (typ,params)
+   SEMICOLON) -> hash_add_fns fn (typ,params)
 | TUPLE2
   (TUPLE5
     (STRUCT, IDENTIFIER sid, LBRACE,
      params,
      RBRACE),
-   SEMICOLON) -> Hashtbl.add structs sid (params)
+   SEMICOLON) -> hash_add_structs sid params
 | TUPLE2
   (TUPLE4
     (ENUM, LBRACE,
      enumerations,
      RBRACE),
-   SEMICOLON) -> Hashtbl.add enums "__anon__" (enumerations)
+   SEMICOLON) -> hash_add_enums "__anon__" enumerations
 | TUPLE3
   (TUPLE2
     (TYPEDEF,
@@ -147,7 +204,7 @@ let filt rslt = List.iter (function
       (ENUM, LBRACE,
        enumerations,
        RBRACE)),
-   IDENTIFIER id_t, SEMICOLON) -> Hashtbl.add enums id_t (enumerations)
+   IDENTIFIER id_t, SEMICOLON) -> hash_add_enums id_t enumerations
 | TUPLE3
   (TUPLE2 (TYPEDEF, typ),
    TUPLE4
@@ -155,13 +212,13 @@ let filt rslt = List.iter (function
      LPAREN,
      params,
      RPAREN),
-   SEMICOLON) -> Hashtbl.add ftypes fn_t (typ,params)
+   SEMICOLON) -> hash_add_ftypes fn_t (typ,params)
 | TUPLE2
   (TUPLE5
     (ENUM, IDENTIFIER enum_id, LBRACE,
      enumerations,
      RBRACE),
-   SEMICOLON) -> Hashtbl.add enums enum_id (enumerations)
+   SEMICOLON) -> hash_add_enums enum_id (enumerations)
 | TUPLE3
   (TUPLE2
     (TYPEDEF,
@@ -169,24 +226,24 @@ let filt rslt = List.iter (function
       (STRUCT, IDENTIFIER struct_id, LBRACE,
        items,
        RBRACE)),
-   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> Hashtbl.add structs struct_id (items)
-| TUPLE2 (TUPLE2 (STRUCT, IDENTIFIER struct_id), SEMICOLON) -> Hashtbl.add structs struct_id (EMPTY_TOKEN)
+   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> hash_add_structs struct_id (items)
+| TUPLE2 (TUPLE2 (STRUCT, IDENTIFIER struct_id), SEMICOLON) -> hash_add_structs struct_id (EMPTY_TOKEN)
 | TUPLE3
   (TUPLE2 (EXTERN, TUPLE2 (STRUCT, (IDENTIFIER struct_id|TYPE_NAME struct_id))),
-   (TUPLE2 (STAR, IDENTIFIER nam) as item), SEMICOLON) -> Hashtbl.add structs struct_id (item)
+   (TUPLE2 (STAR, IDENTIFIER nam) as item), SEMICOLON) -> hash_add_structs struct_id (item)
 | TUPLE3
   (TUPLE2 (TYPEDEF, typedef),
-   IDENTIFIER id_t, SEMICOLON) -> Hashtbl.add typedefs id_t typedef
+   IDENTIFIER id_t, SEMICOLON) -> hash_add_typedefs id_t typedef
 | TUPLE3
   (TUPLE2 (TYPEDEF, typedef),
-   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> Hashtbl.add typedefs id_t typedef
-| TUPLE3 (TUPLE2 (EXTERN, typ), IDENTIFIER nam, SEMICOLON) -> Hashtbl.add externs nam typ
-| TUPLE3 (TUPLE2 (EXTERN, typ), TUPLE2(STAR, IDENTIFIER nam), SEMICOLON) -> Hashtbl.add externs nam typ
+   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> hash_add_typedefs id_t typedef
+| TUPLE3 (TUPLE2 (EXTERN, typ), IDENTIFIER nam, SEMICOLON) -> hash_add_externs nam typ
+| TUPLE3 (TUPLE2 (EXTERN, typ), TUPLE2(STAR, IDENTIFIER nam), SEMICOLON) -> hash_add_externs nam typ
 | TUPLE3 (TUPLE2 (EXTERN, typ), TLIST tlst, SEMICOLON) -> List.iter (function
-    | TUPLE2(STAR, IDENTIFIER id) -> Hashtbl.add externs id typ
+    | TUPLE2(STAR, IDENTIFIER id) -> hash_add_externs id typ
     | oth -> failtree oth) tlst
 | TUPLE2
-  (TUPLE5 (UNION, IDENTIFIER uid, LBRACE, TLIST ulst, RBRACE), SEMICOLON) -> Hashtbl.add unions uid ulst
+  (TUPLE5 (UNION, IDENTIFIER uid, LBRACE, TLIST ulst, RBRACE), SEMICOLON) -> hash_add_unions uid ulst
 | TUPLE3
   (typ,
    TUPLE4
@@ -194,14 +251,14 @@ let filt rslt = List.iter (function
      params,
      RPAREN),
    TUPLE3
-    (LBRACE, body, RBRACE)) -> Hashtbl.add fns fn (typ,params)
+    (LBRACE, body, RBRACE)) -> hash_add_fns fn (typ,params)
 | TUPLE3(typ,
    TUPLE2(STAR,
      TUPLE4
       (IDENTIFIER fn, LPAREN,
        params,
        RPAREN)),
-   SEMICOLON) -> Hashtbl.add fns fn (typ,params)
+   SEMICOLON) -> hash_add_fns fn (typ,params)
 | TUPLE3 (typ,
      TUPLE4
       (TUPLE3
@@ -214,23 +271,35 @@ let filt rslt = List.iter (function
              RPAREN)),
          RPAREN),
        LPAREN, INT, RPAREN),
-     SEMICOLON) -> Hashtbl.add fns fn (typ,params)
+     SEMICOLON) -> hash_add_fns fn (typ,params)
 | TUPLE3 (TUPLE2 (INLINE, TUPLE2 (STATIC, typ)),
     TUPLE2 (STAR, TUPLE4 (IDENTIFIER fn, LPAREN, VOID, _)),
-    TUPLE3 (LBRACE, body, RBRACE)) -> Hashtbl.add inlines fn (typ,body)
-| TUPLE3 (TYPE_NAME id_t as t, IDENTIFIER data, SEMICOLON) -> Hashtbl.add globals data t
+    TUPLE3 (LBRACE, body, RBRACE)) -> hash_add_inlines fn (typ,body)
+| TUPLE3 (TYPE_NAME id_t as t, IDENTIFIER data, SEMICOLON) -> hash_add_globals data t
 | TUPLE3 (TUPLE2 (STATIC, TUPLE2 (CONST, typ)), TUPLE3 (IDENTIFIER data, EQUALS, (CONSTANT _ as num)), SEMICOLON) ->
-    Hashtbl.add inits data (typ,num)
+    hash_add_inits data (typ,num)
 | TUPLE3 (typ, TUPLE3 (IDENTIFIER data, EQUALS, TUPLE3(LBRACE, (TLIST _ as contents), RBRACE)), SEMICOLON) ->
-    Hashtbl.add inits data (typ,contents)
+    hash_add_inits data (typ,contents)
 | TUPLE3 (typ, TUPLE3 (IDENTIFIER data, EQUALS, TUPLE4(LBRACE, (TLIST _ as contents), COMMA, RBRACE)), SEMICOLON) ->
-    Hashtbl.add inits data (typ,contents)
+    hash_add_inits data (typ,contents)
 | TUPLE3 (TUPLE2 (STATIC, typ), TUPLE2 (STAR, IDENTIFIER data), SEMICOLON) ->
-    Hashtbl.add globals data typ
+    hash_add_globals data typ
 | TUPLE3 (TUPLE2 (CONST, typ), TUPLE2 (STAR, TUPLE4 (IDENTIFIER fn, LPAREN, VOID, RPAREN)),
-    TUPLE3 (LBRACE, body, RBRACE)) -> Hashtbl.add inlines fn (typ,body)
+    TUPLE3 (LBRACE, body, RBRACE)) -> hash_add_inlines fn (typ,body)
 | TUPLE3 (TUPLE2 (TYPEDEF, typedef), TUPLE4 (IDENTIFIER id_t, LBRACK, CONSTANT width, RBRACK), SEMICOLON) ->
-    Hashtbl.add typedefs id_t typedef
+    hash_add_typedefs id_t typedef
+| TUPLE3 (typ, TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN), TUPLE3 (LBRACE, body, RBRACE)) -> hash_add_inlines fn (typ,body)
+| TUPLE3 (TUPLE2 (STATIC, typ), TUPLE3 (TUPLE2 (STAR, IDENTIFIER ptr), EQUALS, contents), SEMICOLON) ->
+    hash_add_inits ptr (typ,contents)
+| TUPLE3 (TUPLE2 (STATIC, typ), TUPLE3 (IDENTIFIER data, EQUALS, contents), SEMICOLON) ->
+    hash_add_inits data (typ,contents)
+| TUPLE3 (TUPLE2 (STATIC, typ), TUPLE4 (IDENTIFIER array, LBRACK, constexpr, RBRACK), SEMICOLON) ->
+    hash_add_inits array (typ,constexpr)
+| TUPLE3 (TUPLE2 (STATIC, typ), IDENTIFIER data, SEMICOLON) ->
+    hash_add_globals data typ
+(*
+| TUPLE3 (VOID, TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN), TUPLE3 (LBRACE, body, RBRACE)) ->
+*)
 | oth -> errlst := oth :: !errlst) rslt
 
 let getrslt arg =
