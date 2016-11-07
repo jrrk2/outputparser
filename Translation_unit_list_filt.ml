@@ -10,6 +10,9 @@ let rec dumptree = function
 | TUPLE3(a,b,c) -> "TUPLE3 ("^dumptree a^", "^dumptree b^", "^dumptree c^")"
 | TUPLE4(a,b,c,d) -> "TUPLE4 ("^dumptree a^", "^dumptree b^", "^dumptree c^", "^dumptree d^")"
 | TUPLE5(a,b,c,d,e) -> "TUPLE5 ("^dumptree a^", "^dumptree b^", "^dumptree c^", "^dumptree d^", "^dumptree e^")"
+| TUPLE6(a,b,c,d,e,f) -> "TUPLE6 ("^dumptree a^", "^dumptree b^", "^dumptree c^", "^dumptree d^", "^dumptree e^", "^dumptree f^")"
+| TUPLE7(a,b,c,d,e,f,g) -> "TUPLE7 ("^dumptree a^", "^dumptree b^", "^dumptree c^", "^dumptree d^", "^dumptree e^", "^dumptree f^", "^dumptree g^")"
+
 | TYPE_NAME str -> "TYPE_NAME \""^str^"\""
 | IDENTIFIER str -> "IDENTIFIER \""^str^"\""
 | CONSTANT num -> "CONSTANT \""^num^"\""

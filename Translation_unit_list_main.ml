@@ -46,6 +46,8 @@ let rec tolst = function
 | TUPLE3(a,b,c) -> TUPLE3(tolst a, tolst b, tolst c)
 | TUPLE4(a,b,c,d) -> TUPLE4(tolst a, tolst b, tolst c, tolst d)
 | TUPLE5(a,b,c,d,e) -> TUPLE5(tolst a, tolst b, tolst c, tolst d, tolst e)
+| TUPLE6(a,b,c,d,e,f) -> TUPLE6(tolst a, tolst b, tolst c, tolst d, tolst e, tolst f)
+| TUPLE7(a,b,c,d,e,f,g) -> TUPLE7(tolst a, tolst b, tolst c, tolst d, tolst e, tolst f, tolst g)
 | oth -> oth
 
 let rec search fn = function
@@ -212,30 +214,77 @@ let getrslt arg =
 (List.length !ftyplst)
 (List.length !typlst)
 (List.length !errlst)
-(List.length !redeflst)
+(List.length !redeflst);
+flush stderr
     | oth -> othlst := oth :: !othlst; Translation_unit_list_filt.failtree oth
 
-let rec dumpc = function
-| CONS1(a) -> "CONS1 ("^dumpc a^")"
-| CONS2(a,b) -> "CONS2 ("^dumpc a^", "^dumpc b^")"
-| CONS3(a,b,c) -> "CONS3 ("^dumpc a^", "^dumpc b^", "^dumpc c^")"
-| CONS4(a,b,c,d) -> "CONS4 ("^dumpc a^", "^dumpc b^", "^dumpc c^")"
-| TUPLE2(a,b) -> "TUPLE2 ("^dumpc a^", "^dumpc b^")"
-| TUPLE3(a,b,c) -> "TUPLE3 ("^dumpc a^", "^dumpc b^", "^dumpc c^")"
-| TUPLE4(a,b,c,d) -> "TUPLE4 ("^dumpc a^", "^dumpc b^", "^dumpc c^", "^dumpc d^")"
-| TUPLE5(a,b,c,d,e) -> "TUPLE5 ("^dumpc a^", "^dumpc b^", "^dumpc c^", "^dumpc d^", "^dumpc e^")"
+type drefs = {
+  frefs: string list ref;
+}
+
+let rec dumptyp = function
+| DOUBLE -> "double"
+| oth -> Translation_unit_list_filt.dumptree oth
+
+let mark refs fn =
+  if not (List.mem fn !(refs.frefs)) then
+    refs.frefs := fn :: !(refs.frefs)
+
+let rec dumpc refs = function
+| CONSTANT num -> num
+| IDENTIFIER id -> id
+| STRING_LITERAL str -> str
+| TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN) -> mark refs fn; fn^"();"
+| TUPLE4 (IDENTIFIER fn, LPAREN, args, RPAREN) -> mark refs fn; fn^"("^adump refs args^");"
+| TUPLE3 (lft, PLUS, rght) -> dumpc refs lft^"+"^dumpc refs rght
+| TUPLE3 (lft, STAR, rght) -> dumpc refs lft^"*"^dumpc refs rght
+| TUPLE3 (lft, LESS, rght) -> dumpc refs lft^" < "^dumpc refs rght
+| TUPLE5 (IF, LPAREN, cond, RPAREN, then') -> "if ("^dumpc refs cond^") "^dumpc refs then'
+| TUPLE3 (LBRACE, body, RBRACE) -> "\n\t{\n\t"^dumpc refs body^"\n\t}\n"
+| TLIST lst -> String.concat "\n" (List.map (dumpc refs) lst)
+| TUPLE2 (stmt, SEMICOLON) -> dumpc refs stmt^"; "
+| TUPLE3 (IDENTIFIER lft, EQUALS, expr) -> lft^" = "^dumpc refs expr
+| TUPLE4 (LPAREN, TUPLE2 (DOUBLE, STAR), RPAREN, rhs) -> "(double *)"^dumpc refs rhs
+| TUPLE3 (IDENTIFIER str, DOT, IDENTIFIER memb) -> str^"."^memb
+| TUPLE4 (SIZEOF, LPAREN, typ, RPAREN) -> "sizeof("^dumptyp typ^")"
+| TUPLE2 (AMPERSAND, IDENTIFIER compound) -> "&"^compound
+| TUPLE7 (FOR, LPAREN, TUPLE3 (INT, initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ("^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
+| TUPLE2 (IDENTIFIER idx, INC_OP) -> idx^"++"
+| TUPLE3 (RETURN, arg, SEMICOLON) -> "return "^dumpc refs arg^"; "
+| oth -> Translation_unit_list_filt.dumptree oth
+(*
+| TUPLE2(a,b) -> "TUPLE2 ("^dumpc refs a^", "^dumpc refs b^")"
+| TUPLE3(a,b,c) -> "TUPLE3 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^")"
+| TUPLE4(a,b,c,d) -> "TUPLE4 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^", "^dumpc refs d^")"
+| TUPLE5(a,b,c,d,e) -> "TUPLE5 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^", "^dumpc refs d^", "^dumpc refs e^")"
 | TYPE_NAME str -> "TYPE_NAME \""^str^"\""
 | IDENTIFIER str -> "IDENTIFIER \""^str^"\""
-| CONSTANT num -> "CONSTANT \""^num^"\""
-| TLIST lst -> "TLIST ["^String.concat "; " (List.map dumpc lst)^"]"
+| TLIST lst -> "TLIST ["^String.concat "; " (List.map (dumpc refs) lst)^"]"
+| CONS1(a) -> "CONS1 ("^dumpc refs a^")"
+| CONS2(a,b) -> "CONS2 ("^dumpc refs a^", "^dumpc refs b^")"
+| CONS3(a,b,c) -> "CONS3 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^")"
+| CONS4(a,b,c,d) -> "CONS4 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^")"
 | oth -> getstr oth
+*)
 
-let dump key =
+and adump refs = function
+| TLIST lst -> String.concat ", " (List.map (dumpc refs) lst)
+| VOID -> ""
+| oth -> dumpc refs oth
+
+let dump refs key =
+  print_endline ("********* "^key^" *********");
   if Hashtbl.mem fbody key then
     begin
     let (typ,paramlst,body) = Hashtbl.find fbody key in
-    List.iter (fun itm -> print_endline (dumpc itm)) body
+    List.iter (fun itm -> print_endline (dumpc refs itm)) body
     end
 
-let _ = for i = 1 to Array.length Sys.argv - 1 do getrslt Sys.argv.(i); done; dump "main"
+let _ = for i = 1 to Array.length Sys.argv - 1 do getrslt Sys.argv.(i); done;
+let refs = {frefs=ref []} in dump refs "main";
+while (List.length !(refs.frefs) > 0) do
+let refs' = List.sort compare (!(refs.frefs)) in
+refs.frefs := [];
+List.iter (fun itm -> dump refs itm) refs'
+done
 
