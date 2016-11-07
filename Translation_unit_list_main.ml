@@ -61,7 +61,6 @@ let rec search fn = function
 
 let errlst = ref []
 let othlst = ref []
-let declst = ref []
 let fns = Hashtbl.create 257
 let enums = Hashtbl.create 257
 let externs = Hashtbl.create 257
@@ -297,15 +296,13 @@ let filt rslt = List.iter (function
     hash_add_inits array (typ,constexpr)
 | TUPLE3 (TUPLE2 (STATIC, typ), IDENTIFIER data, SEMICOLON) ->
     hash_add_globals data typ
-(*
-| TUPLE3 (VOID, TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN), TUPLE3 (LBRACE, body, RBRACE)) ->
-*)
+| TUPLE2 (TUPLE2 (TYPEDEF, TUPLE2 (TYPE_NAME "__gnuc_va_list" as typ, TYPE_NAME "va_list")), SEMICOLON) ->
+    hash_add_typedefs "va_list" typ
 | oth -> errlst := oth :: !errlst) rslt
 
 let getrslt arg =
    Printf.fprintf stderr "%s: " arg; flush stderr;
    match parse arg with
-    | TUPLE2(ERROR_TOKEN, TLIST lst) -> declst := lst; print_endline "syntax error handler called"
     | TUPLE2(tran,_) -> 
         filt (match tolst tran with TLIST lst -> lst | oth -> []);
         let typlst = ref [] in

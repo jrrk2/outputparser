@@ -116,9 +116,7 @@ let template toklst gramlst =
     fprintf mlyfile "  open Parsing\n";
     fprintf mlyfile "  open %s_types\n" (capitalise stem);
     fprintf mlyfile "  let declst = ref []\n";
-(*
-    fprintf mlyfile "  open %s_aux\n" (capitalise stem);
-*)
+    fprintf mlyfile "  let typehash_add id_t = Hashtbl.add typehash id_t ()\n";
     fprintf typfile "  open %s\n" (capitalise stem);
     fprintf typfile "let getstr = function\n";
     let maxlen = ref 0 in List.iter (function

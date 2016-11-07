@@ -124,6 +124,7 @@ Translation_unit_list_lex.ml: Translation_unit_list_lex.mll
 Translation_unit_list.mli Translation_unit_list.ml: Translation_unit_list.mly Translation_unit_list_types.ml
 #	ocamlyacc $<
 	menhir $(MENHIRFLAGS) $<
+	echo 'val declst : (token * token) list ref' >> Translation_unit_list.mli
 	ocamlc -c -g Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
 
 parsetest: Translation_unit_list Translation_unit_list.top convert.i dSFMT.i dump.i dynamics.i kernel.i main.i support.i
