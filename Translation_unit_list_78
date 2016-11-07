@@ -19,9 +19,11 @@
 		      | (TUPLE2 (TYPEDEF, TUPLE4 (UNION, LBRACE, contents, RBRACE)), CONS1 (IDENTIFIER id_t)) ->
 			   typehash_add id_t
 		      | (TUPLE2 (TYPEDEF, _), CONS1 (IDENTIFIER id_t)) -> typehash_add id_t
+(*
 		      | (TUPLE2 (TYPEDEF, _), CONS1 (TUPLE4 (IDENTIFIER fn, LPAREN,
 		           CONS1 (CONS1 (TUPLE2 (VOID, TUPLE2 (STAR, IDENTIFIER id_t)))), RPAREN))) ->
 			   typehash_add id_t
+*)
 		      | (TUPLE2 (TYPEDEF, _), CONS1 (TUPLE2 (STAR, IDENTIFIER id_t))) ->
 			   typehash_add id_t
 		      | (TUPLE2 (TYPEDEF, _), _) as oth -> declst := oth :: !declst

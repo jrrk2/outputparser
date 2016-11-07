@@ -100,6 +100,7 @@ let IS  =              (('u'|'U')|('u'|'U')?('l'|'L'|'l''l'|'L''L')|('l'|'L'|'l'
 
 rule token = parse
   | [ ' ' '\t' ]  { token lexbuf }
+  | '#' [^'\n']* '\n' 		{ incr lincnt; token lexbuf }
   | [ '\n' ]      	        { incr lincnt; token lexbuf }
   | "//"[^'\n']* 			{ token lexbuf }
   | L(L|D)* as s        {

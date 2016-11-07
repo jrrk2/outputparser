@@ -1,6 +1,8 @@
 open Translation_unit_list
 open Translation_unit_list_types
 open Translation_unit_list_main
+open Translation_unit_list_filt
+
 (*
 let filtd () = List.filter (search (function TUPLE2(TUPLE2(TYPEDEF _, _), _) -> true | _ -> false)) (List.map (fun (a,b) -> TUPLE2(a,b)) !(Translation_unit_list.declst));;
 *)

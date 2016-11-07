@@ -19,7 +19,7 @@
 .PHONY: everything
 PARSER=ocamlyacc
 SED=sed -e 's=\^ _Nonnull=* =g' -e 's=\* _Nonnull=* =g'
-CPP=clang -E -P -D __extension__= -D __restrict= -D __const=const -D __attribute__\(x\)= -D __asm__\(x\)= -D __PRETTY_FUNCTION__=__FILE__ -I ../simpleDMC_restructure/dest -D DSFMT_MEXP=19937 -D __inline__=inline -D _Nullable= -D__asm\(x\)=
+CPP=clang -E -D __extension__= -D __restrict= -D __const=const -D __attribute__\(x\)= -D __asm__\(x\)= -D __PRETTY_FUNCTION__=__FILE__ -I ../simpleDMC_restructure/dest -D DSFMT_MEXP=19937 -D __inline__=inline -D _Nullable= -D__asm\(x\)=
 
 everything: output_parser.top output_parser output_parser.top output_parser
 
@@ -59,7 +59,7 @@ lef_file_lex.ml: lef_file_lex.mll
 
 lef_file_edited.cmo: lef_file_edited.mly
 	menhir $(MENHIRFLAGS) $<
-	ocamlc -c -g lef_file_edited.mli lef_file_edited.ml
+	ocamlc -g -c lef_file_edited.mli lef_file_edited.ml
 
 Program: Program_edited.cmo Program_types.ml Program_lex.ml Program_main.ml
 	ocamlc -g -o $@ Program_edited.cmo Program_types.ml Program_lex.ml Program_main.ml
@@ -72,7 +72,7 @@ Program_lex.ml: Program_lex.mll
 
 Program_edited.cmo: Program_edited.mly
 	menhir $(MENHIRFLAGS) $<
-	ocamlc -c -g Program_edited.mli Program_types.ml Program_edited.ml
+	ocamlc -g -c Program_edited.mli Program_types.ml Program_edited.ml
 
 ############################################################################
 
@@ -112,11 +112,11 @@ main.i: ../simpleDMC_restructure/src/main.c
 support.i: ../simpleDMC_restructure/src/support.c
 	$(CPP) $< | $(SED) >$@
 
-Translation_unit_list: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_main.cmo
-	 ocamlc -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_main.cmo
+Translation_unit_list: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_main.cmo
+	 ocamlc -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_main.cmo
 
-Translation_unit_list.top: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_main.cmo
-	 ocamlmktop -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_main.cmo
+Translation_unit_list.top: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_main.cmo
+	 ocamlmktop -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_main.cmo
 
 Translation_unit_list_lex.ml: Translation_unit_list_lex.mll
 	ocamllex Translation_unit_list_lex.mll
@@ -125,13 +125,18 @@ Translation_unit_list.mli Translation_unit_list.ml: Translation_unit_list.mly Tr
 #	ocamlyacc $<
 	menhir $(MENHIRFLAGS) $<
 	echo 'val declst : (token * token) list ref' >> Translation_unit_list.mli
-	ocamlc -c -g Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
+	ocamlc -g -c Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
 
 parsetest: Translation_unit_list Translation_unit_list.top convert.i dSFMT.i dump.i dynamics.i kernel.i main.i support.i
-	./Translation_unit_list convert.i dSFMT.i dynamics.i kernel.i main.i support.i dump.i 
+	env OCAMLRUNPARAM=b ./Translation_unit_list convert.i dSFMT.i dynamics.i kernel.i main.i support.i dump.i 
 
 %.cmi: %.mli
-	ocamlc -c $<
+	ocamlc -g -c $<
 
 %.cmo: %.ml
-	ocamlc -c $<
+	ocamlc -g -c $<
+
+depend:
+	ocamldep *.ml >.depend
+
+include .depend
