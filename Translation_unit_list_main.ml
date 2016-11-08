@@ -222,9 +222,35 @@ type drefs = {
   frefs: string list ref;
 }
 
+let typlst = ref []
+
 let rec dumptyp = function
 | DOUBLE -> "double"
-| oth -> Translation_unit_list_filt.dumptree oth
+| CHAR -> "char"
+| VOID -> "void"
+| INT -> "int"
+| TUPLE2 (EXTERN, typ) -> "extern "^dumptyp typ
+| TUPLE2 (UNSIGNED, typ) -> "unsigned "^dumptyp typ
+| TUPLE2 (CONST, typ) -> "const "^dumptyp typ
+| TUPLE2 (typ, STAR) -> dumptyp typ^" *"
+| TUPLE3 (IDENTIFIER array, LBRACK, RBRACK) -> array^"[]"
+| TYPE_NAME nam -> nam^" "
+| oth -> typlst := oth :: !typlst; Translation_unit_list_filt.dumptree oth
+
+let rec dumparg = function
+| ELLIPSIS -> "..."
+| TUPLE2(TYPE_NAME typ, IDENTIFIER arg) -> typ^" "^arg
+| TUPLE2(TYPE_NAME typ, TUPLE2 (STAR, IDENTIFIER arg)) -> typ^" *"^arg
+| TUPLE2(TUPLE2(CONST, TYPE_NAME typ), TUPLE2 (STAR, IDENTIFIER arg)) -> "const "^typ^" *"^arg
+| TUPLE2((VOID|CHAR|INT|DOUBLE) as typ, IDENTIFIER arg) -> dumptyp typ^" "^arg
+| TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), IDENTIFIER arg) -> "const "^dumptyp typ^" "^arg
+| TUPLE2((VOID|CHAR|INT|DOUBLE) as typ, TUPLE2 (STAR, IDENTIFIER arg)) -> dumptyp typ^" *"^arg
+| TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), TUPLE2 (STAR, IDENTIFIER arg)) -> "const "^dumptyp typ^" *"^arg
+| TUPLE2((CHAR|INT|DOUBLE) as typ, TUPLE2 (TUPLE2 (STAR, STAR), IDENTIFIER arg)) -> dumptyp typ^" **"^arg
+| TUPLE2((CHAR|INT|DOUBLE) as typ, IDENTIFIER arg) -> dumptyp typ^" "^arg
+| TUPLE2((VOID|CHAR|INT|DOUBLE) as typ, (TUPLE3 (IDENTIFIER _, LBRACK, RBRACK) as array)) -> dumptyp typ^" "^dumptyp array
+| TUPLE2(ty, p) -> dumptyp ty^" "^Translation_unit_list_filt.dumptree p
+| oth -> typlst := oth :: !typlst; Translation_unit_list_filt.dumptree oth
 
 let mark refs fn =
   if not (List.mem fn !(refs.frefs)) then
@@ -234,40 +260,57 @@ let rec dumpc refs = function
 | CONSTANT num -> num
 | IDENTIFIER id -> id
 | STRING_LITERAL str -> str
+| TUPLE2 (STAR, IDENTIFIER ptr) -> " *"^ptr
+| TUPLE3 ((VOID|CHAR|INT|DOUBLE) as typ, ptr, SEMICOLON) -> dumptyp typ^dumpc refs ptr^";"
+| TUPLE3 (LPAREN, expr, RPAREN) -> "("^dumpc refs expr^")"
+| TUPLE5 (expr, QUERY, expr1, COLON, expr2) -> dumpc refs expr^" ? "^dumpc refs expr1^" : "^dumpc refs expr2
+| TUPLE4 (LPAREN, ((VOID|CHAR|INT|DOUBLE) as typ), RPAREN, expr) -> "("^dumptyp typ^") "^dumpc refs expr
+| TUPLE4 (LPAREN, (TUPLE2 ((VOID|CHAR|INT|DOUBLE|TYPE_NAME _), STAR) as typ), RPAREN, expr) -> "("^dumptyp typ^") "^dumpc refs expr
+| TUPLE3 ((VOID|CHAR|INT|DOUBLE|TUPLE2 (CONST, CHAR)|TYPE_NAME _) as typ, (TUPLE3 (_, EQUALS, _) as asgn), SEMICOLON) -> dumptyp typ^" "^dumpc refs asgn
+| TUPLE3 ((VOID|CHAR|INT|DOUBLE|TYPE_NAME _) as typ, (TUPLE3 (TUPLE2 (STAR, IDENTIFIER lft), EQUALS, _) as asgn), SEMICOLON) -> dumptyp typ^" *"^dumpc refs asgn
 | TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN) -> mark refs fn; fn^"();"
 | TUPLE4 (IDENTIFIER fn, LPAREN, args, RPAREN) -> mark refs fn; fn^"("^adump refs args^");"
-| TUPLE3 (lft, PLUS, rght) -> dumpc refs lft^"+"^dumpc refs rght
-| TUPLE3 (lft, STAR, rght) -> dumpc refs lft^"*"^dumpc refs rght
+| TUPLE4 (arr, LBRACK, expr, RBRACK) -> dumpc refs arr^"["^adump refs expr^"]"
+| TUPLE2 (HYPHEN, rght) -> "-"^dumpc refs rght
+| TUPLE2 (STAR, rght) -> "*"^dumpc refs rght
+| TUPLE3 (lft, EQ_OP, rght) -> dumpc refs lft^"=="^dumpc refs rght
+| TUPLE3 (lft, GE_OP, rght) -> dumpc refs lft^">="^dumpc refs rght
+| TUPLE3 (lft, LE_OP, rght) -> dumpc refs lft^"<="^dumpc refs rght
+| TUPLE3 (lft, GREATER, rght) -> dumpc refs lft^">"^dumpc refs rght
 | TUPLE3 (lft, LESS, rght) -> dumpc refs lft^" < "^dumpc refs rght
+| TUPLE3 (lft, PLUS, rght) -> dumpc refs lft^"+"^dumpc refs rght
+| TUPLE3 (lft, HYPHEN, rght) -> dumpc refs lft^"-"^dumpc refs rght
+| TUPLE3 (lft, STAR, rght) -> dumpc refs lft^"*"^dumpc refs rght
+| TUPLE3 (lft, SLASH, rght) -> dumpc refs lft^"*"^dumpc refs rght
+| TUPLE3 (lft, PERCENT, rght) -> dumpc refs lft^"%"^dumpc refs rght
+| TUPLE3 (lft, VBAR, rght) -> dumpc refs lft^" | "^dumpc refs rght
 | TUPLE5 (IF, LPAREN, cond, RPAREN, then') -> "if ("^dumpc refs cond^") "^dumpc refs then'
 | TUPLE3 (LBRACE, body, RBRACE) -> "\n\t{\n\t"^dumpc refs body^"\n\t}\n"
 | TLIST lst -> String.concat "\n" (List.map (dumpc refs) lst)
 | TUPLE2 (stmt, SEMICOLON) -> dumpc refs stmt^"; "
-| TUPLE3 (IDENTIFIER lft, EQUALS, expr) -> lft^" = "^dumpc refs expr
+| TUPLE3 (lft, EQUALS, expr) -> dumpc refs lft^" = "^dumpc refs expr
 | TUPLE4 (LPAREN, TUPLE2 (DOUBLE, STAR), RPAREN, rhs) -> "(double *)"^dumpc refs rhs
 | TUPLE3 (IDENTIFIER str, DOT, IDENTIFIER memb) -> str^"."^memb
+| TUPLE3 (IDENTIFIER str, PTR_OP, IDENTIFIER memb) -> str^"->"^memb
 | TUPLE4 (SIZEOF, LPAREN, typ, RPAREN) -> "sizeof("^dumptyp typ^")"
-| TUPLE2 (AMPERSAND, IDENTIFIER compound) -> "&"^compound
+| TUPLE2 (AMPERSAND, compound) -> "&"^dumpc refs compound
 | TUPLE7 (FOR, LPAREN, TUPLE3 (INT, initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ("^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
-| TUPLE2 (IDENTIFIER idx, INC_OP) -> idx^"++"
+| TUPLE7 (IF, LPAREN, expr, RPAREN, then', ELSE, else') -> "if ("^dumpc refs expr^") "^dumpc refs then'^" else "^dumpc refs else'
+| TUPLE2 (lvalue, INC_OP) -> dumpc refs lvalue^"++"
 | TUPLE3 (RETURN, arg, SEMICOLON) -> "return "^dumpc refs arg^"; "
+| TUPLE3 (lvalue, ADD_ASSIGN, expr) -> dumpc refs lvalue^"+="^dumpc refs expr
+| TUPLE3 (lvalue, SUB_ASSIGN, expr) -> dumpc refs lvalue^"-="^dumpc refs expr
+| TUPLE3 (lvalue, MUL_ASSIGN, expr) -> dumpc refs lvalue^"*="^dumpc refs expr
+| TUPLE3 (lvalue, DIV_ASSIGN, expr) -> dumpc refs lvalue^"/="^dumpc refs expr
+
 | oth -> Translation_unit_list_filt.dumptree oth
-(*
-| TUPLE2(a,b) -> "TUPLE2 ("^dumpc refs a^", "^dumpc refs b^")"
-| TUPLE3(a,b,c) -> "TUPLE3 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^")"
-| TUPLE4(a,b,c,d) -> "TUPLE4 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^", "^dumpc refs d^")"
-| TUPLE5(a,b,c,d,e) -> "TUPLE5 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^", "^dumpc refs d^", "^dumpc refs e^")"
-| TYPE_NAME str -> "TYPE_NAME \""^str^"\""
-| IDENTIFIER str -> "IDENTIFIER \""^str^"\""
-| TLIST lst -> "TLIST ["^String.concat "; " (List.map (dumpc refs) lst)^"]"
-| CONS1(a) -> "CONS1 ("^dumpc refs a^")"
-| CONS2(a,b) -> "CONS2 ("^dumpc refs a^", "^dumpc refs b^")"
-| CONS3(a,b,c) -> "CONS3 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^")"
-| CONS4(a,b,c,d) -> "CONS4 ("^dumpc refs a^", "^dumpc refs b^", "^dumpc refs c^")"
-| oth -> getstr oth
-*)
 
 and adump refs = function
+| TLIST lst -> String.concat ", " (List.map (dumpc refs) lst)
+| VOID -> ""
+| oth -> dumpc refs oth
+
+and pdump refs = function
 | TLIST lst -> String.concat ", " (List.map (dumpc refs) lst)
 | VOID -> ""
 | oth -> dumpc refs oth
@@ -277,7 +320,14 @@ let dump refs key =
   if Hashtbl.mem fbody key then
     begin
     let (typ,paramlst,body) = Hashtbl.find fbody key in
-    List.iter (fun itm -> print_endline (dumpc refs itm)) body
+    print_endline (dumptyp typ^" "^key^"("^String.concat ", " (List.map dumparg paramlst)^")\n{");
+    List.iter (fun itm -> print_endline (dumpc refs itm)) body;
+    print_endline "}";
+    end
+  else if Hashtbl.mem ftypes key then
+    begin
+    let (typ,paramlst) = Hashtbl.find ftypes key in
+    print_endline (dumptyp typ^" "^key^"("^String.concat ", " (List.map dumparg paramlst)^");\n");
     end
 
 let _ = for i = 1 to Array.length Sys.argv - 1 do getrslt Sys.argv.(i); done;

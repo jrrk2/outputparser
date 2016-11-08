@@ -31,7 +31,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
 | TUPLE3
  (TUPLE2 (INLINE, TUPLE2 (STATIC, typ)),
   TUPLE4 (IDENTIFIER fn, LPAREN, params, RPAREN),
-  SEMICOLON) -> loc := 1; _ftypes fn (typ,params)
+  SEMICOLON) -> loc := 1; _ftypes fn (typ, pcnv params)
 | TUPLE3 (TUPLE2 (INLINE, TUPLE2 (STATIC, typ)),
     TUPLE2 (STAR, TUPLE4 (IDENTIFIER fn, LPAREN, params, RPAREN)),
     TUPLE3 (LBRACE, body, RBRACE)) -> loc := 24; _inlines fn (typ, pcnv params, pcnv body)
@@ -66,7 +66,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
     (IDENTIFIER fn, LPAREN,
      params,
      RPAREN),
-   SEMICOLON) -> loc := 3; _ftypes fn (typ,params)
+   SEMICOLON) -> loc := 3; _ftypes fn (typ, pcnv params)
 | TUPLE3
   (TUPLE2 (EXTERN, typ),
     TUPLE2(STAR, 
@@ -74,12 +74,12 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
       (IDENTIFIER fn, LPAREN,
        params,
      RPAREN)),
-   SEMICOLON) -> loc := 5; _ftypes fn (typ,params)
+   SEMICOLON) -> loc := 5; _ftypes fn (typ, pcnv params)
 | TUPLE3
   (TUPLE2 (EXTERN, typ),
    (TUPLE2
     (TUPLE2 (STAR, CONST), TUPLE3 (IDENTIFIER fn, LBRACK, RBRACK)) as params),
-   SEMICOLON) -> loc := 6; _ftypes fn (typ,params)
+   SEMICOLON) -> loc := 6; _ftypes fn (typ, pcnv params)
 | TUPLE2
   (TUPLE5
     (STRUCT, IDENTIFIER sid, LBRACE,
@@ -107,7 +107,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
      LPAREN,
      params,
      RPAREN),
-   SEMICOLON) -> loc := 10; _ftypes fn_t (typ,params)
+   SEMICOLON) -> loc := 10; _ftypes fn_t (typ, pcnv params)
 | TUPLE2
   (TUPLE5
     (ENUM, IDENTIFIER enum_id, LBRACE,
@@ -154,7 +154,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
       (IDENTIFIER fn, LPAREN,
        params,
        RPAREN)),
-   SEMICOLON) -> loc := 22; _ftypes fn (typ,params)
+   SEMICOLON) -> loc := 22; _ftypes fn (typ, pcnv params)
 | TUPLE3 (typ,
      TUPLE4
       (TUPLE3
@@ -167,7 +167,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
              RPAREN)),
          RPAREN),
        LPAREN, INT, RPAREN),
-     SEMICOLON) -> loc := 23; _ftypes fn (typ,params)
+     SEMICOLON) -> loc := 23; _ftypes fn (typ, pcnv params)
 | TUPLE3 (TYPE_NAME id_t as t, IDENTIFIER data, SEMICOLON) -> loc := 25; _globals data t
 | TUPLE3 (TUPLE2 (STATIC, TUPLE2 (CONST, typ)), TUPLE3 (IDENTIFIER data, EQUALS, (CONSTANT _ as num)), SEMICOLON) ->
     loc := 26; _inits data (typ,num)
