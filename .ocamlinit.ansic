@@ -6,5 +6,8 @@ open Translation_unit_list_filt
 (*
 let filtd () = List.filter (search (function TUPLE2(TUPLE2(TYPEDEF _, _), _) -> true | _ -> false)) (List.map (fun (a,b) -> TUPLE2(a,b)) !(Translation_unit_list.declst));;
 *)
-let _ = List.iter getrslt ["convert.i"; "dSFMT.i"; "dynamics.i"; "kernel.i"; "main.i"; "support.i"; "dump.i" ];;
 
+let chan = open_out "junk.c";;
+let rslt = dump chan "main" [|""; "convert.i"; "dSFMT.i"; "dynamics.i"; "kernel.i"; "main.i"; "support.i"; "dump.i"|];;
+close_out chan;;
+let (fnlst, extlst, enumlst, structlst, unionlst, ftyplst, typlst, errlst, redeflst) = rslt;;

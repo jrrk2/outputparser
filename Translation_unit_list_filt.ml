@@ -28,6 +28,8 @@ let pcnv = function
 | oth -> [oth]
 
 let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs _typedefs _unions = function
+| TUPLE2
+  (TUPLE5 (UNION, IDENTIFIER uid, LBRACE, TLIST ulst, RBRACE), SEMICOLON) -> loc := 20; _unions uid ulst
 | TUPLE3
  (TUPLE2 (INLINE, TUPLE2 (STATIC, typ)),
   TUPLE4 (IDENTIFIER fn, LPAREN, params, RPAREN),
@@ -85,7 +87,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
     (STRUCT, IDENTIFIER sid, LBRACE,
      params,
      RBRACE),
-   SEMICOLON) -> loc := 7; _structs sid params
+   SEMICOLON) -> loc := 7; _structs sid (pcnv params)
 | TUPLE2
   (TUPLE4
     (ENUM, LBRACE,
@@ -117,12 +119,14 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
 | TUPLE3
   (TUPLE2
     (TYPEDEF,
-     TUPLE5
-      (STRUCT, IDENTIFIER struct_id, LBRACE,
+     (TUPLE5
+      (STRUCT, IDENTIFIER sid, LBRACE,
        items,
-       RBRACE)),
-   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> loc := 12; _structs struct_id (items)
-| TUPLE2 (TUPLE2 (STRUCT, IDENTIFIER struct_id), SEMICOLON) -> loc := 13; _structs struct_id (EMPTY_TOKEN)
+       RBRACE) as typ)),
+   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> loc := 12;
+    _structs sid (pcnv items);
+    _typedefs id_t typ
+| TUPLE2 (TUPLE2 (STRUCT, IDENTIFIER struct_id), SEMICOLON) -> loc := 13; _structs struct_id []
 | TUPLE3
   (TUPLE2 (EXTERN, TUPLE2 (STRUCT, _)) as item,
    TUPLE2 (STAR, IDENTIFIER nam), SEMICOLON) -> 
@@ -138,8 +142,6 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
 | TUPLE3 (TUPLE2 (EXTERN, typ), TLIST tlst, SEMICOLON) -> List.iter (function
     | TUPLE2(STAR, IDENTIFIER id) -> loc := 19; _externs id typ
     | oth -> failtree oth) tlst
-| TUPLE2
-  (TUPLE5 (UNION, IDENTIFIER uid, LBRACE, TLIST ulst, RBRACE), SEMICOLON) -> loc := 20; _unions uid ulst
 | TUPLE3
   (typ,
    TUPLE4
