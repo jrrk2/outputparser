@@ -227,7 +227,6 @@ type drefs = {
 }
 
 let typerrlst = ref []
-let argerrlst = ref []
 
 let emark' refs key k = function
   | IDENTIFIER e when e=key ->
@@ -297,12 +296,14 @@ let rec dumparg refs = function
 | TUPLE2(TUPLE2(CONST, TYPE_NAME typ), TUPLE2 (STAR, IDENTIFIER arg)) -> "const "^typ^" *"^arg
 | TUPLE2((VOID|CHAR|INT|DOUBLE) as typ, IDENTIFIER arg) -> dumptyp refs typ^" "^arg
 | TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), IDENTIFIER arg) -> "const "^dumptyp refs typ^" "^arg
+| TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), TUPLE2(STAR, RESTRICT)) -> "const "^dumptyp refs typ^" *"
 | TUPLE2((VOID|CHAR|INT|DOUBLE) as typ, TUPLE2 (STAR, IDENTIFIER arg)) -> dumptyp refs typ^" *"^arg
 | TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), TUPLE2 (STAR, IDENTIFIER arg)) -> "const "^dumptyp refs typ^" *"^arg
 | TUPLE2((CHAR|INT|DOUBLE) as typ, TUPLE2 (TUPLE2 (STAR, STAR), IDENTIFIER arg)) -> dumptyp refs typ^" **"^arg
 | TUPLE2((VOID|CHAR|INT|DOUBLE) as typ, (TUPLE3 (IDENTIFIER _, LBRACK, RBRACK) as array)) -> dumptyp refs typ^" "^dumptyp refs array
+| TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), STAR) -> "const "^dumptyp refs typ^" *"
 | TUPLE2(ty, p) -> dumptyp refs ty^" "^Translation_unit_list_filt.dumptree p
-| oth -> argerrlst := oth :: !argerrlst; Translation_unit_list_filt.dumptree oth
+| ty -> dumptyp refs ty
 
 let rec dumpc refs = function
 | CONSTANT num -> num
@@ -314,10 +315,11 @@ let rec dumpc refs = function
 | TUPLE5 (expr, QUERY, expr1, COLON, expr2) -> dumpc refs expr^" ? "^dumpc refs expr1^" : "^dumpc refs expr2
 | TUPLE4 (LPAREN, ((VOID|CHAR|INT|DOUBLE) as typ), RPAREN, expr) -> "("^dumptyp refs typ^") "^dumpc refs expr
 | TUPLE4 (LPAREN, (TUPLE2 ((VOID|CHAR|INT|DOUBLE|TYPE_NAME _), STAR) as typ), RPAREN, expr) -> "("^dumptyp refs typ^") "^dumpc refs expr
-| TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN) -> fmark refs fn; fn^"();"
-| TUPLE4 (IDENTIFIER fn, LPAREN, args, RPAREN) -> fmark refs fn; fn^"("^adump refs args^");"
+| TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN) -> fmark refs fn; fn^"()"
+| TUPLE4 (IDENTIFIER fn, LPAREN, args, RPAREN) -> fmark refs fn; fn^"("^adump refs args^")"
 | TUPLE4 (arr, LBRACK, expr, RBRACK) -> dumpc refs arr^"["^adump refs expr^"]"
 | TUPLE2 (HYPHEN, rght) -> "-"^dumpc refs rght
+| TUPLE2 (PLING, rght) -> "!"^dumpc refs rght
 | TUPLE2 (STAR, rght) -> "*"^dumpc refs rght
 | TUPLE3 (lft, EQ_OP, rght) -> dumpc refs lft^"=="^dumpc refs rght
 | TUPLE3 (lft, GE_OP, rght) -> dumpc refs lft^">="^dumpc refs rght
@@ -368,7 +370,13 @@ let edump' refs str fields =
 let sdump' refs str fields =
     "struct "^str^"\n\t{\n\t"^String.concat "\n\t" (List.map (function
       | TUPLE3 (TUPLE2 (STRUCT, IDENTIFIER str), TUPLE2 (STAR, IDENTIFIER field), SEMICOLON) ->
-           "struct "^str^" *"^field^";"
+           smark refs str; "struct "^str^" *"^field^";"
+      | TUPLE3 (TUPLE2 (STRUCT, IDENTIFIER str), IDENTIFIER field, SEMICOLON) ->
+           smark refs str; "struct "^str^" "^field^";"
+      | TUPLE3 (typ, TUPLE4 (TUPLE3 (LPAREN, TUPLE2 (STAR, IDENTIFIER fn), RPAREN), LPAREN, TLIST typlst, RPAREN), SEMICOLON) ->
+           dumptyp refs typ^" (* "^fn^") ("^String.concat ", " (List.map (dumptyp refs) typlst)^");"
+      | TUPLE3 (typ, TUPLE4 (TUPLE3 (LPAREN, TUPLE2 (STAR, IDENTIFIER fn), RPAREN), LPAREN, typ', RPAREN), SEMICOLON) ->
+           dumptyp refs typ^" (* "^fn^") ("^dumptyp refs typ'^");"
       | TUPLE3 (typ, IDENTIFIER field, SEMICOLON) ->
            dumptyp refs typ^" "^field^";"
       | TUPLE3 (typ, TUPLE4 (IDENTIFIER field, LBRACK, cexpr, RBRACK), SEMICOLON) ->
@@ -461,7 +469,7 @@ let rdump refs key =
   else if Hashtbl.mem enums key then edump refs key
   else if Hashtbl.mem structs key then sdump refs key
   else if Hashtbl.mem unions key then udump refs key
-  else "rdump "^key
+  else "// rdump "^key^"\n"
 
 let fdump refs key =
   if Hashtbl.mem fbody key then
@@ -475,7 +483,7 @@ let fdump refs key =
     let (typ,paramlst) = Hashtbl.find ftypes key in
     (dumptyp refs typ^" "^key^"("^String.concat ", " (List.map (dumparg refs) paramlst)^");\n");
     end
-  else "fdump "^key
+  else "// fdump "^key^"\n"
 
 let depdump elst flst slst tlst ulst str =
   let refs = {erefs=ref [];frefs=ref [];srefs=ref [];trefs=ref [];urefs=ref []} in
