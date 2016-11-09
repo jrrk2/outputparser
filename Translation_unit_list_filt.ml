@@ -36,7 +36,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
   SEMICOLON) -> loc := 1; _ftypes fn (typ, pcnv params)
 | TUPLE3 (TUPLE2 (INLINE, TUPLE2 (STATIC, typ)),
     TUPLE2 (STAR, TUPLE4 (IDENTIFIER fn, LPAREN, params, RPAREN)),
-    TUPLE3 (LBRACE, body, RBRACE)) -> loc := 24; _inlines fn (typ, pcnv params, pcnv body)
+    TUPLE3 (LBRACE, body, RBRACE)) -> loc := 24; _inlines fn (TUPLE2(typ,STAR), pcnv params, pcnv body)
 | TUPLE3
   (TUPLE2 (STATIC, TUPLE2 (INLINE, typ)),
    TUPLE4
@@ -61,7 +61,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
         (IDENTIFIER fn, LPAREN,
          params,
          RPAREN)),
-     TUPLE3 (LBRACE, body, RBRACE)) -> loc := 2; _fbody fn (typ,pcnv params,pcnv body)
+     TUPLE3 (LBRACE, body, RBRACE)) -> loc := 2; _fbody fn (TUPLE2(typ,STAR),pcnv params,pcnv body)
 | TUPLE3
   (typ,
    TUPLE4
@@ -76,12 +76,12 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
       (IDENTIFIER fn, LPAREN,
        params,
      RPAREN)),
-   SEMICOLON) -> loc := 5; _ftypes fn (typ, pcnv params)
+   SEMICOLON) -> loc := 5; _ftypes fn (TUPLE2(typ,STAR), pcnv params)
 | TUPLE3
   (TUPLE2 (EXTERN, typ),
    (TUPLE2
     (TUPLE2 (STAR, CONST), TUPLE3 (IDENTIFIER fn, LBRACK, RBRACK)) as params),
-   SEMICOLON) -> loc := 6; _ftypes fn (typ, pcnv params)
+   SEMICOLON) -> loc := 6; _ftypes fn (TUPLE2(typ,STAR), pcnv params)
 | TUPLE2
   (TUPLE5
     (STRUCT, IDENTIFIER sid, LBRACE,
@@ -130,17 +130,18 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
 | TUPLE3
   (TUPLE2 (EXTERN, TUPLE2 (STRUCT, _)) as item,
    TUPLE2 (STAR, IDENTIFIER nam), SEMICOLON) -> 
-    loc := 14; _globals nam (item)
+    loc := 14; _globals nam (TUPLE2(item,STAR))
 | TUPLE3
   (TUPLE2 (TYPEDEF, typedef),
    IDENTIFIER id_t, SEMICOLON) -> loc := 15; _typedefs id_t typedef
 | TUPLE3
   (TUPLE2 (TYPEDEF, typedef),
-   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> loc := 16; _typedefs id_t typedef
+   TUPLE2 (STAR, IDENTIFIER id_t), SEMICOLON) -> loc := 16; _typedefs id_t (TUPLE2(typedef,STAR))
 | TUPLE3 (TUPLE2 (EXTERN, typ), IDENTIFIER nam, SEMICOLON) -> loc := 17; _externs nam typ
-| TUPLE3 (TUPLE2 (EXTERN, typ), TUPLE2(STAR, IDENTIFIER nam), SEMICOLON) -> loc := 18; _externs nam typ
+| TUPLE3 (TUPLE2 (EXTERN, typ), TUPLE2(STAR, IDENTIFIER nam), SEMICOLON) ->
+   loc := 18; _externs nam (TUPLE2(typ,STAR))
 | TUPLE3 (TUPLE2 (EXTERN, typ), TLIST tlst, SEMICOLON) -> List.iter (function
-    | TUPLE2(STAR, IDENTIFIER id) -> loc := 19; _externs id typ
+    | TUPLE2(STAR, IDENTIFIER id) -> loc := 19; _externs id (TUPLE2(typ,STAR))
     | oth -> failtree oth) tlst
 | TUPLE3
   (typ,
@@ -156,7 +157,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
       (IDENTIFIER fn, LPAREN,
        params,
        RPAREN)),
-   SEMICOLON) -> loc := 22; _ftypes fn (typ, pcnv params)
+   SEMICOLON) -> loc := 22; _ftypes fn (TUPLE2(typ,STAR), pcnv params)
 | TUPLE3 (typ,
      TUPLE4
       (TUPLE3
@@ -169,7 +170,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
              RPAREN)),
          RPAREN),
        LPAREN, INT, RPAREN),
-     SEMICOLON) -> loc := 23; _ftypes fn (typ, pcnv params)
+     SEMICOLON) -> loc := 23; _ftypes fn (TUPLE2(typ,STAR), pcnv params)
 | TUPLE3 (TYPE_NAME id_t as t, IDENTIFIER data, SEMICOLON) -> loc := 25; _globals data t
 | TUPLE3 (TUPLE2 (STATIC, TUPLE2 (CONST, typ)), TUPLE3 (IDENTIFIER data, EQUALS, (CONSTANT _ as num)), SEMICOLON) ->
     loc := 26; _inits data (typ,num)
@@ -178,17 +179,13 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
 | TUPLE3 (typ, TUPLE3 (IDENTIFIER data, EQUALS, TUPLE4(LBRACE, (TLIST _ as contents), COMMA, RBRACE)), SEMICOLON) ->
     loc := 28; _inits data (typ,contents)
 | TUPLE3 (TUPLE2 (STATIC, typ), TUPLE2 (STAR, IDENTIFIER data), SEMICOLON) ->
-    loc := 29; _globals data typ
-(*
-| TUPLE3 (TUPLE2 (CONST, typ), TUPLE2 (STAR, TUPLE4 (IDENTIFIER fn, LPAREN, VOID, RPAREN)),
-    TUPLE3 (LBRACE, body, RBRACE)) -> loc := 30; _fbody fn (typ,[],pcnv body)
-*)
+    loc := 29; _globals data (TUPLE2(typ,STAR))
 | TUPLE3 (TUPLE2 (TYPEDEF, typedef), TUPLE4 (IDENTIFIER id_t, LBRACK, CONSTANT width, RBRACK), SEMICOLON) ->
     loc := 31; _typedefs id_t typedef
 | TUPLE3 (typ, TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN), TUPLE3 (LBRACE, body, RBRACE)) ->
     loc := 32; _fbody fn (typ,[],pcnv body)
 | TUPLE3 (TUPLE2 (STATIC, typ), TUPLE3 (TUPLE2 (STAR, IDENTIFIER ptr), EQUALS, contents), SEMICOLON) ->
-    loc := 33; _inits ptr (typ,contents)
+    loc := 33; _inits ptr (TUPLE2(typ,STAR),contents)
 | TUPLE3 (TUPLE2 (STATIC, typ), TUPLE3 (IDENTIFIER data, EQUALS, contents), SEMICOLON) ->
     loc := 34; _inits data (typ,contents)
 | TUPLE3 (TUPLE2 (STATIC, typ), TUPLE4 (IDENTIFIER array, LBRACK, constexpr, RBRACK), SEMICOLON) ->

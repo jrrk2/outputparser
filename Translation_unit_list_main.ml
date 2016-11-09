@@ -3,6 +3,8 @@ open Translation_unit_list
 open Translation_unit_list_types
 open Translation_unit_list_lex
 
+let verbose = ref false
+
 let parse_output_ast_from_chan ch =
   let lb = Lexing.from_channel ch in
   let output = try
@@ -59,12 +61,12 @@ let rec search fn = function
 | TUPLE3(a,b,c) -> (search fn) a || (search fn) b || (search fn) c
 | TUPLE4(a,b,c,d) -> (search fn) a || (search fn) b || (search fn) c || (search fn) d
 | TUPLE5(a,b,c,d,e) -> (search fn) a || (search fn) b || (search fn) c || (search fn) d || (search fn) e
+| TUPLE6(a,b,c,d,e,f) -> (search fn) a || (search fn) b || (search fn) c || (search fn) d || (search fn) e || (search fn) f
+| TUPLE7(a,b,c,d,e,f,g) -> (search fn) a || (search fn) b || (search fn) c || (search fn) d || (search fn) e || (search fn) f || (search fn) g
+| TLIST lst -> List.fold_left (||) false (List.map (search fn) lst)
 | oth -> fn oth
 
 let othlst = ref []
-(*
-let fns = Hashtbl.create 257
-*)
 let enums = Hashtbl.create 257
 let externs = Hashtbl.create 257
 let structs = Hashtbl.create 257
@@ -99,6 +101,7 @@ let _globals key typ =
   else Hashtbl.add globals key typ
 
 let _fbody key (typ,params,body) =
+  if false then assert(key <> "xcalloc");
   if Hashtbl.mem fbody key then
       begin
       assert(key <> "get_idstring");
@@ -156,7 +159,6 @@ let _externs key typ =
   else Hashtbl.add externs key typ
 
 let _unions key ulst =
-  prerr_endline ("****** "^key^" ******");
   if Hashtbl.mem unions key then
     begin
     let old = Hashtbl.find unions key in
@@ -218,13 +220,33 @@ flush stderr;
 (!fnlst, !extlst, !enumlst, !structlst, !unionlst, !ftyplst, !typlst, !errlst, !redeflst)
     | oth -> othlst := oth :: !othlst; Translation_unit_list_filt.failtree oth
 
+type deps = {
+  elst: string list;
+  flst: string list;
+  ilst: string list;
+  slst: string list;
+  tlst: string list;
+  ulst: string list;
+  }
+
 type drefs = {
   erefs: string list ref;
   frefs: string list ref;
+  irefs: string list ref;
   srefs: string list ref;
   trefs: string list ref;
   urefs: string list ref;
+  etab: (string,int*deps*string) Hashtbl.t;
+  ftab: (string,int*deps*string) Hashtbl.t;
+  itab: (string,int*deps*string) Hashtbl.t;
+  stab: (string,int*deps*string) Hashtbl.t;
+  ttab: (string,int*deps*string) Hashtbl.t;
+  utab: (string,int*deps*string) Hashtbl.t;
 }
+
+let frefs () = {erefs=ref [];frefs=ref [];irefs=ref [];srefs=ref [];trefs=ref [];urefs=ref [];
+	    etab=Hashtbl.create 257;ftab=Hashtbl.create 257;itab=Hashtbl.create 257;stab=Hashtbl.create 257;
+            ttab=Hashtbl.create 257;utab=Hashtbl.create 257}
 
 let typerrlst = ref []
 
@@ -232,7 +254,7 @@ let emark' refs key k = function
   | IDENTIFIER e when e=key ->
     if not (List.mem k !(refs.erefs)) then
     begin
-    prerr_endline ("****** "^k^" ******");
+    if !verbose then prerr_endline ("****** "^k^" ******");
     refs.erefs := k :: !(refs.erefs)
     end
   | oth -> ()
@@ -246,16 +268,25 @@ let emark refs = function
     false
   | oth -> false
 
+let lmark refs = function
+  | IDENTIFIER key ->
+    if not (List.mem key !(refs.irefs)) then
+      begin
+      refs.irefs := key :: !(refs.irefs)
+      end;
+    false
+  | oth -> false
+
 let fmark refs fn =
   if not (List.mem fn !(refs.frefs)) then
     begin
     refs.frefs := fn :: !(refs.frefs)
     end
 
-let smark refs str =
+let smark strong refs str =
   if not (List.mem str !(refs.srefs)) then
     begin
-    refs.srefs := str :: !(refs.srefs)
+    if strong then refs.srefs := str :: !(refs.srefs)
     end
 
 let umark refs str =
@@ -280,6 +311,8 @@ let rec dumptyp refs = function
 | SHORT -> "short"
 | CONST -> "const"
 | EXTERN -> "extern"
+| STATIC -> "static"
+| STRUCT -> "struct"
 | UNSIGNED -> "unsigned"
 | SIGNED -> "signed"
 | STAR -> " *"
@@ -293,7 +326,7 @@ let rec dumparg refs = function
 | ELLIPSIS -> "..."
 | TUPLE2(TYPE_NAME typ, IDENTIFIER arg) -> tmark refs typ; typ^" "^arg
 | TUPLE2(TYPE_NAME typ, TUPLE2 (STAR, IDENTIFIER arg)) -> tmark refs typ; typ^" *"^arg
-| TUPLE2(TUPLE2(CONST, TYPE_NAME typ), TUPLE2 (STAR, IDENTIFIER arg)) -> "const "^typ^" *"^arg
+| TUPLE2(TUPLE2(CONST, TYPE_NAME typ), TUPLE2 (STAR, IDENTIFIER arg)) -> tmark refs typ; "const "^typ^" *"^arg
 | TUPLE2((VOID|CHAR|INT|DOUBLE) as typ, IDENTIFIER arg) -> dumptyp refs typ^" "^arg
 | TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), IDENTIFIER arg) -> "const "^dumptyp refs typ^" "^arg
 | TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), TUPLE2(STAR, RESTRICT)) -> "const "^dumptyp refs typ^" *"
@@ -302,26 +335,35 @@ let rec dumparg refs = function
 | TUPLE2((CHAR|INT|DOUBLE) as typ, TUPLE2 (TUPLE2 (STAR, STAR), IDENTIFIER arg)) -> dumptyp refs typ^" **"^arg
 | TUPLE2((VOID|CHAR|INT|DOUBLE) as typ, (TUPLE3 (IDENTIFIER _, LBRACK, RBRACK) as array)) -> dumptyp refs typ^" "^dumptyp refs array
 | TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), STAR) -> "const "^dumptyp refs typ^" *"
+| TUPLE2(TUPLE2(UNSIGNED, INT) as typ, IDENTIFIER arg) -> dumptyp refs typ^" "^arg
 | TUPLE2(ty, p) -> dumptyp refs ty^" "^Translation_unit_list_filt.dumptree p
 | ty -> dumptyp refs ty
 
 let rec dumpc refs = function
 | CONSTANT num -> num
-| IDENTIFIER id -> id
+| IDENTIFIER id as s -> let _ = lmark refs s in id
 | STRING_LITERAL str -> str
 | TUPLE2 (STAR, IDENTIFIER ptr) -> " *"^ptr
-| TUPLE3 ((VOID|CHAR|INT|DOUBLE|TUPLE2 (CONST, CHAR)|TYPE_NAME _) as typ, ptr, SEMICOLON) -> dumptyp refs typ^dumpc refs ptr^";"
+| TUPLE2 (RETURN, SEMICOLON) -> "return;"
+| TUPLE2 (CONTINUE, SEMICOLON) -> "continue;"
+| TUPLE3 ((VOID|CHAR|INT|DOUBLE|TUPLE2 (CONST, CHAR)|TYPE_NAME _) as typ, TLIST lst, SEMICOLON) ->
+    String.concat ";\n\t" (List.map (fun itm -> dumptyp refs typ^" "^dumpc refs itm) lst)^";"
+| TUPLE3 ((VOID|CHAR|INT|DOUBLE|TUPLE2 (CONST, CHAR)|TYPE_NAME _) as typ, ptr, SEMICOLON) -> dumptyp refs typ^" "^dumpc refs ptr^";"
 | TUPLE3 (LPAREN, expr, RPAREN) -> "("^dumpc refs expr^")"
 | TUPLE5 (expr, QUERY, expr1, COLON, expr2) -> dumpc refs expr^" ? "^dumpc refs expr1^" : "^dumpc refs expr2
 | TUPLE4 (LPAREN, ((VOID|CHAR|INT|DOUBLE) as typ), RPAREN, expr) -> "("^dumptyp refs typ^") "^dumpc refs expr
 | TUPLE4 (LPAREN, (TUPLE2 ((VOID|CHAR|INT|DOUBLE|TYPE_NAME _), STAR) as typ), RPAREN, expr) -> "("^dumptyp refs typ^") "^dumpc refs expr
 | TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN) -> fmark refs fn; fn^"()"
-| TUPLE4 (IDENTIFIER fn, LPAREN, args, RPAREN) -> fmark refs fn; fn^"("^adump refs args^")"
+| TUPLE4 (IDENTIFIER fn, LPAREN, args, RPAREN) ->
+    fmark refs fn;
+    let _ = search (lmark refs) args in
+    fn^"("^adump refs args^")"
 | TUPLE4 (arr, LBRACK, expr, RBRACK) -> dumpc refs arr^"["^adump refs expr^"]"
 | TUPLE2 (HYPHEN, rght) -> "-"^dumpc refs rght
 | TUPLE2 (PLING, rght) -> "!"^dumpc refs rght
 | TUPLE2 (STAR, rght) -> "*"^dumpc refs rght
 | TUPLE3 (lft, EQ_OP, rght) -> dumpc refs lft^"=="^dumpc refs rght
+| TUPLE3 (lft, NE_OP, rght) -> dumpc refs lft^"!="^dumpc refs rght
 | TUPLE3 (lft, GE_OP, rght) -> dumpc refs lft^">="^dumpc refs rght
 | TUPLE3 (lft, LE_OP, rght) -> dumpc refs lft^"<="^dumpc refs rght
 | TUPLE3 (lft, GREATER, rght) -> dumpc refs lft^">"^dumpc refs rght
@@ -331,17 +373,31 @@ let rec dumpc refs = function
 | TUPLE3 (lft, STAR, rght) -> dumpc refs lft^"*"^dumpc refs rght
 | TUPLE3 (lft, SLASH, rght) -> dumpc refs lft^"*"^dumpc refs rght
 | TUPLE3 (lft, PERCENT, rght) -> dumpc refs lft^"%"^dumpc refs rght
+| TUPLE3 (lft, LEFT_OP, rght) -> dumpc refs lft^" << "^dumpc refs rght
+| TUPLE3 (lft, RIGHT_OP, rght) -> dumpc refs lft^" >> "^dumpc refs rght
 | TUPLE3 (lft, VBAR, rght) -> dumpc refs lft^" | "^dumpc refs rght
+| TUPLE3 (lft, CARET, rght) -> dumpc refs lft^" ^ "^dumpc refs rght
+| TUPLE3 (lft, AMPERSAND, rght) -> dumpc refs lft^" & "^dumpc refs rght
 | TUPLE5 (IF, LPAREN, cond, RPAREN, then') -> "if ("^dumpc refs cond^") "^dumpc refs then'
 | TUPLE3 (LBRACE, body, RBRACE) -> "\n\t{\n\t"^dumpc refs body^"\n\t}\n"
 | TLIST lst -> String.concat "\n" (List.map (dumpc refs) lst)
 | TUPLE2 (stmt, SEMICOLON) -> dumpc refs stmt^"; "
-| TUPLE3 (lft, EQUALS, expr) -> dumpc refs lft^" = "^dumpc refs expr
-| TUPLE3 (IDENTIFIER str, DOT, IDENTIFIER memb) -> smark refs str; str^"."^memb
-| TUPLE3 (IDENTIFIER str, PTR_OP, IDENTIFIER memb) -> smark refs str; str^"->"^memb
+| TUPLE3 (lft, EQUALS, TUPLE3(LBRACE, TLIST lst, RBRACE)) ->
+    let _ = search (lmark refs) lft in
+    let _ = search (lmark refs) (TLIST lst) in
+    dumpc refs lft^" = {"^String.concat ", " (List.map (dumpc refs) lst)^"}"
+| TUPLE3 (lft, EQUALS, expr) ->
+    let _ = search (lmark refs) lft in
+    let _ = search (lmark refs) expr in
+    dumpc refs lft^" = "^dumpc refs expr
+| TUPLE3 (IDENTIFIER str, DOT, IDENTIFIER memb) -> smark true refs str; str^"."^memb
+| TUPLE3 (IDENTIFIER str, PTR_OP, IDENTIFIER memb) -> smark true refs str; str^"->"^memb
 | TUPLE4 (SIZEOF, LPAREN, typ, RPAREN) -> "sizeof("^dumptyp refs typ^")"
 | TUPLE2 (AMPERSAND, compound) -> "&"^dumpc refs compound
-| TUPLE7 (FOR, LPAREN, TUPLE3 (INT, initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ("^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
+| TUPLE7 (FOR, LPAREN, TUPLE3 (typ, initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ("^dumptyp refs typ^" "^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
+| TUPLE7 (FOR, LPAREN, TUPLE2 (initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ( "^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
+| TUPLE7 (FOR, LPAREN, SEMICOLON, TUPLE2 (condition, SEMICOLON), inc, RPAREN, TUPLE3 (LBRACE, body, RBRACE)) -> "for ( ; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
+
 | TUPLE7 (IF, LPAREN, expr, RPAREN, then', ELSE, else') -> "if ("^dumpc refs expr^") "^dumpc refs then'^" else "^dumpc refs else'
 | TUPLE2 (lvalue, INC_OP) -> dumpc refs lvalue^"++"
 | TUPLE3 (RETURN, arg, SEMICOLON) -> "return "^dumpc refs arg^"; "
@@ -349,7 +405,14 @@ let rec dumpc refs = function
 | TUPLE3 (lvalue, SUB_ASSIGN, expr) -> dumpc refs lvalue^"-="^dumpc refs expr
 | TUPLE3 (lvalue, MUL_ASSIGN, expr) -> dumpc refs lvalue^"*="^dumpc refs expr
 | TUPLE3 (lvalue, DIV_ASSIGN, expr) -> dumpc refs lvalue^"/="^dumpc refs expr
-
+| TUPLE3 (lvalue, AND_ASSIGN, expr) -> dumpc refs lvalue^"&="^dumpc refs expr
+| TUPLE3 (lvalue, OR_ASSIGN, expr) -> dumpc refs lvalue^"|="^dumpc refs expr
+| TUPLE3 (lvalue, XOR_ASSIGN, expr) -> dumpc refs lvalue^"^="^dumpc refs expr
+| TUPLE3 (lvalue, LEFT_ASSIGN, expr) -> dumpc refs lvalue^"<<="^dumpc refs expr
+| TUPLE3 (lvalue, RIGHT_ASSIGN, expr) -> dumpc refs lvalue^">>="^dumpc refs expr
+| TUPLE3 (lft, COMMA, rght) -> dumpc refs lft^", "^dumpc refs rght
+| TUPLE3 (lft, PTR_OP, rght) -> dumpc refs lft^"->"^dumpc refs rght
+| TUPLE3 (TUPLE4 (lft, LBRACK, expr, RBRACK), DOT, IDENTIFIER field) -> dumpc refs lft^"["^dumpc refs expr^"]."^field
 | oth -> Translation_unit_list_filt.dumptree oth
 
 and adump refs = function
@@ -370,9 +433,9 @@ let edump' refs str fields =
 let sdump' refs str fields =
     "struct "^str^"\n\t{\n\t"^String.concat "\n\t" (List.map (function
       | TUPLE3 (TUPLE2 (STRUCT, IDENTIFIER str), TUPLE2 (STAR, IDENTIFIER field), SEMICOLON) ->
-           smark refs str; "struct "^str^" *"^field^";"
+           smark false refs str; "struct "^str^" *"^field^";"
       | TUPLE3 (TUPLE2 (STRUCT, IDENTIFIER str), IDENTIFIER field, SEMICOLON) ->
-           smark refs str; "struct "^str^" "^field^";"
+           smark true refs str; "struct "^str^" "^field^";"
       | TUPLE3 (typ, TUPLE4 (TUPLE3 (LPAREN, TUPLE2 (STAR, IDENTIFIER fn), RPAREN), LPAREN, TLIST typlst, RPAREN), SEMICOLON) ->
            dumptyp refs typ^" (* "^fn^") ("^String.concat ", " (List.map (dumptyp refs) typlst)^");"
       | TUPLE3 (typ, TUPLE4 (TUPLE3 (LPAREN, TUPLE2 (STAR, IDENTIFIER fn), RPAREN), LPAREN, typ', RPAREN), SEMICOLON) ->
@@ -392,7 +455,7 @@ let sdump refs key =
     end
   else
     begin
-    ("struct "^key^";\n");
+    "//\n";
     end
 
 let udump' refs str fields =
@@ -442,7 +505,7 @@ let tdump refs key =
            ("typedef "^udump' refs str fields^key^";\n")
       | TUPLE5 (UNION, IDENTIFIER str, LBRACE, field, RBRACE) ->
            ("typedef "^udump' refs str [field]^key^";\n")
-      | TUPLE2 (STRUCT, IDENTIFIER str) -> smark refs str;
+      | TUPLE2 (STRUCT, IDENTIFIER str) -> smark true refs str;
            ("typedef struct "^str^" "^key^";\n")
       | TUPLE2 (UNION, IDENTIFIER str) -> umark refs str;
            ("typedef union "^str^" "^key^";\n")
@@ -454,15 +517,36 @@ let tdump refs key =
     ("struct "^key^";\n");
     end
 
+let rec cdump refs key = function
+| IDENTIFIER id -> 0
+| CONSTANT n -> int_of_string n
+| TUPLE3 (LPAREN, cexpr, RPAREN) -> cdump refs key cexpr
+| TUPLE3 (lft, PLUS, rght) -> cdump refs key lft + cdump refs key rght
+| TUPLE3 (lft, HYPHEN, rght) -> cdump refs key lft - cdump refs key rght
+| TUPLE3 (lft, STAR, rght) -> cdump refs key lft * cdump refs key rght
+| TUPLE3 (lft, SLASH, rght) -> cdump refs key lft / cdump refs key rght
+| oth -> failwith (Translation_unit_list_filt.dumptree oth)
+
 let idump refs key =
   if Hashtbl.mem inits key then
     begin
     let typ,body = Hashtbl.find inits key in
     (match typ with
-      | TYPE_NAME id_t -> tdump refs id_t
-      | oth -> "");
+      | TYPE_NAME id_t -> tmark refs id_t; id_t^" "^key^";\n"
+      | TUPLE2 (DOUBLE, STAR) -> dumptyp refs typ^" "^key^";\n"
+      | INT -> dumptyp refs typ^" "^key^";\n"
+      | DOUBLE -> dumptyp refs typ^" "^key^"["^string_of_int (cdump refs key body)^"];\n"
+      | oth -> Translation_unit_list_filt.dumptree oth);
     end
-  else ""
+  else if Hashtbl.mem globals key then
+    begin
+    let typ = Hashtbl.find globals key in
+    (match typ with
+      | TYPE_NAME id_t -> id_t^" "^key^";\n"
+      | TUPLE2 (DOUBLE, STAR) -> dumptyp refs typ^" "^key^";\n"
+      | typ -> dumptyp refs typ^" "^key^";\n")
+    end
+  else "//\n"
 
 let rdump refs key =
   if Hashtbl.mem typedefs key then tdump refs key
@@ -475,59 +559,80 @@ let fdump refs key =
   if Hashtbl.mem fbody key then
     begin
     let (typ,paramlst,body) = Hashtbl.find fbody key in
-    (dumptyp refs typ^" "^key^"("^String.concat ", " (List.map (dumparg refs) paramlst)^")\n{")^
-    String.concat "\n" (List.map (fun itm -> (dumpc refs itm)) body)^"}";
+    ("\n"^dumptyp refs typ^" "^key^"("^String.concat ", " (List.map (dumparg refs) paramlst)^")\n{")^
+    String.concat "\n" (List.map (fun itm -> (dumpc refs itm)) body)^"}\n";
+    end
+  else if Hashtbl.mem inlines key then
+    begin
+    let (typ,paramlst,body) = Hashtbl.find inlines key in
+    ("\n"^dumptyp refs typ^" "^key^"("^String.concat ", " (List.map (dumparg refs) paramlst)^")\n{")^
+    String.concat "\n" (List.map (fun itm -> (dumpc refs itm)) body)^"}\n";
     end
   else if Hashtbl.mem ftypes key then
     begin
     let (typ,paramlst) = Hashtbl.find ftypes key in
-    (dumptyp refs typ^" "^key^"("^String.concat ", " (List.map (dumparg refs) paramlst)^");\n");
+    ("\n"^dumptyp refs typ^" "^key^"("^String.concat ", " (List.map (dumparg refs) paramlst)^");\n");
     end
   else "// fdump "^key^"\n"
 
-let depdump elst flst slst tlst ulst str =
-  let refs = {erefs=ref [];frefs=ref [];srefs=ref [];trefs=ref [];urefs=ref []} in
-  flst := fdump refs str :: !flst;
-  while (List.length !(refs.erefs) > 0) ||
-        (List.length !(refs.frefs) > 0) ||
-        (List.length !(refs.srefs) > 0) ||
-        (List.length !(refs.trefs) > 0) ||
-        (List.length !(refs.urefs) > 0) do
-  let erefs' = List.sort compare (!(refs.erefs)) in
-  let frefs' = List.sort compare (!(refs.frefs)) in
-  let srefs' = List.sort compare (!(refs.srefs)) in
-  let trefs' = List.sort compare (!(refs.trefs)) in
-  let urefs' = List.sort compare (!(refs.urefs)) in
-  refs.erefs := [];
-  refs.frefs := [];
-  refs.srefs := [];
-  refs.trefs := [];
-  refs.urefs := [];
-  List.iter (fun itm -> tlst := rdump refs itm :: !tlst) trefs';
-  List.iter (fun itm -> elst := edump refs itm :: !elst) erefs';
-  List.iter (fun itm -> ulst := udump refs itm :: !ulst) urefs';
-  List.iter (fun itm -> slst := sdump refs itm :: !slst) srefs';
-  List.iter (fun itm -> flst := fdump refs itm :: !flst) frefs';
-  done
+let rec setlev maxlev lev refs tab dump itmlst =
+    if lev > !maxlev then maxlev := lev;
+    let itm = List.hd itmlst in
+    let deps = if Hashtbl.mem tab itm then let (oldlev,deps,src) = Hashtbl.find tab itm in
+      begin
+      Hashtbl.replace tab itm (max lev oldlev,deps,src);
+      if !verbose then prerr_endline ("setlev loop over "^itm^" at level: "^string_of_int lev);
+      deps
+      end
+    else
+      begin
+      let refs = frefs() in
+      let src = dump refs itm in
+      let deps = {elst= !(refs.erefs);
+                  flst= !(refs.frefs);
+                  ilst= !(refs.irefs);
+		  slst= !(refs.srefs);
+		  tlst= !(refs.trefs);
+		  ulst= !(refs.urefs)} in
+      Hashtbl.add tab itm (lev,deps,src);
+      deps
+      end in
+    List.iter (fun itm' -> 
+		   if not (List.mem itm' itmlst) then setlev maxlev (lev+1) refs refs.ttab rdump (itm' :: itmlst)
+		   ) deps.tlst;
+    List.iter (fun itm' -> 
+		   if not (List.mem itm' itmlst) then setlev maxlev (lev+1) refs refs.etab edump (itm' :: itmlst)
+		   ) deps.elst;
+    List.iter (fun itm' -> 
+		   if not (List.mem itm' itmlst) then setlev maxlev (lev+1) refs refs.utab udump (itm' :: itmlst)
+		   ) deps.ulst;
+    List.iter (fun itm' -> 
+		   if not (List.mem itm' itmlst) then setlev maxlev (lev+1) refs refs.stab sdump (itm' :: itmlst)
+		   ) deps.slst;
+    List.iter (fun itm' -> 
+		   if not (List.mem itm' itmlst) then setlev maxlev (lev+1) refs refs.ftab fdump (itm' :: itmlst)
+		   ) deps.flst;
+    List.iter (fun itm' -> 
+		   if not (List.mem itm' itmlst) then setlev maxlev (lev+1) refs refs.itab idump (itm' :: itmlst)
+		   ) deps.ilst
 
-let dump chan main argv =
+let dump refs chan main argv =
   let rslts = ref [] in
-  print_endline "/*";
+  prerr_endline "/*";
   for i = 1 to Array.length argv - 1 do rslts := getrslt argv.(i) :: !rslts; done;
-  print_endline "*/";
-  let elst = ref [] in
-  let flst = ref [] in
-  let slst = ref [] in
-  let tlst = ref [] in
-  let ulst = ref [] in
-  depdump elst flst slst tlst ulst main;
-  let uniq = Hashtbl.create 257 in
-  let print_uniq str = if not (Hashtbl.mem uniq str) then (Hashtbl.add uniq str (); output_string chan str) in
-  List.iter print_uniq !elst;
-  List.iter print_uniq !tlst;
-  List.iter print_uniq !ulst;
-  List.iter print_uniq !slst;
-  List.iter print_uniq !flst;
+  prerr_endline "*/";
+  let maxlev = ref 0 in
+  setlev maxlev 0 refs refs.ftab fdump ["main"];
+  for i = !maxlev downto 0 do
+  let print_uniq ch str (lev,_,itm) = if i = lev && itm <> "//\n" then
+    output_string chan ("/* "^String.make 1 ch^string_of_int lev^":"^str^" */\n"^itm) in
+  Hashtbl.iter (print_uniq 'e') refs.etab;
+  Hashtbl.iter (print_uniq 't') refs.ttab;
+  Hashtbl.iter (print_uniq 'u') refs.utab;
+  Hashtbl.iter (print_uniq 's') refs.stab;
+  Hashtbl.iter (print_uniq 'i') refs.itab;
+  Hashtbl.iter (print_uniq 'f') refs.ftab;
+  done;
   List.hd !rslts
 
-let _ = if Array.length Sys.argv > 1 then dump stdout "main" Sys.argv else ([],[],[],[],[],[],[],[],[])
+let _ = if Array.length Sys.argv > 1 then dump (frefs()) stdout "main" Sys.argv else ([],[],[],[],[],[],[],[],[])

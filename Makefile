@@ -128,7 +128,7 @@ Translation_unit_list.mli Translation_unit_list.ml: Translation_unit_list.mly Tr
 	ocamlc -g -c Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
 
 parsetest: Translation_unit_list Translation_unit_list.top convert.i dSFMT.i dump.i dynamics.i kernel.i main.i support.i
-	env OCAMLRUNPARAM=b ./Translation_unit_list convert.i dSFMT.i dynamics.i kernel.i main.i support.i dump.i 
+	env OCAMLRUNPARAM=b ./Translation_unit_list convert.i dSFMT.i dynamics.i kernel.i main.i support.i dump.i >mykernel.c
 
 %.cmi: %.mli
 	ocamlc -g -c $<
