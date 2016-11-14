@@ -189,7 +189,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
 | TUPLE3 (TUPLE2 (STATIC, typ), TUPLE3 (IDENTIFIER data, EQUALS, contents), SEMICOLON) ->
     loc := 34; _inits data (typ,contents)
 | TUPLE3 (TUPLE2 (STATIC, typ), TUPLE4 (IDENTIFIER array, LBRACK, constexpr, RBRACK), SEMICOLON) ->
-    loc := 35; _inits array (typ,constexpr)
+    loc := 35; _globals array (TUPLE2 (typ, TUPLE4 (IDENTIFIER array, LBRACK, constexpr, RBRACK)))
 | TUPLE3 (TUPLE2 (STATIC, typ), IDENTIFIER data, SEMICOLON) ->
     loc := 36; _globals data typ
 | TUPLE2 (TUPLE2 (TYPEDEF, TUPLE2 (TYPE_NAME "__gnuc_va_list" as typ, TYPE_NAME "va_list")), SEMICOLON) ->

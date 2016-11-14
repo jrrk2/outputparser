@@ -12,3 +12,9 @@ let refs = frefs();;
 let rslt = dump refs chan "main" [|""; "convert.i"; "dSFMT.i"; "dynamics.i"; "kernel.i"; "main.i"; "support.i"; "dump.i"|];;
 close_out chan;;
 let (fnlst, extlst, enumlst, structlst, unionlst, ftyplst, typlst, errlst, redeflst) = rslt;;
+
+let typ,TLIST x = Hashtbl.find inits "walker";;
+let TUPLE2 (TUPLE2 (TUPLE2 (DOT, IDENTIFIER field), EQUALS), TUPLE3
+        (LBRACE, TLIST lst, RBRACE))= (List.nth x 0);;
+let tenth = List.nth x 10;;
+dump_body (frefs()) tenth;;
