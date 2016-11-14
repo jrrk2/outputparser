@@ -371,7 +371,7 @@ let rec dumpc refs = function
 | TUPLE3 (lft, PLUS, rght) -> dumpc refs lft^"+"^dumpc refs rght
 | TUPLE3 (lft, HYPHEN, rght) -> dumpc refs lft^"-"^dumpc refs rght
 | TUPLE3 (lft, STAR, rght) -> dumpc refs lft^"*"^dumpc refs rght
-| TUPLE3 (lft, SLASH, rght) -> dumpc refs lft^"*"^dumpc refs rght
+| TUPLE3 (lft, SLASH, rght) -> dumpc refs lft^"/"^dumpc refs rght
 | TUPLE3 (lft, PERCENT, rght) -> dumpc refs lft^"%"^dumpc refs rght
 | TUPLE3 (lft, LEFT_OP, rght) -> dumpc refs lft^" << "^dumpc refs rght
 | TUPLE3 (lft, RIGHT_OP, rght) -> dumpc refs lft^" >> "^dumpc refs rght
@@ -425,6 +425,48 @@ and pdump refs = function
 | VOID -> ""
 | oth -> dumpc refs oth
 
+let rec is_enum id = function
+      | TUPLE3 (IDENTIFIER e, EQUALS, CONSTANT n) -> id=e
+      | TLIST lst -> List.fold_left (||) false (List.map (is_enum id) lst)
+      | oth -> false
+
+let rec is_int = function
+| CONSTANT n -> (try let _ = int_of_string n in true with _ -> false)
+| IDENTIFIER id -> let found = ref false in
+    Hashtbl.iter (fun _ x -> if is_enum id x then found := true) enums;
+    !found
+| TUPLE3 (LPAREN, cexpr, RPAREN) -> is_int cexpr
+| TUPLE3 (lft, (PLUS|HYPHEN|STAR|SLASH), rght) when is_int lft && is_int rght -> true
+| oth -> false
+
+let rec cexpr_as_int = function
+| CONSTANT n -> int_of_string n
+| IDENTIFIER id -> let found = ref None in
+    Hashtbl.iter (fun _ x -> as_enum found id x) enums;
+    let f = function Some x -> x | None -> failwith "Called cexpr_as_int on non-int" in f !found
+| TUPLE3 (LPAREN, cexpr, RPAREN) -> cexpr_as_int cexpr
+| TUPLE3 (lft, PLUS, rght) -> cexpr_as_int lft + cexpr_as_int rght
+| TUPLE3 (lft, HYPHEN, rght) -> cexpr_as_int lft - cexpr_as_int rght
+| TUPLE3 (lft, STAR, rght) -> cexpr_as_int lft * cexpr_as_int rght
+| TUPLE3 (lft, SLASH, rght) -> cexpr_as_int lft / cexpr_as_int rght
+| TUPLE3 (lft, PERCENT, rght) -> cexpr_as_int lft mod cexpr_as_int rght
+| oth -> failwith "Called cexpr_as_int on non-int"
+
+and as_enum rslt id = function
+      | TUPLE3 (IDENTIFIER e, EQUALS, (CONSTANT _ as n)) -> if id=e then rslt := Some (cexpr_as_int n)
+      | TLIST lst -> List.iter (as_enum rslt id) lst
+      | oth -> ()
+
+let cdumplst = ref []
+let simplify = try let _ = Sys.getenv "SIMPLIFY_CEXPR" in true with _ -> false
+
+let rec cdump refs cexpr =
+if simplify && is_int cexpr then
+    (let rslt = cexpr_as_int cexpr in
+    if not (List.mem (cexpr,rslt) !cdumplst) then
+    cdumplst := (cexpr,rslt) :: !cdumplst; string_of_int rslt)
+else dumpc refs cexpr
+
 let edump' refs str fields =
     "enum "^str^"\n\t{\n\t"^String.concat ",\n\t" (List.map (function
       | IDENTIFIER field -> field
@@ -443,7 +485,7 @@ let sdump' refs str fields =
       | TUPLE3 (typ, IDENTIFIER field, SEMICOLON) ->
            dumptyp refs typ^" "^field^";"
       | TUPLE3 (typ, TUPLE4 (IDENTIFIER field, LBRACK, cexpr, RBRACK), SEMICOLON) ->
-           let _ = search (emark refs) cexpr in dumptyp refs typ^" "^field^"["^dumpc refs cexpr^"];"
+           let _ = search (emark refs) cexpr in dumptyp refs typ^" "^field^"["^cdump refs cexpr^"];"
       | TUPLE3 (typ, TUPLE2 (STAR, IDENTIFIER field), SEMICOLON) ->
            dumptyp refs typ^" *"^field^";"
       | oth -> Translation_unit_list_filt.dumptree oth) fields)^"\n\t} "
@@ -463,7 +505,7 @@ let udump' refs str fields =
       | TUPLE3 (typ, IDENTIFIER field, SEMICOLON) ->
            dumptyp refs typ^" "^field^";"
       | TUPLE3 (typ, TUPLE4 (IDENTIFIER field, LBRACK, cexpr, RBRACK), SEMICOLON) ->
-           let _ = search (emark refs) cexpr in dumptyp refs typ^" "^field^"["^dumpc refs cexpr^"];"
+           let _ = search (emark refs) cexpr in dumptyp refs typ^" "^field^"["^cdump refs cexpr^"];"
       | oth -> Translation_unit_list_filt.dumptree oth) fields)^"\n\t} "
 
 let udump refs key =
@@ -517,16 +559,6 @@ let tdump refs key =
     ("struct "^key^";\n");
     end
 
-let rec cdump refs key = function
-| IDENTIFIER id -> 0
-| CONSTANT n -> int_of_string n
-| TUPLE3 (LPAREN, cexpr, RPAREN) -> cdump refs key cexpr
-| TUPLE3 (lft, PLUS, rght) -> cdump refs key lft + cdump refs key rght
-| TUPLE3 (lft, HYPHEN, rght) -> cdump refs key lft - cdump refs key rght
-| TUPLE3 (lft, STAR, rght) -> cdump refs key lft * cdump refs key rght
-| TUPLE3 (lft, SLASH, rght) -> cdump refs key lft / cdump refs key rght
-| oth -> failwith (Translation_unit_list_filt.dumptree oth)
-
 let idump refs key =
   if Hashtbl.mem inits key then
     begin
@@ -535,7 +567,7 @@ let idump refs key =
       | TYPE_NAME id_t -> tmark refs id_t; id_t^" "^key^";\n"
       | TUPLE2 (DOUBLE, STAR) -> dumptyp refs typ^" "^key^";\n"
       | INT -> dumptyp refs typ^" "^key^";\n"
-      | DOUBLE -> dumptyp refs typ^" "^key^"["^string_of_int (cdump refs key body)^"];\n"
+      | DOUBLE -> dumptyp refs typ^" "^key^"["^cdump refs body^"];\n"
       | oth -> Translation_unit_list_filt.dumptree oth);
     end
   else if Hashtbl.mem globals key then
