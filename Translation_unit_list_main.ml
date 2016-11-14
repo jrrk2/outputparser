@@ -693,16 +693,18 @@ let dump refs chan main argv =
   prerr_endline "*/";
   let maxlev = ref 0 in
   setlev maxlev 0 refs refs.ftab fdump ["main"];
+  let needed = ref [] in
   for i = !maxlev downto 0 do
-  let print_uniq ch str (lev,_,itm) = if i = lev && itm <> "//\n" then
-    output_string chan ("/* "^String.make 1 ch^string_of_int lev^":"^str^" */\n"^itm) in
-  Hashtbl.iter (print_uniq 'e') refs.etab;
-  Hashtbl.iter (print_uniq 't') refs.ttab;
-  Hashtbl.iter (print_uniq 'u') refs.utab;
-  Hashtbl.iter (print_uniq 's') refs.stab;
-  Hashtbl.iter (print_uniq 'i') refs.itab;
-  Hashtbl.iter (print_uniq 'f') refs.ftab;
+  let print_uniq ch dump str (lev,_,itm) = if i = lev && itm <> "//\n" then
+    begin
+    needed := (dump,ch,lev,str) :: !needed;
+    output_string chan ("/* "^String.make 1 ch^string_of_int lev^":"^str^" */\n"^itm)
+    end in
+  Hashtbl.iter (print_uniq 'e' (edump refs)) refs.etab;
+  Hashtbl.iter (print_uniq 't' (tdump refs)) refs.ttab;
+  Hashtbl.iter (print_uniq 'u' (udump refs)) refs.utab;
+  Hashtbl.iter (print_uniq 's' (sdump refs)) refs.stab;
+  Hashtbl.iter (print_uniq 'i' (idump refs)) refs.itab;
+  Hashtbl.iter (print_uniq 'f' (fdump refs)) refs.ftab;
   done;
-  List.hd !rslts
-
-let _ = if Array.length Sys.argv > 1 then dump (frefs()) stdout "main" Sys.argv else ([],[],[],[],[],[],[],[],[])
+  List.rev !needed
