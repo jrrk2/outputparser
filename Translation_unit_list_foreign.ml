@@ -154,8 +154,8 @@ let rec dumpc refs = function
 | TUPLE3 (lft, VBAR, rght) -> dumpc refs lft^" | "^dumpc refs rght
 | TUPLE3 (lft, CARET, rght) -> dumpc refs lft^" ^ "^dumpc refs rght
 | TUPLE3 (lft, AMPERSAND, rght) -> dumpc refs lft^" & "^dumpc refs rght
-| TUPLE5 (IF, LPAREN, cond, RPAREN, then') -> "if ("^dumpc refs cond^") "^dumpc refs then'
-| TUPLE3 (LBRACE, body, RBRACE) -> "\n\t{\n\t"^dumpc refs body^"\n\t}\n"
+| TUPLE5 (IF, LPAREN, cond, RPAREN, then') -> "if "^dumpc refs cond^" then "^dumpc refs then'
+| TUPLE3 (LBRACE, body, RBRACE) -> "\n\tbegin\n\t"^dumpc refs body^"\n\tend\n"
 | TLIST lst -> String.concat "\n" (List.map (dumpc refs) lst)
 | TUPLE2 (stmt, SEMICOLON) -> dumpc refs stmt^"; "
 | TUPLE3 (lft, EQUALS, TUPLE3(LBRACE, TLIST lst, RBRACE)) ->
@@ -347,13 +347,6 @@ let idump refs key =
       | typ -> dumptyp refs typ^" "^key^";\n")
     end
   else "//\n"
-
-let rdump refs key =
-  if Hashtbl.mem Translation_unit_list_transform.typedefs key then tdump refs key
-  else if Hashtbl.mem Translation_unit_list_transform.enums key then edump refs key
-  else if Hashtbl.mem Translation_unit_list_transform.structs key then sdump refs key
-  else if Hashtbl.mem Translation_unit_list_transform.unions key then udump refs key
-  else "// rdump "^key^"\n"
 
 let fdump refs key =
   if Hashtbl.mem Translation_unit_list_transform.fbody key then

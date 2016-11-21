@@ -408,8 +408,8 @@ let rec dumpc refs = function
 | TUPLE4 (SIZEOF, LPAREN, typ, RPAREN) -> "sizeof("^dumptyp refs typ^")"
 | TUPLE2 (AMPERSAND, compound) -> "&"^dumpc refs compound
 | TUPLE7 (FOR, LPAREN, TUPLE3 (typ, initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ("^dumptyp refs typ^" "^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
-| TUPLE7 (FOR, LPAREN, TUPLE2 (initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ( "^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
-| TUPLE7 (FOR, LPAREN, SEMICOLON, TUPLE2 (condition, SEMICOLON), inc, RPAREN, TUPLE3 (LBRACE, body, RBRACE)) -> "for ( ; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
+| TUPLE7 (FOR, LPAREN, TUPLE2 (initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ( "^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^")\n\t{ "^dumpc refs body^" }\n"
+| TUPLE7 (FOR, LPAREN, SEMICOLON, TUPLE2 (condition, SEMICOLON), inc, RPAREN, TUPLE3 (LBRACE, body, RBRACE)) -> "for ( ; "^dumpc refs condition^"; "^dumpc refs inc^")\n\t{ "^dumpc refs body^" }\n"
 
 | TUPLE7 (IF, LPAREN, expr, RPAREN, then', ELSE, else') -> "if ("^dumpc refs expr^") "^dumpc refs then'^" else "^dumpc refs else'
 | TUPLE2 (lvalue, INC_OP) -> dumpc refs lvalue^"++"
@@ -673,13 +673,16 @@ let dump parse refs chan main argv =
   for i = 1 to Array.length argv - 1 do rslts := getrslt parse argv.(i) :: !rslts; done;
   prerr_endline "*/";
   let maxlev = ref 0 in
-  setlev maxlev 0 refs refs.ftab fdump ["main"];
+  setlev maxlev 0 refs refs.ftab fdump [main];
   let needed = ref [] in
   for i = !maxlev downto 0 do
   let print_uniq ch dump str (lev,_,itm) = if i = lev && itm <> "//\n" then
     begin
     needed := (dump,ch,lev,str) :: !needed;
-    output_string chan ("/* "^String.make 1 ch^string_of_int lev^":"^str^" */\n"^itm)
+    if !verbose then
+        output_string chan ("/* "^String.make 1 ch^string_of_int lev^":"^str^" */\n"^itm)
+    else
+        output_string chan itm
     end in
   Hashtbl.iter (print_uniq 'e' (edump refs)) refs.etab;
   Hashtbl.iter (print_uniq 't' (tdump refs)) refs.ttab;
