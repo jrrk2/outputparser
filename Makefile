@@ -139,4 +139,7 @@ parsetest: Translation_unit_list Translation_unit_list.top convert.i dSFMT.i dum
 depend:
 	ocamldep *.ml >.depend
 
+testGaussian: testGaussian.c
+	clang testGaussian.c -lm -DtestGaussian=main -o testGaussian
+
 include .depend
