@@ -10,7 +10,7 @@ using __off64_t = System.Int64;
 using __mode_t = System.UInt32;
 
 public class w128_t {
-  public ulong[] u;
+  public byte[] array;
 }
 
 public class dsfmt_t
@@ -24,47 +24,63 @@ class main
 
 static dsfmt_t dsfmt;
 
+static double get_double(w128_t w, int idx)
+{
+return BitConverter.ToDouble (w.array, idx*8);
+}
+
+static void copy(byte[] src, byte[] dest, int idx)
+{
+for (int i = 0; i < src.Length; i++) dest[idx+i] = src[i];
+}
+
+static void put_double(w128_t w, int idx, double arg)
+{
+copy(BitConverter.GetBytes (arg), w.array, idx*8);
+}
+
+static ulong get_ulong(w128_t w, int idx)
+{
+return BitConverter.ToUInt64 (w.array, idx*8);
+}
+
+static void put_ulong(w128_t w, int idx, ulong arg)
+{
+copy(BitConverter.GetBytes (arg), w.array, idx*8);
+}
+
 static void do_recursion(ref w128_t r, ref w128_t a, ref w128_t b, ref w128_t lung)
 {
 	uint64_t  t0;
 	uint64_t  t1;
 	uint64_t  L0;
 	uint64_t  L1;
-t0 = a.u[0]; 
-t1 = a.u[1]; 
-L0 = lung.u[0]; 
-L1 = lung.u[1]; 
-lung.u[0] = (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ b.u[0]; 
-lung.u[1] = (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ b.u[1]; 
-r.u[0] = (lung.u[0] >> 12) ^ (lung.u[0] & 0x000ffafffffffb3fUL) ^ t0; 
-r.u[1] = (lung.u[1] >> 12) ^ (lung.u[1] & 0x000ffdfffc90fffdUL) ^ t1;
-if (false) Console.WriteLine("r->u[0], r->u[0] = {0},{1}", r.u[0], r.u[1]);
-}
-
-static double get_double(w128_t w, int idx)
-{
-byte[] array0 = BitConverter.GetBytes(w.u[idx]);
-return BitConverter.ToDouble (array0, 0);
+t0 = get_ulong(a,0); 
+t1 = get_ulong(a,1); 
+L0 = get_ulong(lung,0); 
+L1 = get_ulong(lung,1); 
+put_ulong(lung, 0, (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ get_ulong(b,0)); 
+put_ulong(lung, 1, (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ get_ulong(b,1)); 
+put_ulong(r, 0, (get_ulong(lung,0) >> 12) ^ (get_ulong(lung,0) & 0x000ffafffffffb3fUL) ^ t0); 
+put_ulong(r, 1, (get_ulong(lung,1) >> 12) ^ (get_ulong(lung,1) & 0x000ffdfffc90fffdUL) ^ t1);
+if (false) Console.WriteLine("r->u[0], r->u[0] = {0},{1}", get_ulong(r,0), get_ulong(r,1));
 }
 
 static void convert_o0o1(ref w128_t w)
 {
-w.u[0]|=1; 
-w.u[1]|=1; 
-double result0 = get_double(w, 0) - 1.0;
-byte[] array1 = BitConverter.GetBytes(result0);
-w.u[0]=BitConverter.ToUInt64(array1, 0); 
-double result1 = get_double(w, 1) - 1.0;
-byte[] array3 = BitConverter.GetBytes(result1);
-w.u[1]=BitConverter.ToUInt64(array3, 0); 
-if (false) Console.WriteLine("w->u[0], w->u[0] = {0},{1}", w.u[0], w.u[1]);
+put_ulong(w, 0, get_ulong(w, 0) | 1); 
+put_ulong(w, 1, get_ulong(w, 1) | 1); 
+put_double(w, 0, get_double(w, 0) - 1.0);
+put_double(w, 1, get_double(w, 1) - 1.0);
+if (false) Console.WriteLine("w->u[0], w->u[0] = {0},{1}", get_ulong(w,0), get_ulong(w,1));
 }
 
 public enum rsize { rsize = ((19937-128)/104+1)*2 };
 static double[] rarray = new double[(int)rsize.rsize];
 
 static void gen_rand_array_o0o1(ref dsfmt_t dsfmt, ref w128_t[] array, int size)
-{int i;
+{
+	int i;
 	int j;
 w128_t  lung;
 lung = dsfmt.status[((19937-128)/104+1)]; 
@@ -113,8 +129,8 @@ static void initial_mask(ref dsfmt_t dsfmt)
 int i;
 for ( i = 0; i < ((19937-128)/104+1); i++)
 	{
-	dsfmt.status[i].u[0] = (dsfmt.status[i].u[0] & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL; 
-	dsfmt.status[i].u[1] = (dsfmt.status[i].u[1] & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL; 
+	put_ulong(dsfmt.status[i], 0, (get_ulong(dsfmt.status[i],0) & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL); 
+	put_ulong(dsfmt.status[i], 1, (get_ulong(dsfmt.status[i],1) & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL); 
 	}
 }
 
@@ -124,14 +140,14 @@ uint64_t[] pcv = new uint64_t[] {0x3d84e1ac0dc82880UL, 0x0000000000000001UL};
 uint64_t[] tmp = new uint64_t[2];
 uint64_t  inner;
 int i;
-tmp[0] = (dsfmt.status[((19937-128)/104+1)].u[0] ^ 0x90014964b32f4329UL); 
-tmp[1] = (dsfmt.status[((19937-128)/104+1)].u[1] ^ 0x3b8d12ac548a7c7aUL); 
+tmp[0] = get_ulong(dsfmt.status[((19937-128)/104+1)],0) ^ 0x90014964b32f4329UL; 
+tmp[1] = get_ulong(dsfmt.status[((19937-128)/104+1)],1) ^ 0x3b8d12ac548a7c7aUL; 
 inner = tmp[0] & pcv[0]; 
-inner^=tmp[1] & pcv[1]; 
-for ( i = 32; i>0; i>>=1)
+inner ^= tmp[1] & pcv[1]; 
+for ( i = 32; i>0; i >>= 1)
 	{ 
 	{
-	inner^=inner >> i; 
+	inner ^= inner >> i; 
 	if (false) Console.WriteLine ("inner={0}", inner);
 	}
  }
@@ -142,7 +158,7 @@ if (inner==1)
 	return;
 	}
 
-dsfmt.status[((19937-128)/104+1)].u[1]^=1UL; 
+put_ulong(dsfmt.status[((19937-128)/104+1)], 1, get_ulong(dsfmt.status[((19937-128)/104+1)], 1) ^ 1UL); 
 return;
 }
 
@@ -155,7 +171,7 @@ Environment.Exit(1);
 static void dsfmt_fill_array_open_open(ref dsfmt_t dsfmt, double[] array, int size)
 {
 w128_t [] warray = new w128_t [size/2];
-for (int i = 0; i < warray.GetLength(0); i++) warray[i].u = new ulong[2];
+for (int i = 0; i < warray.GetLength(0); i++) warray[i].array = new byte[16];
 gen_rand_array_o0o1(ref dsfmt, ref warray, size/2);
 for (int i = 0; i < size; i++)
 	{
@@ -173,32 +189,36 @@ static int idxof(int i)
 return i;
 }
 
-static double sqrt(double __x)
-{
-return Math.Sqrt(__x);
+static int [] T1 = new int []
+    {
+      0,        1024,   3062,   5746,   9193,   13348,  18162,  23592,
+      29598,    36145,  43202,  50740,  58733,  67158,  75992,  85215,
+      83599,    71378,  60428,  50647,  41945,  34246,  27478,  21581,
+      16499,    12183,  8588,   5674,   3403,   1742,   661,    130
+    };
+
+public static double sqrt(double arg)
+  {
+    if (arg<=0.0) return 0.0;
+    byte[] b0 = BitConverter.GetBytes(arg);
+    ulong u0 = BitConverter.ToUInt64(b0, 0);
+    ulong k = (u0>>1) +(0x1ff8L << 48);
+    ulong y0 = k - ((ulong)T1[31 & (k>>(15+32))] << 32);
+    byte[] b1 = BitConverter.GetBytes(y0);
+    double pp = BitConverter.ToDouble(b1, 0);
+
+    for (int qit=0;qit<3; qit++) pp = (pp + arg/pp) * 0.5; // Need 3 iterations for DP
+    return pp;
 }
 
 static uint getpsfmt32(ref dsfmt_t dsfmt, int ix)
 {
-w128_t tmp = dsfmt.status[ix/4];
-byte[] array0 = BitConverter.GetBytes(tmp.u[(ix/2)%2]);
-uint result0 = BitConverter.ToUInt32(array0, (ix%2)*4);
-return result0;
+return BitConverter.ToUInt32(dsfmt.status[ix/4].array, (ix%4)*4);
 }
 
-static void putpsfmt32(ref dsfmt_t dsfmt, int ix, uint value)
+static void putpsfmt32(ref dsfmt_t dsfmt, int idx, uint arg)
 {
-int bounds0 = dsfmt.status.GetLength(0);
-Debug.Assert(bounds0 > ix/4);
-int bounds1 = dsfmt.status[ix/4].u.GetLength(0);
-Debug.Assert(bounds1 > ix%2);
-byte[] array0 = BitConverter.GetBytes(dsfmt.status[ix/4].u[(ix/2)%2]);
-byte[] array1 = BitConverter.GetBytes(value);
-for (int i = 0; i < 4; i++) array0[(ix%2)*4+i] = array1[i];
-int bounds2 = array0.GetLength(0);
-Debug.Assert(bounds2 > (ix%4)*4);
-ulong prev = BitConverter.ToUInt64(array0, 0);
-dsfmt.status[ix/4].u[(ix/2)%2] = prev;
+copy(BitConverter.GetBytes (arg), dsfmt.status[idx/4].array, idx*4);
 }
 
 static void dsfmt_chk_init_gen_rand(ref dsfmt_t dsfmt, uint32_t seed, int mexp)
@@ -298,7 +318,7 @@ for (int i = 0; i<=t*10; i++) Console.WriteLine("{0}\t{1}", i-5*t, bin[i]);
         {
 	    dsfmt.status = new w128_t[192];
 	    for (int i = 0; i < dsfmt.status.GetLength(0); i++)
-			dsfmt.status[i].u = new ulong[2];
+			dsfmt.status[i].array = new byte[16];
 	    testGaussian();
         }
     }
