@@ -33,13 +33,8 @@ public class dsfmt_t
 
 class main
     {
-
-static dsfmt_t dsfmt;
-
-static double get_double(w128_t w, int idx)
-{
-return BitConverter.ToDouble (w.array, idx*8);
-}
+	static bool verbose = true;
+	static dsfmt_t dsfmt;
 
 static void copy(byte[] src, byte[] dest, int idx)
 {
@@ -52,50 +47,77 @@ if (src[0]==0x67 &&
 }
 for (int i = 0; i < src.Length; i++)
     {
-    Console.WriteLine("dest[{0}+{1}] = {2:X2}", idx, i, src[i]);
+    if (verbose) Console.WriteLine("dest[{0}+{1}] = {2:X2}", idx, i, src[i]);
     dest[idx+i] = src[i];
     }
 }
 
-static void put_double(w128_t w, int idx, double arg)
+static double get_double(w128_t[] w, int idx)
+	{
+		return BitConverter.ToDouble (w[idx/2].array, (idx%2)*8);
+	}
+
+static void put_double(w128_t[] w, int idx, double arg)
 {
-copy(BitConverter.GetBytes (arg), w.array, idx*8);
+ulong tmp = BitConverter.ToUInt64 (BitConverter.GetBytes (arg), 0);
+if (verbose) Console.WriteLine ("put_double {0} {1:X16}", idx, tmp);
+copy(BitConverter.GetBytes (arg), w[idx/2].array, (idx%2)*8);
 }
 
-static ulong get_ulong(w128_t w, int idx)
+static ulong get_ulong(w128_t[] w, int idx)
 {
-return BitConverter.ToUInt64 (w.array, idx*8);
+ulong tmp = BitConverter.ToUInt64 (w[idx/2].array, (idx%2)*8);
+if (verbose) Console.WriteLine ("get_ulong {0} {1:X16}", idx, tmp);
+return tmp;
 }
 
-static void put_ulong(w128_t w, int idx, ulong arg)
+static void put_ulong(w128_t[] w, int idx, ulong arg)
 {
-copy(BitConverter.GetBytes (arg), w.array, idx*8);
+if (verbose) Console.WriteLine ("put_ulong {0} {1:X16}", idx, arg);
+copy(BitConverter.GetBytes (arg), w[idx/2].array, (idx%2)*8);
 }
 
-static void do_recursion(ref w128_t r, ref w128_t a, ref w128_t b, ref w128_t lung)
+static uint getpsfmt32(ref dsfmt_t dsfmt, int idx)
+	{
+		uint tmp = BitConverter.ToUInt32(dsfmt.status[idx/4].array, (idx%4)*4);
+		if (verbose) Console.WriteLine ("getpsfmt32 {0} {1:X8}", idx, tmp);
+		return tmp;
+	}
+
+static void putpsfmt32(ref dsfmt_t dsfmt, int idx, uint arg)
+	{
+		if (verbose) Console.WriteLine ("putpsfmt32 {0} {1:X8}", idx, arg);
+		copy(BitConverter.GetBytes (arg), dsfmt.status[idx/4].array, (idx%4)*4);
+	}
+
+static void do_recursion(ref w128_t[] r, int roff, ref w128_t[] a, int aoff, ref w128_t[] b, int boff, ref w128_t[] lung, int loff)
 {
 	uint64_t  t0;
 	uint64_t  t1;
 	uint64_t  L0;
 	uint64_t  L1;
-t0 = get_ulong(a,0); 
-t1 = get_ulong(a,1); 
-L0 = get_ulong(lung,0); 
-L1 = get_ulong(lung,1); 
-put_ulong(lung, 0, (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ get_ulong(b,0)); 
-put_ulong(lung, 1, (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ get_ulong(b,1)); 
-put_ulong(r, 0, (get_ulong(lung,0) >> 12) ^ (get_ulong(lung,0) & 0x000ffafffffffb3fUL) ^ t0); 
-put_ulong(r, 1, (get_ulong(lung,1) >> 12) ^ (get_ulong(lung,1) & 0x000ffdfffc90fffdUL) ^ t1);
-if (false) Console.WriteLine("r->u[0], r->u[0] = {0},{1}", get_ulong(r,0), get_ulong(r,1));
+t0 = get_ulong(a,aoff); 
+t1 = get_ulong(a,aoff+1); 
+L0 = get_ulong(lung,loff); 
+L1 = get_ulong(lung,loff+1); 
+put_ulong(lung, loff, (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ get_ulong(b,boff)); 
+put_ulong(lung, loff+1, (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ get_ulong(b,boff+1)); 
+put_ulong(r, roff, (get_ulong(lung, loff) >> 12) ^ (get_ulong(lung,loff) & 0x000ffafffffffb3fUL) ^ t0); 
+put_ulong(r, roff+1, (get_ulong(lung, loff+1) >> 12) ^ (get_ulong(lung,loff+1) & 0x000ffdfffc90fffdUL) ^ t1);
+if (verbose) Console.WriteLine("r->u[0], r->u[1] = {0},{1}", get_ulong(r,roff), get_ulong(r,roff+1));
 }
 
-static void convert_o0o1(ref w128_t w)
+static void convert_o0o1(ref w128_t[] w, int woff)
 {
-put_ulong(w, 0, get_ulong(w, 0) | 1); 
-put_ulong(w, 1, get_ulong(w, 1) | 1); 
-put_double(w, 0, get_double(w, 0) - 1.0);
-put_double(w, 1, get_double(w, 1) - 1.0);
-if (false) Console.WriteLine("w->u[0], w->u[0] = {0},{1}", get_ulong(w,0), get_ulong(w,1));
+if (verbose) Console.WriteLine("w->u[0], w->u[0] = {0:X16},{1:X16}", get_ulong(w,woff), get_ulong(w,woff+1));
+put_ulong(w, woff, get_ulong(w, woff) | 1); 
+put_ulong(w, woff+1, get_ulong(w, woff+1) | 1); 
+put_double(w, woff, get_double(w, woff) - 1.0);
+put_double(w, woff+1, get_double(w, woff+1) - 1.0);
+ulong tmp0 = get_ulong (w, woff);
+ulong tmp1 = get_ulong (w, woff+1);
+//if (tmp0==0x3FE47099E04145AEUL && tmp1==0x3FD0E7010147655CUL) verbose = true;
+if (verbose) Console.WriteLine("w'->u[0], w'->u[1] = {0:X16},{1:X16}", tmp0, tmp1);
 }
 
 public enum rsize { rsize = ((19937-128)/104+1)*2 };
@@ -105,22 +127,20 @@ static void gen_rand_array_o0o1(ref dsfmt_t dsfmt, ref w128_t[] array, int size)
 {
 	int i;
 	int j;
-w128_t  lung;
-lung = dsfmt.status[((19937-128)/104+1)]; 
-do_recursion(ref array[0], ref dsfmt.status[0], ref dsfmt.status[117], ref lung); 
+do_recursion(ref array, 0, ref dsfmt.status, 0, ref dsfmt.status, 117, ref dsfmt.status, ((19937-128)/104+1)); 
 for ( i = 1; i < ((19937-128)/104+1)-117; i++)
 	{ 
 	{
-	do_recursion(ref array[i], ref dsfmt.status[i], ref dsfmt.status[i+117], ref lung); 
+				do_recursion(ref array, i, ref dsfmt.status, i, ref dsfmt.status, i+117, ref dsfmt.status, ((19937-128)/104+1)); 
 	}
  }
 
 for ( ; i < ((19937-128)/104+1); i++)
-	{ do_recursion(ref array[i], ref dsfmt.status[i], ref array[i+117-((19937-128)/104+1)], ref lung);  }
+	{ do_recursion(ref array, i, ref dsfmt.status, i, ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1));  }
 
 for ( ; i < size-((19937-128)/104+1); i++)
-	{ do_recursion(ref array[i], ref array[i-((19937-128)/104+1)], ref array[i+117-((19937-128)/104+1)], ref lung); 
-convert_o0o1(ref array[i-((19937-128)/104+1)]);  }
+	{ do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1)); 
+convert_o0o1(ref array, i-((19937-128)/104+1));  }
 
 for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
 	{ 
@@ -130,18 +150,16 @@ for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
  }
 
 for ( ; i < size; i++, j++)
-	{ do_recursion(ref array[i], ref array[i-((19937-128)/104+1)], ref array[i+117-((19937-128)/104+1)], ref lung); 
+	{ do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1)); 
 dsfmt.status[j] = array[i]; 
-convert_o0o1(ref array[i-((19937-128)/104+1)]);  }
+convert_o0o1(ref array, i-((19937-128)/104+1));  }
 
 for ( i = size-((19937-128)/104+1); i < size; i++)
 	{ 
 	{
-	convert_o0o1(ref array[i]); 
+	convert_o0o1(ref array, i); 
 	}
  }
-
-dsfmt.status[((19937-128)/104+1)] = lung;
 }
 
 static int dsfmt_mexp=19937;
@@ -152,8 +170,8 @@ static void initial_mask(ref dsfmt_t dsfmt)
 int i;
 for ( i = 0; i < ((19937-128)/104+1); i++)
 	{
-	put_ulong(dsfmt.status[i], 0, (get_ulong(dsfmt.status[i],0) & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL); 
-	put_ulong(dsfmt.status[i], 1, (get_ulong(dsfmt.status[i],1) & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL); 
+	put_ulong(dsfmt.status, i, (get_ulong(dsfmt.status, i) & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL); 
+	put_ulong(dsfmt.status, i+1, (get_ulong(dsfmt.status, i+1) & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL); 
 	}
 }
 
@@ -163,15 +181,15 @@ uint64_t[] pcv = new uint64_t[] {0x3d84e1ac0dc82880UL, 0x0000000000000001UL};
 uint64_t[] tmp = new uint64_t[2];
 uint64_t  inner;
 int i;
-tmp[0] = get_ulong(dsfmt.status[((19937-128)/104+1)],0) ^ 0x90014964b32f4329UL; 
-tmp[1] = get_ulong(dsfmt.status[((19937-128)/104+1)],1) ^ 0x3b8d12ac548a7c7aUL; 
+tmp[0] = get_ulong(dsfmt.status, ((19937-128)/104+1)) ^ 0x90014964b32f4329UL; 
+tmp[1] = get_ulong(dsfmt.status, ((19937-128)/104+1)+1) ^ 0x3b8d12ac548a7c7aUL; 
 inner = tmp[0] & pcv[0]; 
 inner ^= tmp[1] & pcv[1]; 
 for ( i = 32; i>0; i >>= 1)
 	{ 
 	{
 	inner ^= inner >> i; 
-	if (false) Console.WriteLine ("inner={0}", inner);
+	if (verbose) Console.WriteLine ("inner={0}", inner);
 	}
  }
 
@@ -181,13 +199,13 @@ if (inner==1)
 	return;
 	}
 
-put_ulong(dsfmt.status[((19937-128)/104+1)], 1, get_ulong(dsfmt.status[((19937-128)/104+1)], 1) ^ 1UL); 
+put_ulong(dsfmt.status, ((19937-128)/104+1)+1, get_ulong(dsfmt.status, ((19937-128)/104+1)+1) ^ 1UL); 
 return;
 }
 
 static void __assert_fail(string __assertion, string __file, uint __line, string __function)
 {
-if (false) Console.WriteLine(__assertion + __file + __line + __function);
+if (verbose) Console.WriteLine(__assertion + __file + __line + __function);
 Environment.Exit(1);
 }
 
@@ -198,7 +216,7 @@ for (int i = 0; i < warray.Length; i++) warray[i] = new w128_t();
 gen_rand_array_o0o1(ref dsfmt, ref warray, size/2);
 for (int i = 0; i < size; i++)
 	{
-	array [i] = get_double(warray [i/2], i%2);
+	array [i] = get_double(warray, i/2 + i%2);
 	}
 }
 
@@ -234,16 +252,6 @@ public static double sqrt(double arg)
     return pp;
 }
 
-static uint getpsfmt32(ref dsfmt_t dsfmt, int ix)
-{
-return BitConverter.ToUInt32(dsfmt.status[ix/4].array, (ix%4)*4);
-}
-
-static void putpsfmt32(ref dsfmt_t dsfmt, int idx, uint arg)
-{
-copy(BitConverter.GetBytes (arg), dsfmt.status[idx/4].array, (idx%4)*4);
-}
-
 static void dsfmt_chk_init_gen_rand(ref dsfmt_t dsfmt, uint32_t seed, int mexp)
 {
 int i;
@@ -258,7 +266,7 @@ for (i = 1; i < (((19937-128)/104+1)+1)*4; i++)
 	{ 
 	uint prev = getpsfmt32 (ref dsfmt, idxof (i - 1));
 	uint tmp = 1812433253U*(prev^ (prev >> 30))+(uint)i;
-	if (false) Console.WriteLine ("prev = {0}, loop[{1}] = {2}", prev, i, tmp);
+	if (verbose) Console.WriteLine ("prev = {0}, loop[{1}] = {2}", prev, i, tmp);
 	putpsfmt32(ref dsfmt, idxof(i), tmp);
 	}
 
@@ -288,7 +296,7 @@ if (rptr>((int)rsize.rsize-nRands))
 for (int i = 0; i < nRands; i++) 
 	{
 	double tmp = rarray [rptr];
-	if (false) Console.WriteLine ("*rptr = {0:#.############}", tmp);
+	if (verbose) Console.WriteLine ("*rptr = {0:#######.######}", tmp*1000000);
 	d += tmp;
 	rptr++; 
 	}
