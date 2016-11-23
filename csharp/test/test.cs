@@ -2,17 +2,18 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using KiwiSystem;
 using uint64_t = System.UInt64;
 using uint32_t = System.UInt32;
 using posreal = System.Single;
 using __off64_t = System.Int64;
 using __mode_t = System.UInt32;
 
-public struct w128_t {
+public class w128_t {
   public ulong[] u;
 }
 
-public struct dsfmt_t
+public class dsfmt_t
      {
      public w128_t[] status;
      public int idx;
@@ -20,25 +21,12 @@ public struct dsfmt_t
 
 class main
     {
-        static DateTime startTime = DateTime.Now;
-
-	static void elapsed(string comment)
-	{
-            TimeSpan time1 = DateTime.Now - startTime;
-            if (false) Console.WriteLine(comment + Convert.ToString(time1.TotalMilliseconds/1000));
-	}
-
-	public struct Buffer1
-	{
-	    public string ProductCode;
-	    public string SerialNumber; 
-	    public DateTime Date; 
-	}
 
 static dsfmt_t dsfmt;
 
 static void do_recursion(ref w128_t r, ref w128_t a, ref w128_t b, ref w128_t lung)
-{uint64_t  t0;
+{
+	uint64_t  t0;
 	uint64_t  t1;
 	uint64_t  L0;
 	uint64_t  L1;
@@ -73,7 +61,7 @@ if (false) Console.WriteLine("w->u[0], w->u[0] = {0},{1}", w.u[0], w.u[1]);
 }
 
 public enum rsize { rsize = ((19937-128)/104+1)*2 };
-double[] rarray = new double[(int)rsize.rsize];
+static double[] rarray = new double[(int)rsize.rsize];
 
 static void gen_rand_array_o0o1(ref dsfmt_t dsfmt, ref w128_t[] array, int size)
 {int i;
@@ -117,11 +105,12 @@ for ( i = size-((19937-128)/104+1); i < size; i++)
 dsfmt.status[((19937-128)/104+1)] = lung;
 }
 
-int dsfmt_mexp=19937;
-int rptr=0;
+static int dsfmt_mexp=19937;
+static int rptr=0;
 
 static void initial_mask(ref dsfmt_t dsfmt)
-{int i;
+{
+int i;
 for ( i = 0; i < ((19937-128)/104+1); i++)
 	{
 	dsfmt.status[i].u[0] = (dsfmt.status[i].u[0] & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL; 
@@ -153,19 +142,18 @@ if (inner==1)
 	return;
 	}
 
-dsfmt.status[((19937-128)/104+1)].u[1]^=1; 
-return;}
+dsfmt.status[((19937-128)/104+1)].u[1]^=1UL; 
+return;
+}
 
-void __assert_fail(string __assertion, string __file, uint __line, string __function)
+static void __assert_fail(string __assertion, string __file, uint __line, string __function)
 {
 if (false) Console.WriteLine(__assertion + __file + __line + __function);
 Environment.Exit(1);
 }
 
-void dsfmt_fill_array_open_open(ref dsfmt_t dsfmt, double[] array, int size)
+static void dsfmt_fill_array_open_open(ref dsfmt_t dsfmt, double[] array, int size)
 {
-if (!(size%2==0)) __assert_fail("size % 2 == 0", "../simpleDMC_restructure/src/dSFMT.c", 511, "../simpleDMC_restructure/src/dSFMT.c"); 
-if (!(size>=(((19937-128)/104+1)*2))) __assert_fail("size >= (((19937 - 128) / 104 + 1) * 2)", "../simpleDMC_restructure/src/dSFMT.c", 512, "../simpleDMC_restructure/src/dSFMT.c"); 
 w128_t [] warray = new w128_t [size/2];
 for (int i = 0; i < warray.GetLength(0); i++) warray[i].u = new ulong[2];
 gen_rand_array_o0o1(ref dsfmt, ref warray, size/2);
@@ -175,7 +163,7 @@ for (int i = 0; i < size; i++)
 	}
 }
 
-void exit(int __status)
+static void exit(int __status)
 {
 Environment.Exit(__status);
 }
@@ -185,12 +173,12 @@ static int idxof(int i)
 return i;
 }
 
-double sqrt(double __x)
+static double sqrt(double __x)
 {
 return Math.Sqrt(__x);
 }
 
-uint getpsfmt32(ref dsfmt_t dsfmt, int ix)
+static uint getpsfmt32(ref dsfmt_t dsfmt, int ix)
 {
 w128_t tmp = dsfmt.status[ix/4];
 byte[] array0 = BitConverter.GetBytes(tmp.u[(ix/2)%2]);
@@ -198,7 +186,7 @@ uint result0 = BitConverter.ToUInt32(array0, (ix%2)*4);
 return result0;
 }
 
-void putpsfmt32(ref dsfmt_t dsfmt, int ix, uint value)
+static void putpsfmt32(ref dsfmt_t dsfmt, int ix, uint value)
 {
 int bounds0 = dsfmt.status.GetLength(0);
 Debug.Assert(bounds0 > ix/4);
@@ -213,7 +201,7 @@ ulong prev = BitConverter.ToUInt64(array0, 0);
 dsfmt.status[ix/4].u[(ix/2)%2] = prev;
 }
 
-void dsfmt_chk_init_gen_rand(ref dsfmt_t dsfmt, uint32_t seed, int mexp)
+static void dsfmt_chk_init_gen_rand(ref dsfmt_t dsfmt, uint32_t seed, int mexp)
 {
 int i;
 if (mexp!=dsfmt_mexp) 
@@ -235,23 +223,20 @@ initial_mask(ref dsfmt);
 period_certification(ref dsfmt); 
 dsfmt.idx = (((19937-128)/104+1)*2); }
 
-void nextUniformRandom()
+static void nextUniformRandom()
 {
 dsfmt_fill_array_open_open(ref dsfmt, rarray, (int)rsize.rsize); 
 rptr = 0;
 }
 
-void dsfmt_init_gen_rand(ref dsfmt_t dsfmt, uint32_t seed)
+static void dsfmt_init_gen_rand(ref dsfmt_t dsfmt, uint32_t seed)
 {
-elapsed("init_gen_rand start Time: ");
 dsfmt_chk_init_gen_rand(ref dsfmt, seed, 19937); 
-elapsed("init_gen_rand end Time: ");
 }
 
-double gaussianRand(double dSigma)
+static double gaussianRand(double dSigma)
 {double d = 0;
 int nRands = 12;
-//if (!(rptr>=(int)rsize.rsize)) __assert_fail("rptr >= rarray", "../simpleDMC_restructure/src/support.c", 132, "../simpleDMC_restructure/src/support.c"); 
 if (rptr>((int)rsize.rsize-nRands)) 
 	{
 	nextUniformRandom(); 
@@ -269,22 +254,22 @@ d-=nRands/2.0;
 d*=dSigma/sqrt(nRands/12.0); 
 return d; }
 
-double fmin(double __x, double __y)
+static double fmin(double __x, double __y)
 {
 if ( __x < __y) return __x; else return __y;
 }
 
-double fmax(double __x, double __y)
+static double fmax(double __x, double __y)
 {
 if ( __x > __y) return __x; else return __y;
 }
 
-int fchmod(int __fd, __mode_t __mode)
+static int fchmod(int __fd, __mode_t __mode)
 {
 return 0;
 }
 
-void testGaussian()
+static void testGaussian()
 {
 double t = 5;
 double dSq = 0;
@@ -305,29 +290,15 @@ dSq+=d*d;
 dAv+=d; 
 bin[(int) (fmax(fmin(d+5*t, 10*t), 0))]++; 
 	}
-
-StreamWriter plot = new StreamWriter(File.OpenWrite("./g.dat"));
-plot.WriteLine("{0} {1}", dAv/N, sqrt(dSq/N-(dAv/N)*(dAv/N))); 
-for (int i = 0; i<=t*10; i++) plot.WriteLine("{0}\t{1}", i-5*t, bin[i]); 
-plot.Close();
-StreamWriter plot2 = new StreamWriter(File.OpenWrite("./g.sh"));
-plot2.WriteLine("#!/usr/bin/gnuplot"); 
-plot2.WriteLine("N(s,x)=exp(-(x/s)**2/2)/(s*sqrt(2*pi))"); 
-plot2.WriteLine("set term postscript enhanced color"); 
-plot2.WriteLine("set output \"g.eps\""); 
-plot2.WriteLine("p N({0},x), 'g.dat' u ($1+0.5):($2/1000000) w l", t); 
-plot2.WriteLine("#pause mouse");
-plot2.Close(); 
+Console.WriteLine("{0} {1}", dAv/N, sqrt(dSq/N-(dAv/N)*(dAv/N))); 
+for (int i = 0; i<=t*10; i++) Console.WriteLine("{0}\t{1}", i-5*t, bin[i]); 
 }
-
+	[Kiwi.HardwareEntryPoint()]
         static void Main()
         {
-	    main obj = new main();
-		dsfmt.status = new w128_t[192];
-		for (int i = 0; i < dsfmt.status.GetLength(0); i++)
+	    dsfmt.status = new w128_t[192];
+	    for (int i = 0; i < dsfmt.status.GetLength(0); i++)
 			dsfmt.status[i].u = new ulong[2];
-	    elapsed("Start Time: ");
-	    obj.testGaussian();
-	    elapsed("Time elapsed: ");
+	    testGaussian();
         }
     }
