@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using KiwiSystem;
+
 using uint64_t = System.UInt64;
 using uint32_t = System.UInt32;
 using posreal = System.Single;
@@ -10,7 +10,7 @@ using __off64_t = System.Int64;
 using __mode_t = System.UInt32;
 
 public class w128_t {
-	public byte[] array;
+  public byte[] array;
 	public w128_t()
 	{
 		array = new byte[16];
@@ -19,7 +19,7 @@ public class w128_t {
 
 public class dsfmt_t
      {
-	 public w128_t[] status;
+     public w128_t[] status;
      public int idx;
 	 public dsfmt_t()
 		{
@@ -34,7 +34,7 @@ public class dsfmt_t
 class main
     {
 
-static dsfmt_t dsfmt = new dsfmt_t();
+static dsfmt_t dsfmt;
 
 static double get_double(w128_t w, int idx)
 {
@@ -43,7 +43,18 @@ return BitConverter.ToDouble (w.array, idx*8);
 
 static void copy(byte[] src, byte[] dest, int idx)
 {
-for (int i = 0; i < src.Length; i++) dest[idx+i] = src[i];
+if (src[0]==0x67 &&
+    src[1]==0x7E &&
+    src[2]==0x10 &&
+    src[3]==0xE2)
+{
+	Console.WriteLine("Checkpoint 1");
+}
+for (int i = 0; i < src.Length; i++)
+    {
+    Console.WriteLine("dest[{0}+{1}] = {2:X2}", idx, i, src[i]);
+    dest[idx+i] = src[i];
+    }
 }
 
 static void put_double(w128_t w, int idx, double arg)
@@ -325,7 +336,6 @@ bin[(int) (fmax(fmin(d+5*t, 10*t), 0))]++;
 Console.WriteLine("{0} {1}", dAv/N, sqrt(dSq/N-(dAv/N)*(dAv/N))); 
 for (int i = 0; i<=t*10; i++) Console.WriteLine("{0}\t{1}", i-5*t, bin[i]); 
 }
-	[Kiwi.HardwareEntryPoint()]
         static void Main()
         {
 		dsfmt = new dsfmt_t ();

@@ -1,12 +1,11 @@
 typedef unsigned long int uint64_t;
 typedef unsigned int uint32_t;
-union W128_T
+typedef unsigned char uint8_t;
+struct W128_T
 	{
-	uint64_t  u[2];
-	uint32_t  u32[4];
-	double d[2];
+	uint8_t array[16];
 	} ;
-typedef union W128_T w128_t;
+typedef struct W128_T w128_t;
 typedef long unsigned int size_t;
 typedef long int __off_t;
 typedef void _IO_lock_t;
@@ -55,30 +54,69 @@ typedef struct _IO_FILE FILE;
 extern int printf(const char *__format, ...);
 extern int fprintf(FILE *__stream, const char *__format, ...);
 
+static double get_double(w128_t *w, int idx)
+{
+  return *(double *)&(w->array[idx*8]);
+}
+
+static void copy(uint8_t *src, uint8_t *dest, int idx, int len)
+{
+for (int i = 0; i < len; i++)
+  {
+    printf("dest[%d+%d] = %.2X\n", idx, i, src[i]);
+    dest[idx+i] = src[i];
+  }
+}
+
+static void put_double(w128_t *w, int idx, double arg)
+{
+  copy((uint8_t *)&arg, w->array, idx*8, sizeof(double));
+}
+
+static uint64_t get_ulong(w128_t *w, int idx)
+{
+  return *(uint64_t *)&(w->array[idx*8]);
+}
+
+static void put_ulong(w128_t *w, int idx, uint64_t arg)
+{
+  copy((uint8_t *)&arg, w->array, idx*8, sizeof(uint64_t));
+}
+
+static uint32_t getpsfmt32(dsfmt_t *dsfmt, int ix)
+{
+  return *(uint32_t *)&(dsfmt->status[ix/4].array[(ix%4)*4]);
+}
+
+static void putpsfmt32(dsfmt_t *dsfmt, int idx, uint32_t arg)
+{
+  copy((uint8_t *)&arg, dsfmt->status[idx/4].array, (idx%4)*4, sizeof(uint32_t));
+}
+
 static void do_recursion(w128_t *r, w128_t *a, w128_t *b, w128_t *lung)
 {
   uint64_t  t0;
   uint64_t  t1;
   uint64_t  L0;
   uint64_t  L1;
-t0 = a->u[0]; 
-t1 = a->u[1]; 
-L0 = lung->u[0]; 
-L1 = lung->u[1]; 
-lung->u[0] = (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ b->u[0]; 
-lung->u[1] = (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ b->u[1]; 
-r->u[0] = (lung->u[0] >> 12) ^ (lung->u[0] & 0x000ffafffffffb3fUL) ^ t0; 
-r->u[1] = (lung->u[1] >> 12) ^ (lung->u[1] & 0x000ffdfffc90fffdUL) ^ t1;
- if (0) printf("r->u[0], r->u[0] = %lu,%lu\n", r->u[0], r->u[1]);
+  t0 = get_ulong(a,0); 
+  t1 = get_ulong(a,1); 
+  L0 = get_ulong(lung,0); 
+  L1 = get_ulong(lung,1); 
+  put_ulong(lung, 0, (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ get_ulong(b,0)); 
+  put_ulong(lung, 1, (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ get_ulong(b,1)); 
+  put_ulong(r, 0, (get_ulong(lung,0) >> 12) ^ (get_ulong(lung,0) & 0x000ffafffffffb3fUL) ^ t0); 
+  put_ulong(r, 1, (get_ulong(lung,1) >> 12) ^ (get_ulong(lung,1) & 0x000ffdfffc90fffdUL) ^ t1);
+  if (0) printf("r,0], r->u[0] = %lu,%lu\n", get_ulong(r,0), get_ulong(r,1));
 }
 
 static void convert_o0o1(w128_t *w)
 {
-w->u[0]|=1; 
-w->u[1]|=1; 
-w->d[0]-=1.0; 
-w->d[1]-=1.0;
- if (0) printf("w->u[0], w->u[0] = %lu,%lu\n", w->u[0], w->u[1]);
+  put_ulong(w, 0, get_ulong(w,0)|1); 
+  put_ulong(w, 1, get_ulong(w,1)|1); 
+  put_double(w, 0, get_double(w,0)-1.0); 
+  put_double(w, 1, get_double(w,1)-1.0); 
+ if (0) printf("w,0], w->u[0] = %lu,%lu\n", get_ulong(w,0), get_ulong(w,1));
 }
 
 double rarray[((19937-128)/104+1)*2];
@@ -133,12 +171,10 @@ extern struct _IO_FILE *stderr;
 
 static void initial_mask(dsfmt_t *dsfmt)
 {int i;
-uint64_t   *psfmt;
-psfmt = &dsfmt->status[0].u[0]; 
 for ( i = 0; i < ((19937-128)/104+1)*2; i++)
 	{ 
 	{
-	psfmt[i] = (psfmt[i] & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL; 
+	  put_ulong(&dsfmt->status[i/2],i&1, (get_ulong(&dsfmt->status[i/2],i&1) & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL); 
 	}
  }
 }
@@ -148,8 +184,8 @@ static void period_certification(dsfmt_t *dsfmt)
 uint64_t  tmp[2];
 uint64_t  inner;
 int i;
-tmp[0] = (dsfmt->status[((19937-128)/104+1)].u[0] ^ 0x90014964b32f4329UL); 
-tmp[1] = (dsfmt->status[((19937-128)/104+1)].u[1] ^ 0x3b8d12ac548a7c7aUL); 
+ tmp[0] = get_ulong(&dsfmt->status[((19937-128)/104+1)],0) ^ 0x90014964b32f4329UL; 
+tmp[1] = get_ulong(&dsfmt->status[((19937-128)/104+1)],1) ^ 0x3b8d12ac548a7c7aUL; 
 inner = tmp[0] & pcv[0]; 
 inner^=tmp[1] & pcv[1]; 
 for ( i = 32; i>0; i>>=1)
@@ -166,8 +202,9 @@ if (inner==1)
 	return;
 	}
 
-dsfmt->status[((19937-128)/104+1)].u[1]^=1; 
-return;}
+ put_ulong(&dsfmt->status[((19937-128)/104+1)], 1, get_ulong(&dsfmt->status[((19937-128)/104+1)], 1) ^ 1); 
+ return;
+}
 
 void dsfmt_fill_array_open_open(dsfmt_t *dsfmt, double array[], int size)
 {((size%2==0) ? (void) (0) : __assert_fail("size % 2 == 0", "../simpleDMC_restructure/src/dSFMT.c", 511, "../simpleDMC_restructure/src/dSFMT.c")); 
@@ -187,22 +224,19 @@ extern double sqrt(double __x);
 
 void dsfmt_chk_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed, int mexp)
 {int i;
-uint32_t   *psfmt;
 if (mexp!=dsfmt_mexp) 
 	{
 	fprintf(stderr, "DSFMT_MEXP doesn't match with dSFMT.c\n"); 
 exit(1); 
 	}
-
-psfmt = &dsfmt->status[0].u32[0]; 
-psfmt[idxof(0)] = seed; 
+ putpsfmt32(dsfmt, idxof(0), seed); 
 for ( i = 1; i < (((19937-128)/104+1)+1)*4; i++)
 	{ 
 	{
-	  uint32_t prev = psfmt[idxof(i-1)];
+	  uint32_t prev = getpsfmt32(dsfmt, idxof(i-1));
 	  uint32_t tmp = 1812433253UL*(prev ^ (prev >> 30))+i; 
 	  if (0) printf("prev = %u, loop[%d] = %u\n", prev, i, tmp);
-	  psfmt[idxof(i)] = tmp;
+	  putpsfmt32(dsfmt, idxof(i), tmp);
 	}
  }
 
@@ -233,7 +267,7 @@ if (rptr>(rarray+rsize-nRands))
 
 for (int i = 0; i < nRands; i++) 
 	{
-	  printf("*rptr = %.12f\n", *rptr);
+	if (0) printf("*rptr = %.12f\n", *rptr);
 	d+=*rptr++; 
 	}
 
