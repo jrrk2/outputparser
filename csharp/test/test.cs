@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using KiwiSystem;
+// using KiwiSystem;
 using uint64_t = System.UInt64;
 using uint32_t = System.UInt32;
 using posreal = System.Single;
@@ -10,19 +10,31 @@ using __off64_t = System.Int64;
 using __mode_t = System.UInt32;
 
 public class w128_t {
-  public byte[] array;
+	public byte[] array;
+	public w128_t()
+	{
+		array = new byte[16];
+	}
 }
 
 public class dsfmt_t
      {
-     public w128_t[] status;
+	 public w128_t[] status;
      public int idx;
+	 public dsfmt_t()
+		{
+		status = new w128_t[192];
+		for (int i = 0; i < status.Length; i++)
+			{
+			status[i] = new w128_t();
+			}
+		}
      }
 
 class main
     {
 
-static dsfmt_t dsfmt;
+static dsfmt_t dsfmt = new dsfmt_t();
 
 static double get_double(w128_t w, int idx)
 {
@@ -171,7 +183,7 @@ Environment.Exit(1);
 static void dsfmt_fill_array_open_open(ref dsfmt_t dsfmt, double[] array, int size)
 {
 w128_t [] warray = new w128_t [size/2];
-for (int i = 0; i < warray.GetLength(0); i++) warray[i].array = new byte[16];
+for (int i = 0; i < warray.Length; i++) warray[i] = new w128_t();
 gen_rand_array_o0o1(ref dsfmt, ref warray, size/2);
 for (int i = 0; i < size; i++)
 	{
@@ -218,7 +230,7 @@ return BitConverter.ToUInt32(dsfmt.status[ix/4].array, (ix%4)*4);
 
 static void putpsfmt32(ref dsfmt_t dsfmt, int idx, uint arg)
 {
-copy(BitConverter.GetBytes (arg), dsfmt.status[idx/4].array, idx*4);
+copy(BitConverter.GetBytes (arg), dsfmt.status[idx/4].array, (idx%4)*4);
 }
 
 static void dsfmt_chk_init_gen_rand(ref dsfmt_t dsfmt, uint32_t seed, int mexp)
@@ -265,7 +277,7 @@ if (rptr>((int)rsize.rsize-nRands))
 for (int i = 0; i < nRands; i++) 
 	{
 	double tmp = rarray [rptr];
-	Console.WriteLine ("*rptr = {0:#.############}", tmp);
+	if (false) Console.WriteLine ("*rptr = {0:#.############}", tmp);
 	d += tmp;
 	rptr++; 
 	}
@@ -313,12 +325,10 @@ bin[(int) (fmax(fmin(d+5*t, 10*t), 0))]++;
 Console.WriteLine("{0} {1}", dAv/N, sqrt(dSq/N-(dAv/N)*(dAv/N))); 
 for (int i = 0; i<=t*10; i++) Console.WriteLine("{0}\t{1}", i-5*t, bin[i]); 
 }
-	[Kiwi.HardwareEntryPoint()]
+//	[Kiwi.HardwareEntryPoint()]
         static void Main()
         {
-	    dsfmt.status = new w128_t[192];
-	    for (int i = 0; i < dsfmt.status.GetLength(0); i++)
-			dsfmt.status[i].array = new byte[16];
+		dsfmt = new dsfmt_t ();
 	    testGaussian();
         }
     }
