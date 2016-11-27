@@ -38,23 +38,20 @@ class main
 
 static void copy(byte[] src, byte[] dest, int idx)
 {
-if (src[0]==0x67 &&
-    src[1]==0x7E &&
-    src[2]==0x10 &&
-    src[3]==0xE2)
-{
-	Console.WriteLine("Checkpoint 1");
-}
 for (int i = 0; i < src.Length; i++)
     {
-    if (verbose) Console.WriteLine("dest[{0}+{1}] = {2:X2}", idx, i, src[i]);
+    if (verbose) Console.WriteLine("dest[{0}] = {1:X2}", i, src[i]);
     dest[idx+i] = src[i];
     }
 }
 
-static double get_double(w128_t[] w, int idx)
+	static double get_double(w128_t[] w, int idx)
 	{
-		return BitConverter.ToDouble (w[idx/2].array, (idx%2)*8);
+		
+		double tmp = BitConverter.ToDouble(w[idx / 2].array, (idx % 2) * 8);
+		ulong tmp2 = BitConverter.ToUInt64(w[idx / 2].array, (idx % 2) * 8);
+		if (verbose) Console.WriteLine("get_double {0} {1:X16}", idx, tmp2);
+		return tmp;
 	}
 
 static void put_double(w128_t[] w, int idx, double arg)
@@ -67,13 +64,13 @@ copy(BitConverter.GetBytes (arg), w[idx/2].array, (idx%2)*8);
 static ulong get_ulong(w128_t[] w, int idx)
 {
 ulong tmp = BitConverter.ToUInt64 (w[idx/2].array, (idx%2)*8);
-if (verbose) Console.WriteLine ("get_ulong {0} {1:X16}", idx, tmp);
+if (verbose) Console.WriteLine ("get_ulong {0:X16}", tmp);
 return tmp;
 }
 
 static void put_ulong(w128_t[] w, int idx, ulong arg)
 {
-if (verbose) Console.WriteLine ("put_ulong {0} {1:X16}", idx, arg);
+if (verbose) Console.WriteLine ("put_ulong {0:X16}", arg);
 copy(BitConverter.GetBytes (arg), w[idx/2].array, (idx%2)*8);
 }
 
@@ -109,13 +106,13 @@ if (verbose) Console.WriteLine("r->u[0], r->u[1] = {0},{1}", get_ulong(r,roff), 
 
 static void convert_o0o1(ref w128_t[] w, int woff)
 {
-if (verbose) Console.WriteLine("w->u[0], w->u[0] = {0:X16},{1:X16}", get_ulong(w,woff), get_ulong(w,woff+1));
-put_ulong(w, woff, get_ulong(w, woff) | 1); 
-put_ulong(w, woff+1, get_ulong(w, woff+1) | 1); 
-put_double(w, woff, get_double(w, woff) - 1.0);
-put_double(w, woff+1, get_double(w, woff+1) - 1.0);
-ulong tmp0 = get_ulong (w, woff);
-ulong tmp1 = get_ulong (w, woff+1);
+if (verbose) Console.WriteLine("w->u[0], w->u[0] = {0:X16},{1:X16}", get_ulong(w,woff*2), get_ulong(w,woff*2+1));
+put_ulong(w, woff, get_ulong(w, woff*2) | 1); 
+put_ulong(w, woff+1, get_ulong(w, woff*2+1) | 1); 
+put_double(w, woff, get_double(w, woff*2) - 1.0);
+put_double(w, woff+1, get_double(w, woff*2+1) - 1.0);
+ulong tmp0 = get_ulong (w, woff*2);
+ulong tmp1 = get_ulong (w, woff*2+1);
 //if (tmp0==0x3FE47099E04145AEUL && tmp1==0x3FD0E7010147655CUL) verbose = true;
 if (verbose) Console.WriteLine("w'->u[0], w'->u[1] = {0:X16},{1:X16}", tmp0, tmp1);
 }
@@ -168,10 +165,9 @@ static int rptr=0;
 static void initial_mask(ref dsfmt_t dsfmt)
 {
 int i;
-for ( i = 0; i < ((19937-128)/104+1); i++)
+for ( i = 0; i < ((19937-128)/104+1)*2; i++)
 	{
 	put_ulong(dsfmt.status, i, (get_ulong(dsfmt.status, i) & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL); 
-	put_ulong(dsfmt.status, i+1, (get_ulong(dsfmt.status, i+1) & 0x000FFFFFFFFFFFFFUL) | 0x3FF0000000000000UL); 
 	}
 }
 
@@ -181,8 +177,8 @@ uint64_t[] pcv = new uint64_t[] {0x3d84e1ac0dc82880UL, 0x0000000000000001UL};
 uint64_t[] tmp = new uint64_t[2];
 uint64_t  inner;
 int i;
-tmp[0] = get_ulong(dsfmt.status, ((19937-128)/104+1)) ^ 0x90014964b32f4329UL; 
-tmp[1] = get_ulong(dsfmt.status, ((19937-128)/104+1)+1) ^ 0x3b8d12ac548a7c7aUL; 
+tmp[0] = get_ulong(dsfmt.status, ((19937-128)/104+1)*2) ^ 0x90014964b32f4329UL; 
+tmp[1] = get_ulong(dsfmt.status, ((19937-128)/104+1)*2+1) ^ 0x3b8d12ac548a7c7aUL; 
 inner = tmp[0] & pcv[0]; 
 inner ^= tmp[1] & pcv[1]; 
 for ( i = 32; i>0; i >>= 1)
@@ -199,7 +195,7 @@ if (inner==1)
 	return;
 	}
 
-put_ulong(dsfmt.status, ((19937-128)/104+1)+1, get_ulong(dsfmt.status, ((19937-128)/104+1)+1) ^ 1UL); 
+put_ulong(dsfmt.status, ((19937-128)/104+1)*2+1, get_ulong(dsfmt.status, ((19937-128)/104+1)*2+1) ^ 1UL); 
 return;
 }
 

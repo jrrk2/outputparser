@@ -1,21 +1,9 @@
-lef_file_lex.cmo :
-lef_file_lex.cmx :
-lef_file_main.cmo : lef_file_lex.cmo
-lef_file_main.cmx : lef_file_lex.cmx
-ord.cmo : output_parser.cmi
-ord.cmx : output_parser.cmx
-output_lexer.cmo : output_parser.cmi ord.cmo
-output_lexer.cmx : output_parser.cmx ord.cmx
-output.cmo : template.cmo output_types.cmi output_parser.cmi \
-    output_lexer.cmo
-output.cmx : template.cmx output_types.cmi output_parser.cmx \
-    output_lexer.cmx
-output_parser.cmo : output_types.cmi output_parser.cmi
-output_parser.cmx : output_types.cmi output_parser.cmi
 Program_main.cmo :
 Program_main.cmx :
-template.cmo : output_types.cmi output_parser.cmi ord.cmo
-template.cmx : output_types.cmi output_parser.cmx ord.cmx
+Translation_unit_list.cmo : Translation_unit_list_types.cmo \
+    Translation_unit_list.cmi
+Translation_unit_list.cmx : Translation_unit_list_types.cmx \
+    Translation_unit_list.cmi
 Translation_unit_list_filt.cmo : Translation_unit_list_types.cmo \
     Translation_unit_list.cmi
 Translation_unit_list_filt.cmx : Translation_unit_list_types.cmx \
@@ -30,9 +18,21 @@ Translation_unit_list_main.cmo : Translation_unit_list_types.cmo \
 Translation_unit_list_main.cmx : Translation_unit_list_types.cmx \
     Translation_unit_list_lex.cmx Translation_unit_list_filt.cmx \
     Translation_unit_list.cmx
-Translation_unit_list.cmo : Translation_unit_list_types.cmo \
-    Translation_unit_list.cmi
-Translation_unit_list.cmx : Translation_unit_list_types.cmx \
-    Translation_unit_list.cmi
 Translation_unit_list_types.cmo : Translation_unit_list.cmi
 Translation_unit_list_types.cmx : Translation_unit_list.cmx
+lef_file_lex.cmo :
+lef_file_lex.cmx :
+lef_file_main.cmo : lef_file_lex.cmo
+lef_file_main.cmx : lef_file_lex.cmx
+ord.cmo : output_parser.cmi
+ord.cmx : output_parser.cmx
+output.cmo : template.cmo output_types.cmi output_parser.cmi \
+    output_lexer.cmo
+output.cmx : template.cmx output_types.cmi output_parser.cmx \
+    output_lexer.cmx
+output_lexer.cmo : output_parser.cmi ord.cmo
+output_lexer.cmx : output_parser.cmx ord.cmx
+output_parser.cmo : output_types.cmi output_parser.cmi
+output_parser.cmx : output_types.cmi output_parser.cmi
+template.cmo : output_types.cmi output_parser.cmi ord.cmo
+template.cmx : output_types.cmi output_parser.cmx ord.cmx

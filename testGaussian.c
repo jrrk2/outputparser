@@ -16,38 +16,6 @@ struct DSFMT_T
 	int idx;
 	} ;
 typedef struct DSFMT_T dsfmt_t;
-struct _IO_FILE
-	{
-	int _flags;
-	char *_IO_read_ptr;
-	char *_IO_read_end;
-	char *_IO_read_base;
-	char *_IO_write_base;
-	char *_IO_write_ptr;
-	char *_IO_write_end;
-	char *_IO_buf_base;
-	char *_IO_buf_end;
-	char *_IO_save_base;
-	char *_IO_backup_base;
-	char *_IO_save_end;
-	struct _IO_marker *_markers;
-	struct _IO_FILE *_chain;
-	int _fileno;
-	int _flags2;
-	__off_t  _old_offset;
-	unsigned short  _cur_column;
-	signed char  _vtable_offset;
-	char _shortbuf[1];
-	_IO_lock_t  *_lock;
-	__off64_t  _offset;
-	void *__pad1;
-	void *__pad2;
-	void *__pad3;
-	void *__pad4;
-	size_t  __pad5;
-	int _mode;
-	char _unused2[15*sizeof(int)-4*sizeof(void  *)-sizeof(size_t )];
-	} ;
 static int verbose = 1;
 dsfmt_t dsfmt;
 
@@ -57,14 +25,16 @@ extern int fprintf(FILE *__stream, const char *__format, ...);
 
 static double get_double(w128_t *w, int idx)
 {
-  return *(double *)&(w->array[idx*8]);
+  double tmp = *(double *)&(w->array[idx*8]);
+  if (verbose) printf("get_double %d %.16lX\n", idx, *(uint64_t *)&tmp);
+  return tmp;
 }
 
 static void copy(uint8_t *src, uint8_t *dest, int idx, int len)
 {
 for (int i = 0; i < len; i++)
   {
-    if (verbose) printf("dest[%d+%d] = %.2X\n", idx, i, src[i]);
+    if (verbose) printf("dest[%d] = %.2X\n", i, src[i]);
     dest[idx+i] = src[i];
   }
 }
@@ -78,13 +48,13 @@ static void put_double(w128_t *w, int idx, double arg)
 static uint64_t get_ulong(w128_t *w, int idx)
 {
   uint64_t tmp = *(uint64_t *)&(w->array[idx*8]);
-  if (verbose) printf("get_ulong %d %.16lX\n", idx, tmp);
+  if (verbose) printf("get_ulong %.16lX\n", tmp);
   return tmp;
 }
 
 static void put_ulong(w128_t *w, int idx, uint64_t arg)
 {
-  if (verbose) printf("put_ulong %d %.16lX\n", idx, arg);
+  if (verbose) printf("put_ulong %.16lX\n", arg);
   copy((uint8_t *)&arg, w->array, idx*8, sizeof(uint64_t));
 }
 
@@ -128,7 +98,7 @@ static void convert_o0o1(w128_t *w)
   unsigned long tmp0 = get_ulong (w, 0);
   unsigned long tmp1 = get_ulong (w, 1);
 //  if (tmp0==0x3FE47099E04145AEUL && tmp1==0x3FD0E7010147655CUL) verbose = 1;
-  if (verbose) printf("w'->u[0], w'->u[0] = %.16lX,%.16lX\n", tmp0, tmp1);
+  if (verbose) printf("w'->u[0], w'->u[1] = %.16lX,%.16lX\n", tmp0, tmp1);
 }
 
 double rarray[((19937-128)/104+1)*2];
@@ -173,10 +143,10 @@ for ( i = size-((19937-128)/104+1); i < size; i++)
 }
 
 extern void __assert_fail(const char *__assertion, const char *__file, unsigned int __line, const char *__function);
+
 int dsfmt_mexp=19937;
 int rsize=sizeof (rarray)/sizeof (*rarray);
 double  * rptr=0;
-extern struct _IO_FILE *stderr;
 
 static void initial_mask(dsfmt_t *dsfmt)
 {int i;
@@ -216,8 +186,7 @@ if (inner==1)
 }
 
 void dsfmt_fill_array_open_open(dsfmt_t *dsfmt, double array[], int size)
-{((size%2==0) ? (void) (0) : __assert_fail("size % 2 == 0", "../simpleDMC_restructure/src/dSFMT.c", 511, "../simpleDMC_restructure/src/dSFMT.c")); 
-((size>=(((19937-128)/104+1)*2)) ? (void) (0) : __assert_fail("size >= (((19937 - 128) / 104 + 1) * 2)", "../simpleDMC_restructure/src/dSFMT.c", 512, "../simpleDMC_restructure/src/dSFMT.c")); 
+{
 gen_rand_array_o0o1(dsfmt, (w128_t   *) array, size/2);
 }
 
@@ -235,8 +204,8 @@ void dsfmt_chk_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed, int mexp)
 {int i;
 if (mexp!=dsfmt_mexp) 
 	{
-	fprintf(stderr, "DSFMT_MEXP doesn't match with dSFMT.c\n"); 
-exit(1); 
+	printf("DSFMT_MEXP doesn't match with dSFMT.c\n"); 
+	exit(1); 
 	}
  putpsfmt32(dsfmt, idxof(0), seed); 
 for ( i = 1; i < (((19937-128)/104+1)+1)*4; i++)
@@ -268,7 +237,6 @@ double gaussianRand(double dSigma)
 {
 double d = 0;
 int nRands = 12;
-((rptr>=rarray) ? (void) (0) : __assert_fail("rptr >= rarray", "../simpleDMC_restructure/src/support.c", 132, "../simpleDMC_restructure/src/support.c")); 
 if (rptr>(rarray+rsize-nRands)) 
 	{
 	nextUniformRandom(); 
@@ -286,10 +254,7 @@ return d; }
 
 void  * xcalloc(size_t n, size_t size)
 {void  *ptr;
-((n>0) ? (void) (0) : __assert_fail("n > 0", "../simpleDMC_restructure/src/main.c", 121, "../simpleDMC_restructure/src/main.c")); 
-((size>0) ? (void) (0) : __assert_fail("size > 0", "../simpleDMC_restructure/src/main.c", 123, "../simpleDMC_restructure/src/main.c")); 
 ptr = calloc(n, size); 
-((ptr) ? (void) (0) : __assert_fail("ptr", "../simpleDMC_restructure/src/main.c", 129, "../simpleDMC_restructure/src/main.c")); 
 return ptr; }
 
 extern double fmin(double __x, double __y);
