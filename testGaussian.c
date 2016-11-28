@@ -112,38 +112,38 @@ put_ulong(&lung, 0, get_ulong(dsfmt->status,((19937-128)/104+1)*2+0));
 put_ulong(&lung, 1, get_ulong(dsfmt->status,((19937-128)/104+1)*2+1)); 
 do_recursion(array, 0, dsfmt->status, 0, dsfmt->status, 117, &lung); 
 for ( i = 1; i < ((19937-128)/104+1)-117; i++)
-	{ 
 	{
 	do_recursion(array, i, dsfmt->status, i, dsfmt->status, i+117, &lung); 
 	}
- }
 
 for ( ; i < ((19937-128)/104+1); i++)
-	{ do_recursion(array, i, dsfmt->status, i, array, i+117-((19937-128)/104+1), &lung);  }
+	{
+	  do_recursion(array, i, dsfmt->status, i, array, i+117-((19937-128)/104+1), &lung); 
+	}
 
 for ( ; i < size-((19937-128)/104+1); i++)
-	{ do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), &lung); 
-convert_o0o1(&array[i-((19937-128)/104+1)]);  }
+	{
+	  do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), &lung); 
+	  convert_o0o1(&array[i-((19937-128)/104+1)]); 
+	}
 
 for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
 	{ 
-	{
 	dsfmt->status[j] = array[j+size-((19937-128)/104+1)]; 
 	}
- }
 
 for ( ; i < size; i++, j++)
-	{ do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), &lung); 
-put_ulong(dsfmt->status, j*2+0, get_ulong(array,i*2+0)); 
-put_ulong(dsfmt->status, j*2+1, get_ulong(array,i*2+1)); 
-convert_o0o1(&array[i-((19937-128)/104+1)]);  }
+	{
+	  do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), &lung); 
+	  put_ulong(dsfmt->status, j*2+0, get_ulong(array,i*2+0)); 
+	  put_ulong(dsfmt->status, j*2+1, get_ulong(array,i*2+1)); 
+	  convert_o0o1(&array[i-((19937-128)/104+1)]);
+	}
 
 for ( i = size-((19937-128)/104+1); i < size; i++)
 	{ 
-	{
 	convert_o0o1(&array[i]); 
 	}
-  }
 put_ulong(dsfmt->status, ((19937-128)/104+1)*2+0, get_ulong(&lung,0)); 
 put_ulong(dsfmt->status, ((19937-128)/104+1)*2+1, get_ulong(&lung,1)); 
 }

@@ -87,33 +87,32 @@ static void putpsfmt32(ref dsfmt_t dsfmt, int idx, uint arg)
 		copy(BitConverter.GetBytes (arg), dsfmt.status[idx/4].array, (idx%4)*4);
 	}
 
-static void do_recursion(ref w128_t[] r, int roff, ref w128_t[] a, int aoff, ref w128_t[] b, int boff, ref w128_t[] lung, int loff)
+static void do_recursion(ref w128_t[] r, int roff, ref w128_t[] a, int aoff, ref w128_t[] b, int boff, ref w128_t[] lung)
 {
 	uint64_t  t0;
 	uint64_t  t1;
 	uint64_t  L0;
 	uint64_t  L1;
-t0 = get_ulong(a,aoff); 
-t1 = get_ulong(a,aoff+1); 
-L0 = get_ulong(lung,loff); 
-L1 = get_ulong(lung,loff+1); 
-put_ulong(lung, loff, (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ get_ulong(b,boff)); 
-put_ulong(lung, loff+1, (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ get_ulong(b,boff+1)); 
-put_ulong(r, roff, (get_ulong(lung, loff) >> 12) ^ (get_ulong(lung,loff) & 0x000ffafffffffb3fUL) ^ t0); 
-put_ulong(r, roff+1, (get_ulong(lung, loff+1) >> 12) ^ (get_ulong(lung,loff+1) & 0x000ffdfffc90fffdUL) ^ t1);
-if (verbose) Console.WriteLine("r->u[0], r->u[1] = {0},{1}", get_ulong(r,roff), get_ulong(r,roff+1));
+t0 = get_ulong(a,aoff*2); 
+t1 = get_ulong(a,aoff*2+1); 
+L0 = get_ulong(lung,0); 
+L1 = get_ulong(lung,1); 
+put_ulong(lung, 0, (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ get_ulong(b,boff*2)); 
+put_ulong(lung, 1, (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ get_ulong(b,boff*2+1)); 
+put_ulong(r, roff*2, (get_ulong(lung, 0) >> 12) ^ (get_ulong(lung, 0) & 0x000ffafffffffb3fUL) ^ t0); 
+put_ulong(r, roff*2+1, (get_ulong(lung, 1) >> 12) ^ (get_ulong(lung, 1) & 0x000ffdfffc90fffdUL) ^ t1);
+if (verbose) Console.WriteLine("r->u[0], r->u[1] = {0},{1}", get_ulong(r,roff*2), get_ulong(r,roff*2+1));
 }
 
 static void convert_o0o1(ref w128_t[] w, int woff)
 {
-if (verbose) Console.WriteLine("w->u[0], w->u[0] = {0:X16},{1:X16}", get_ulong(w,woff), get_ulong(w,woff+1));
-put_ulong(w, woff, get_ulong(w, woff) | 1); 
-put_ulong(w, woff+1, get_ulong(w, woff+1) | 1); 
-put_double(w, woff, get_double(w, woff) - 1.0);
-put_double(w, woff+1, get_double(w, woff+1) - 1.0);
-ulong tmp0 = get_ulong (w, woff);
-ulong tmp1 = get_ulong (w, woff+1);
-//if (tmp0==0x3FE47099E04145AEUL && tmp1==0x3FD0E7010147655CUL) verbose = true;
+if (verbose) Console.WriteLine("w->u[0], w->u[1] = {0:X16},{1:X16}", get_ulong(w,woff*2), get_ulong(w,woff*2+1));
+put_ulong(w, woff, get_ulong(w, woff*2) | 1); 
+put_ulong(w, woff+1, get_ulong(w, woff*2+1) | 1); 
+put_double(w, woff, get_double(w, woff*2) - 1.0);
+put_double(w, woff+1, get_double(w, woff*2+1) - 1.0);
+ulong tmp0 = get_ulong (w, woff*2);
+ulong tmp1 = get_ulong (w, woff*2+1);
 if (verbose) Console.WriteLine("w'->u[0], w'->u[1] = {0:X16},{1:X16}", tmp0, tmp1);
 }
 
@@ -122,41 +121,45 @@ static double[] rarray = new double[(int)rsize.rsize];
 
 static void gen_rand_array_o0o1(ref dsfmt_t dsfmt, ref w128_t[] array, int size)
 {
-	int i;
-	int j;
+int i;
+int j;
+w128_t lung;
+if (verbose) printf("gen_rand_array_o0o1\n");
+put_ulong(&lung, 0, get_ulong(dsfmt.status,((19937-128)/104+1)*2+0)); 
+put_ulong(&lung, 1, get_ulong(dsfmt.status,((19937-128)/104+1)*2+1)); 
 do_recursion(ref array, 0, ref dsfmt.status, 0, ref dsfmt.status, 117, ref dsfmt.status, ((19937-128)/104+1)); 
 for ( i = 1; i < ((19937-128)/104+1)-117; i++)
-	{ 
 	{
-				do_recursion(ref array, i, ref dsfmt.status, i, ref dsfmt.status, i+117, ref dsfmt.status, ((19937-128)/104+1)); 
+	do_recursion(ref array, i, ref dsfmt.status, i, ref dsfmt.status, i+117, ref dsfmt.status, ((19937-128)/104+1)); 
 	}
- }
 
 for ( ; i < ((19937-128)/104+1); i++)
-	{ do_recursion(ref array, i, ref dsfmt.status, i, ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1));  }
+	{
+	do_recursion(ref array, i, ref dsfmt.status, i, ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1));
+	}
 
 for ( ; i < size-((19937-128)/104+1); i++)
-	{ do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1)); 
-convert_o0o1(ref array, (i-((19937-128)/104+1))*2);  }
+	{
+	do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1));
+	convert_o0o1(ref array, (i-((19937-128)/104+1))*2);
+	}
 
 for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
-	{ 
 	{
 	dsfmt.status[j] = array[j+size-((19937-128)/104+1)]; 
 	}
- }
 
 for ( ; i < size; i++, j++)
-	{ do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1)); 
-dsfmt.status[j] = array[i]; 
-convert_o0o1(ref array, (i-((19937-128)/104+1))*2);  }
+	{
+	do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1));
+	dsfmt.status[j] = array[i]; 
+	convert_o0o1(ref array, (i-((19937-128)/104+1))*2);
+	}
 
 for ( i = size-((19937-128)/104+1); i < size; i++)
-	{ 
 	{
 	convert_o0o1(ref array, i*2); 
 	}
- }
 }
 
 static int dsfmt_mexp=19937;
