@@ -34,7 +34,7 @@ static void copy(uint8_t *src, uint8_t *dest, int idx, int len)
 {
 for (int i = 0; i < len; i++)
   {
-    if (verbose) printf("dest[%d] = %.2X\n", i, src[i]);
+//    if (verbose) printf("dest[%d] = %.2X\n", i, src[i]);
     dest[idx+i] = src[i];
   }
 }
@@ -71,21 +71,21 @@ static void putpsfmt32(dsfmt_t *dsfmt, int idx, uint32_t arg)
   copy((uint8_t *)&arg, dsfmt->status[idx/4].array, (idx%4)*4, sizeof(uint32_t));
 }
 
-static void do_recursion(w128_t *r, int roff, w128_t *a, int aoff, w128_t *b, int boff, w128_t *lung, int loff)
+static void do_recursion(w128_t *r, int roff, w128_t *a, int aoff, w128_t *b, int boff, w128_t *lung)
 {
   uint64_t  t0;
   uint64_t  t1;
   uint64_t  L0;
   uint64_t  L1;
-  t0 = get_ulong(a,aoff); 
-  t1 = get_ulong(a,aoff+1); 
-  L0 = get_ulong(lung,loff); 
-  L1 = get_ulong(lung,loff+1); 
-  put_ulong(lung, loff, (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ get_ulong(b,boff)); 
-  put_ulong(lung, loff+1, (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ get_ulong(b,boff+1)); 
-  put_ulong(r, roff, (get_ulong(lung,loff) >> 12) ^ (get_ulong(lung,loff) & 0x000ffafffffffb3fUL) ^ t0); 
-  put_ulong(r, roff+1, (get_ulong(lung,loff+1) >> 12) ^ (get_ulong(lung,loff+1) & 0x000ffdfffc90fffdUL) ^ t1);
-  if (verbose) printf("r->u[0], r->u[1] = %lu,%lu\n", get_ulong(r,roff), get_ulong(r,roff+1));
+  t0 = get_ulong(a,aoff*2); 
+  t1 = get_ulong(a,aoff*2+1); 
+  L0 = get_ulong(lung,0); 
+  L1 = get_ulong(lung,1); 
+  put_ulong(lung, 0, (t0 << 19) ^ (L1 >> 32) ^ (L1 << 32) ^ get_ulong(b,boff*2)); 
+  put_ulong(lung, 1, (t1 << 19) ^ (L0 >> 32) ^ (L0 << 32) ^ get_ulong(b,boff*2+1)); 
+  put_ulong(r, roff*2, (get_ulong(lung, 0) >> 12) ^ (get_ulong(lung,0) & 0x000ffafffffffb3fUL) ^ t0); 
+  put_ulong(r, roff*2+1, (get_ulong(lung,1) >> 12) ^ (get_ulong(lung,1) & 0x000ffdfffc90fffdUL) ^ t1);
+  if (verbose) printf("r->u[0], r->u[1] = %lu,%lu\n", get_ulong(r,roff*2), get_ulong(r,roff*2+1));
 }
 
 static void convert_o0o1(w128_t *w)
@@ -97,7 +97,6 @@ static void convert_o0o1(w128_t *w)
   put_double(w, 1, get_double(w,1)-1.0); 
   unsigned long tmp0 = get_ulong (w, 0);
   unsigned long tmp1 = get_ulong (w, 1);
-//  if (tmp0==0x3FE47099E04145AEUL && tmp1==0x3FD0E7010147655CUL) verbose = 1;
   if (verbose) printf("w'->u[0], w'->u[1] = %.16lX,%.16lX\n", tmp0, tmp1);
 }
 
@@ -107,19 +106,22 @@ static void gen_rand_array_o0o1(dsfmt_t *dsfmt, w128_t *array, int size)
 {
   int i;
   int j;
-do_recursion(array, 0, dsfmt->status, 0, dsfmt->status, 117, dsfmt->status, ((19937-128)/104+1)); 
+w128_t  lung;
+if (verbose) printf("gen_rand_array_o0o1\n");
+lung = dsfmt->status[((19937-128)/104+1)]; 
+do_recursion(array, 0, dsfmt->status, 0, dsfmt->status, 117, &lung); 
 for ( i = 1; i < ((19937-128)/104+1)-117; i++)
 	{ 
 	{
-	do_recursion(array, i, dsfmt->status, i, dsfmt->status, i+117, dsfmt->status, ((19937-128)/104+1)); 
+	do_recursion(array, i, dsfmt->status, i, dsfmt->status, i+117, &lung); 
 	}
  }
 
 for ( ; i < ((19937-128)/104+1); i++)
-	{ do_recursion(array, i, dsfmt->status, i, array, i+117-((19937-128)/104+1), dsfmt->status, ((19937-128)/104+1));  }
+	{ do_recursion(array, i, dsfmt->status, i, array, i+117-((19937-128)/104+1), &lung);  }
 
 for ( ; i < size-((19937-128)/104+1); i++)
-	{ do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), dsfmt->status, ((19937-128)/104+1)); 
+	{ do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), &lung); 
 convert_o0o1(&array[i-((19937-128)/104+1)]);  }
 
 for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
@@ -130,7 +132,7 @@ for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
  }
 
 for ( ; i < size; i++, j++)
-	{ do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), dsfmt->status, ((19937-128)/104+1)); 
+	{ do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), &lung); 
 dsfmt->status[j] = array[i]; 
 convert_o0o1(&array[i-((19937-128)/104+1)]);  }
 
@@ -140,16 +142,16 @@ for ( i = size-((19937-128)/104+1); i < size; i++)
 	convert_o0o1(&array[i]); 
 	}
   }
+dsfmt->status[((19937-128)/104+1)] = lung; 
 }
-
-extern void __assert_fail(const char *__assertion, const char *__file, unsigned int __line, const char *__function);
 
 int dsfmt_mexp=19937;
 int rsize=sizeof (rarray)/sizeof (*rarray);
 double  * rptr=0;
 
 static void initial_mask(dsfmt_t *dsfmt)
-{int i;
+{
+int i;
 for ( i = 0; i < ((19937-128)/104+1)*2; i++)
 	{ 
 	{
@@ -202,7 +204,10 @@ free(warray);
 extern void exit(int __status);
 
 static int idxof(int i)
-{return i; }
+{
+return i;
+}
+
 typedef unsigned int __mode_t;
 
 extern double sqrt(double __x);
@@ -236,7 +241,9 @@ rptr = rarray;
 }
 
 static void dsfmt_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed)
-{dsfmt_chk_init_gen_rand(dsfmt, seed, 19937); }
+{
+dsfmt_chk_init_gen_rand(dsfmt, seed, 19937);
+}
 
 extern int fclose(FILE *__stream);
 double floor(double x);
@@ -261,9 +268,11 @@ d*=dSigma/sqrt(nRands/12.0);
 return d; }
 
 void  * xcalloc(size_t n, size_t size)
-{void  *ptr;
+{
+void  *ptr;
 ptr = calloc(n, size); 
-return ptr; }
+return ptr;
+}
 
 extern double fmin(double __x, double __y);
 
@@ -275,12 +284,14 @@ extern double fmax(double __x, double __y);
 
 extern int fchmod(int __fd, __mode_t __mode);
 
-int testGaussian()
-{double t = 5;
+int testGaussian(int argc, char **_)
+{
+double t = 5;
 double dSq = 0;
 double dAv = 0;
 int N = 1000000;
 int  *bin = (int  *) xcalloc((int) (t*10+1), sizeof(int));
+verbose = argc > 1;
 dsfmt_init_gen_rand(&dsfmt, 7); 
 nextUniformRandom(); 
 for (int ibin = 0; ibin<=t*10; ibin++) 

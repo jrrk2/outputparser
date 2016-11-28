@@ -140,6 +140,12 @@ depend:
 	ocamldep *.ml >.depend
 
 testGaussian: testGaussian.c
-	clang testGaussian.c -lm -DtestGaussian=main -o testGaussian
+	clang testGaussian.c -lm -g -DtestGaussian=main -o testGaussian
+
+testGaussian_tmp: testGaussian_tmp.c
+	clang testGaussian_tmp.c -lm -g -DtestGaussian=main -o testGaussian_tmp
+
+testGaussian_old2: testGaussian_old2.c
+	clang testGaussian_old2.c -lm -g -DtestGaussian=main -o testGaussian_old2
 
 include .depend
