@@ -88,15 +88,15 @@ static void do_recursion(w128_t *r, int roff, w128_t *a, int aoff, w128_t *b, in
   if (verbose) printf("r->u[0], r->u[1] = %lu,%lu\n", get_ulong(r,roff*2), get_ulong(r,roff*2+1));
 }
 
-static void convert_o0o1(w128_t *w)
+static void convert_o0o1(w128_t *w, int woff)
 {
-  if (verbose) printf("w->u[0], w->u[0] = %.16lX,%.16lX\n", get_ulong(w,0), get_ulong(w,1));
-  put_ulong(w, 0, get_ulong(w,0)|1); 
-  put_ulong(w, 1, get_ulong(w,1)|1); 
-  put_double(w, 0, get_double(w,0)-1.0); 
-  put_double(w, 1, get_double(w,1)-1.0); 
-  unsigned long tmp0 = get_ulong (w, 0);
-  unsigned long tmp1 = get_ulong (w, 1);
+  if (verbose) printf("w->u[0], w->u[1] = %.16lX,%.16lX\n", get_ulong(w,woff*2), get_ulong(w,woff*2+1));
+  put_ulong(w, woff*2, get_ulong(w,woff*2)|1); 
+  put_ulong(w, woff*2+1, get_ulong(w,woff*2+1)|1); 
+  put_double(w, woff*2, get_double(w,woff*2)-1.0); 
+  put_double(w, woff*2+1, get_double(w,woff*2+1)-1.0); 
+  unsigned long tmp0 = get_ulong (w, woff*2);
+  unsigned long tmp1 = get_ulong (w, woff*2+1);
   if (verbose) printf("w'->u[0], w'->u[1] = %.16lX,%.16lX\n", tmp0, tmp1);
 }
 
@@ -124,7 +124,7 @@ for ( ; i < ((19937-128)/104+1); i++)
 for ( ; i < size-((19937-128)/104+1); i++)
 	{
 	  do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), &lung); 
-	  convert_o0o1(&array[i-((19937-128)/104+1)]); 
+	  convert_o0o1(array,i-((19937-128)/104+1)); 
 	}
 
 for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
@@ -137,13 +137,14 @@ for ( ; i < size; i++, j++)
 	  do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), &lung); 
 	  put_ulong(dsfmt->status, j*2+0, get_ulong(array,i*2+0)); 
 	  put_ulong(dsfmt->status, j*2+1, get_ulong(array,i*2+1)); 
-	  convert_o0o1(&array[i-((19937-128)/104+1)]);
+	  convert_o0o1(array, i-((19937-128)/104+1));
 	}
 
 for ( i = size-((19937-128)/104+1); i < size; i++)
 	{ 
-	convert_o0o1(&array[i]); 
+	  convert_o0o1(array, i); 
 	}
+
 put_ulong(dsfmt->status, ((19937-128)/104+1)*2+0, get_ulong(&lung,0)); 
 put_ulong(dsfmt->status, ((19937-128)/104+1)*2+1, get_ulong(&lung,1)); 
 }
