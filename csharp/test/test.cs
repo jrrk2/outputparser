@@ -8,12 +8,13 @@ using uint32_t = System.UInt32;
 using posreal = System.Single;
 using __off64_t = System.Int64;
 using __mode_t = System.UInt32;
+using float64 = System.UInt64;
 
 public class w128_t {
-  public byte[] array;
+  public ulong[] pair;
 	public w128_t()
 	{
-		array = new byte[16];
+		pair = new ulong[2];
 	}
 }
 
@@ -33,37 +34,56 @@ public class dsfmt_t
 
 class main
     {
-	static bool verbose = false;
-	static dsfmt_t dsfmt;
+static bool verbose = false;
+static dsfmt_t dsfmt;
+
+/* From test56  - Adding the FastBitConvert attribute make Kiwi
+ignore the bodies of functions such as these and replaces the body
+with its own fast-path identity code based only on the signatures of
+the functions. */
+
+[Kiwi.FastBitConvert()]
+static double to_double(float64 farg)
+  {
+    byte [] asbytes = BitConverter.GetBytes(farg);
+    double rr = BitConverter.ToDouble(asbytes, 0);
+    return rr;
+  }
+
+[Kiwi.FastBitConvert()]
+static float64 from_double(double darg)
+  {
+    byte [] asbytes = BitConverter.GetBytes(darg);
+    return BitConverter.ToUInt64(asbytes, 0);
+  }
 
 static void copy(byte[] src, byte[] dest, int idx)
 {
 for (int i = 0; i < src.Length; i++)
     {
-//    if (verbose) Console.WriteLine("dest[{0}] = {1:X2}", i, src[i]);
     dest[idx+i] = src[i];
     }
+// Array.Copy(src, 0, dest, idx, src.Length);
 }
 
-	static double get_double(w128_t[] w, int idx)
-	{
-		
-		double tmp = BitConverter.ToDouble(w[idx / 2].array, (idx % 2) * 8);
-		ulong tmp2 = BitConverter.ToUInt64(w[idx / 2].array, (idx % 2) * 8);
-		if (verbose) Console.WriteLine("get_double {0:X16}", tmp2);
-		return tmp;
-	}
+static double get_double(w128_t[] w, int idx)
+{
+ulong tmp2 = w[idx / 2].pair[idx % 2];
+double tmp = to_double(tmp2);
+if (verbose) Console.WriteLine("get_double {0:X16}", tmp2);
+return tmp;
+}
 
 static void put_double(w128_t[] w, int idx, double arg)
 {
-ulong tmp = BitConverter.ToUInt64 (BitConverter.GetBytes (arg), 0);
+ulong tmp = from_double (arg);
 if (verbose) Console.WriteLine ("put_double {0:X16}", tmp);
-copy(BitConverter.GetBytes (arg), w[idx/2].array, (idx%2)*8);
+w[idx/2].pair[idx%2] = tmp;
 }
 
 static ulong get_ulong(w128_t[] w, int idx)
 {
-ulong tmp = BitConverter.ToUInt64 (w[idx/2].array, (idx%2)*8);
+ulong tmp = w[idx/2].pair[idx%2];
 if (verbose) Console.WriteLine ("get_ulong {0:X16}", tmp);
 return tmp;
 }
@@ -71,21 +91,25 @@ return tmp;
 static void put_ulong(w128_t[] w, int idx, ulong arg)
 {
 if (verbose) Console.WriteLine ("put_ulong {0:X16}", arg);
-copy(BitConverter.GetBytes (arg), w[idx/2].array, (idx%2)*8);
+w[idx/2].pair[idx%2] = arg;
 }
 
 static uint getpsfmt32(ref dsfmt_t dsfmt, int idx)
-	{
-		uint tmp = BitConverter.ToUInt32(dsfmt.status[idx/4].array, (idx%4)*4);
-		if (verbose) Console.WriteLine ("getpsfmt32 {0} {1:X8}", idx, tmp);
-		return tmp;
-	}
+{
+ulong tmp2 = dsfmt.status[idx/4].pair[(idx/2)%2];
+uint tmp = ((idx & 1) == 1) ? (uint)(tmp2 >> 32) : (uint)(tmp2 & 0xFFFFFFFF);
+if (verbose) Console.WriteLine ("getpsfmt32 {0} {1:X8}", idx, tmp);
+return tmp;
+}
 
 static void putpsfmt32(ref dsfmt_t dsfmt, int idx, uint arg)
-	{
-		if (verbose) Console.WriteLine ("putpsfmt32 {0} {1:X8}", idx, arg);
-		copy(BitConverter.GetBytes (arg), dsfmt.status[idx/4].array, (idx%4)*4);
-	}
+{    
+if (verbose) Console.WriteLine ("putpsfmt32 {0} {1:X8}", idx, arg);
+if ((idx & 1) == 1)
+    dsfmt.status[idx/4].pair[(idx/2)%2] = (dsfmt.status[idx/4].pair[(idx/2)%2]&0xFFFFFFFFUL)|(((ulong)arg)<<32);
+else
+    dsfmt.status[idx/4].pair[(idx/2)%2] = (dsfmt.status[idx/4].pair[(idx/2)%2]&0xFFFFFFFF00000000UL)|arg;
+}
 
 static void do_recursion(ref w128_t[] r, int roff, ref w128_t[] a, int aoff, ref w128_t[] b, int boff, ref w128_t[] lung)
 {
@@ -300,7 +324,7 @@ if (rptr>((int)rsize.rsize-nRands))
 for (int i = 0; i < nRands; i++) 
 	{
 	double tmp = rarray [rptr];
-			if (verbose) Console.WriteLine ("rarray[{0}] = {1}", rptr, Math.Floor(tmp*1e12));
+	if (verbose) Console.WriteLine ("rarray[{0}] = {1}", rptr, tmp);
 	d += tmp;
 	rptr++; 
 	}
