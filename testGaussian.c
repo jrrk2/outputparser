@@ -108,7 +108,7 @@ static void gen_rand_array_o0o1(dsfmt_t *dsfmt, w128_t *array, int size)
   int j;
 w128_t  lung;
 if (verbose) printf("gen_rand_array_o0o1\n");
-put_ulong(&lung, 0, get_ulong(dsfmt->status,((19937-128)/104+1)*2+0)); 
+put_ulong(&lung, 0, get_ulong(dsfmt->status,((19937-128)/104+1)*2)); 
 put_ulong(&lung, 1, get_ulong(dsfmt->status,((19937-128)/104+1)*2+1)); 
 do_recursion(array, 0, dsfmt->status, 0, dsfmt->status, 117, &lung); 
 for ( i = 1; i < ((19937-128)/104+1)-117; i++)
@@ -129,7 +129,8 @@ for ( ; i < size-((19937-128)/104+1); i++)
 
 for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
 	{ 
-	dsfmt->status[j] = array[j+size-((19937-128)/104+1)]; 
+	  put_ulong(dsfmt->status, j*2, get_ulong(array,(j+size-((19937-128)/104+1))*2)); 
+	  put_ulong(dsfmt->status, j*2+1, get_ulong(array,(j+size-((19937-128)/104+1))*2+1)); 
 	}
 
 for ( ; i < size; i++, j++)

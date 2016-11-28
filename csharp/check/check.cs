@@ -33,14 +33,14 @@ public class dsfmt_t
 
 class main
     {
-	static bool verbose = true;
+	static bool verbose = false;
 	static dsfmt_t dsfmt;
 
 static void copy(byte[] src, byte[] dest, int idx)
 {
 for (int i = 0; i < src.Length; i++)
     {
-    if (verbose) Console.WriteLine("dest[{0}] = {1:X2}", i, src[i]);
+//    if (verbose) Console.WriteLine("dest[{0}] = {1:X2}", i, src[i]);
     dest[idx+i] = src[i];
     }
 }
@@ -107,10 +107,10 @@ if (verbose) Console.WriteLine("r->u[0], r->u[1] = {0},{1}", get_ulong(r,roff*2)
 static void convert_o0o1(ref w128_t[] w, int woff)
 {
 if (verbose) Console.WriteLine("w->u[0], w->u[1] = {0:X16},{1:X16}", get_ulong(w,woff*2), get_ulong(w,woff*2+1));
-put_ulong(w, woff, get_ulong(w, woff*2) | 1); 
-put_ulong(w, woff+1, get_ulong(w, woff*2+1) | 1); 
-put_double(w, woff, get_double(w, woff*2) - 1.0);
-put_double(w, woff+1, get_double(w, woff*2+1) - 1.0);
+put_ulong(w, woff*2, get_ulong(w, woff*2) | 1); 
+put_ulong(w, woff*2+1, get_ulong(w, woff*2+1) | 1); 
+put_double(w, woff*2, get_double(w, woff*2) - 1.0);
+put_double(w, woff*2+1, get_double(w, woff*2+1) - 1.0);
 ulong tmp0 = get_ulong (w, woff*2);
 ulong tmp1 = get_ulong (w, woff*2+1);
 if (verbose) Console.WriteLine("w'->u[0], w'->u[1] = {0:X16},{1:X16}", tmp0, tmp1);
@@ -123,43 +123,48 @@ static void gen_rand_array_o0o1(ref dsfmt_t dsfmt, ref w128_t[] array, int size)
 {
 int i;
 int j;
-w128_t lung;
-if (verbose) printf("gen_rand_array_o0o1\n");
-put_ulong(&lung, 0, get_ulong(dsfmt.status,((19937-128)/104+1)*2+0)); 
-put_ulong(&lung, 1, get_ulong(dsfmt.status,((19937-128)/104+1)*2+1)); 
-do_recursion(ref array, 0, ref dsfmt.status, 0, ref dsfmt.status, 117, ref dsfmt.status, ((19937-128)/104+1)); 
+w128_t[] lung = new w128_t[1];
+lung [0] = new w128_t ();
+if (verbose) Console.WriteLine("gen_rand_array_o0o1");
+put_ulong(lung, 0, get_ulong(dsfmt.status,((19937-128)/104+1)*2)); 
+put_ulong(lung, 1, get_ulong(dsfmt.status,((19937-128)/104+1)*2+1)); 
+do_recursion(ref array, 0, ref dsfmt.status, 0, ref dsfmt.status, 117, ref lung); 
 for ( i = 1; i < ((19937-128)/104+1)-117; i++)
 	{
-	do_recursion(ref array, i, ref dsfmt.status, i, ref dsfmt.status, i+117, ref dsfmt.status, ((19937-128)/104+1)); 
+	do_recursion(ref array, i, ref dsfmt.status, i, ref dsfmt.status, i+117, ref lung); 
 	}
 
 for ( ; i < ((19937-128)/104+1); i++)
 	{
-	do_recursion(ref array, i, ref dsfmt.status, i, ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1));
+	do_recursion(ref array, i, ref dsfmt.status, i, ref array, i+117-((19937-128)/104+1), ref lung);
 	}
 
 for ( ; i < size-((19937-128)/104+1); i++)
 	{
-	do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1));
-	convert_o0o1(ref array, (i-((19937-128)/104+1))*2);
+	do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref lung);
+	convert_o0o1(ref array, (i-((19937-128)/104+1)));
 	}
 
 for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
 	{
-	dsfmt.status[j] = array[j+size-((19937-128)/104+1)]; 
+	put_ulong(dsfmt.status, j*2, get_ulong(array,(j+size-((19937-128)/104+1))*2)); 
+	put_ulong(dsfmt.status, j*2+1, get_ulong(array,(j+size-((19937-128)/104+1))*2+1)); 
 	}
 
 for ( ; i < size; i++, j++)
 	{
-	do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1));
-	dsfmt.status[j] = array[i]; 
-	convert_o0o1(ref array, (i-((19937-128)/104+1))*2);
+	do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref lung);
+	put_ulong(dsfmt.status, j*2, get_ulong(array,i*2));
+	put_ulong(dsfmt.status, j*2+1, get_ulong(array,i*2+1));
+	convert_o0o1(ref array, (i-((19937-128)/104+1)));
 	}
 
 for ( i = size-((19937-128)/104+1); i < size; i++)
 	{
-	convert_o0o1(ref array, i*2); 
+	convert_o0o1(ref array, i); 
 	}
+put_ulong(dsfmt.status, ((19937-128)/104+1)*2, get_ulong(lung,0)); 
+put_ulong(dsfmt.status, ((19937-128)/104+1)*2+1, get_ulong(lung,1)); 
 }
 
 static int dsfmt_mexp=19937;
