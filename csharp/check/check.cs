@@ -50,14 +50,14 @@ for (int i = 0; i < src.Length; i++)
 		
 		double tmp = BitConverter.ToDouble(w[idx / 2].array, (idx % 2) * 8);
 		ulong tmp2 = BitConverter.ToUInt64(w[idx / 2].array, (idx % 2) * 8);
-		if (verbose) Console.WriteLine("get_double {0} {1:X16}", idx, tmp2);
+		if (verbose) Console.WriteLine("get_double {0:X16}", tmp2);
 		return tmp;
 	}
 
 static void put_double(w128_t[] w, int idx, double arg)
 {
 ulong tmp = BitConverter.ToUInt64 (BitConverter.GetBytes (arg), 0);
-if (verbose) Console.WriteLine ("put_double {0} {1:X16}", idx, tmp);
+if (verbose) Console.WriteLine ("put_double {0:X16}", tmp);
 copy(BitConverter.GetBytes (arg), w[idx/2].array, (idx%2)*8);
 }
 
@@ -106,13 +106,13 @@ if (verbose) Console.WriteLine("r->u[0], r->u[1] = {0},{1}", get_ulong(r,roff), 
 
 static void convert_o0o1(ref w128_t[] w, int woff)
 {
-if (verbose) Console.WriteLine("w->u[0], w->u[0] = {0:X16},{1:X16}", get_ulong(w,woff*2), get_ulong(w,woff*2+1));
-put_ulong(w, woff, get_ulong(w, woff*2) | 1); 
-put_ulong(w, woff+1, get_ulong(w, woff*2+1) | 1); 
-put_double(w, woff, get_double(w, woff*2) - 1.0);
-put_double(w, woff+1, get_double(w, woff*2+1) - 1.0);
-ulong tmp0 = get_ulong (w, woff*2);
-ulong tmp1 = get_ulong (w, woff*2+1);
+if (verbose) Console.WriteLine("w->u[0], w->u[0] = {0:X16},{1:X16}", get_ulong(w,woff), get_ulong(w,woff+1));
+put_ulong(w, woff, get_ulong(w, woff) | 1); 
+put_ulong(w, woff+1, get_ulong(w, woff+1) | 1); 
+put_double(w, woff, get_double(w, woff) - 1.0);
+put_double(w, woff+1, get_double(w, woff+1) - 1.0);
+ulong tmp0 = get_ulong (w, woff);
+ulong tmp1 = get_ulong (w, woff+1);
 //if (tmp0==0x3FE47099E04145AEUL && tmp1==0x3FD0E7010147655CUL) verbose = true;
 if (verbose) Console.WriteLine("w'->u[0], w'->u[1] = {0:X16},{1:X16}", tmp0, tmp1);
 }
@@ -137,7 +137,7 @@ for ( ; i < ((19937-128)/104+1); i++)
 
 for ( ; i < size-((19937-128)/104+1); i++)
 	{ do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1)); 
-convert_o0o1(ref array, i-((19937-128)/104+1));  }
+convert_o0o1(ref array, (i-((19937-128)/104+1))*2);  }
 
 for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
 	{ 
@@ -149,12 +149,12 @@ for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
 for ( ; i < size; i++, j++)
 	{ do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref dsfmt.status, ((19937-128)/104+1)); 
 dsfmt.status[j] = array[i]; 
-convert_o0o1(ref array, i-((19937-128)/104+1));  }
+convert_o0o1(ref array, (i-((19937-128)/104+1))*2);  }
 
 for ( i = size-((19937-128)/104+1); i < size; i++)
 	{ 
 	{
-	convert_o0o1(ref array, i); 
+	convert_o0o1(ref array, i*2); 
 	}
  }
 }
@@ -212,7 +212,7 @@ for (int i = 0; i < warray.Length; i++) warray[i] = new w128_t();
 gen_rand_array_o0o1(ref dsfmt, ref warray, size/2);
 for (int i = 0; i < size; i++)
 	{
-	array [i] = get_double(warray, i/2 + i%2);
+	array [i] = get_double(warray, i);
 	}
 }
 
@@ -292,7 +292,7 @@ if (rptr>((int)rsize.rsize-nRands))
 for (int i = 0; i < nRands; i++) 
 	{
 	double tmp = rarray [rptr];
-	if (verbose) Console.WriteLine ("*rptr = {0:#######.######}", tmp*1000000);
+			if (verbose) Console.WriteLine ("rarray[{0}] = {1}", rptr, Math.Floor(tmp*1e12));
 	d += tmp;
 	rptr++; 
 	}

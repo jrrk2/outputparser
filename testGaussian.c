@@ -26,7 +26,7 @@ extern int fprintf(FILE *__stream, const char *__format, ...);
 static double get_double(w128_t *w, int idx)
 {
   double tmp = *(double *)&(w->array[idx*8]);
-  if (verbose) printf("get_double %d %.16lX\n", idx, *(uint64_t *)&tmp);
+  if (verbose) printf("get_double %.16lX\n", *(uint64_t *)&tmp);
   return tmp;
 }
 
@@ -41,7 +41,7 @@ for (int i = 0; i < len; i++)
 
 static void put_double(w128_t *w, int idx, double arg)
 {
-  if (verbose) printf("put_double %d %.16lX\n", idx, *(uint64_t *)&arg);
+  if (verbose) printf("put_double %.16lX\n", *(uint64_t *)&arg);
   copy((uint8_t *)&arg, w->array, idx*8, sizeof(double));
 }
 
@@ -185,9 +185,18 @@ if (inner==1)
  return;
 }
 
+void  * calloc(size_t __nmemb, size_t __size);
+void free(void *ptr);
+
 void dsfmt_fill_array_open_open(dsfmt_t *dsfmt, double array[], int size)
 {
-gen_rand_array_o0o1(dsfmt, (w128_t   *) array, size/2);
+w128_t   *warray = calloc(size/2, sizeof(w128_t));
+gen_rand_array_o0o1(dsfmt, warray, size/2);
+for (int i = 0; i < size; i++)
+	{
+	array [i] = get_double(warray, i);
+	}
+free(warray);
 }
 
 extern void exit(int __status);
@@ -195,8 +204,6 @@ extern void exit(int __status);
 static int idxof(int i)
 {return i; }
 typedef unsigned int __mode_t;
-
-void  * calloc(size_t __nmemb, size_t __size);
 
 extern double sqrt(double __x);
 
@@ -232,6 +239,7 @@ static void dsfmt_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed)
 {dsfmt_chk_init_gen_rand(dsfmt, seed, 19937); }
 
 extern int fclose(FILE *__stream);
+double floor(double x);
 
 double gaussianRand(double dSigma)
 {
@@ -244,7 +252,7 @@ if (rptr>(rarray+rsize-nRands))
 
 for (int i = 0; i < nRands; i++) 
 	{
-	if (verbose) printf("*rptr = %12.6f\n", *rptr*1000000);
+	if (verbose) printf("rarray[%ld] = %ld\n", rptr-rarray, (uint64_t)floor(*rptr*1e12));
 	d+=*rptr++; 
 	}
 
