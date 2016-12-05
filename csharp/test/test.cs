@@ -34,7 +34,7 @@ public class dsfmt_t
 
 class main
     {
-static bool verbose = false;
+  static bool verbose = true; // djg
 static dsfmt_t dsfmt;
 
 /* From test56  - Adding the FastBitConvert attribute make Kiwi
@@ -94,7 +94,7 @@ if (verbose) Console.WriteLine ("put_ulong {0:X16}", arg);
 w[idx/2].pair[idx%2] = arg;
 }
 
-static uint getpsfmt32(dsfmt_t dsfmt, int idx)
+  static uint getpsfmt32(ref dsfmt_t dsfmt, int idx)
 {
 ulong tmp2 = dsfmt.status[idx/4].pair[(idx/2)%2];
 uint tmp = ((idx & 1) == 1) ? (uint)(tmp2 >> 32) : (uint)(tmp2 & 0xFFFFFFFF);
@@ -102,7 +102,7 @@ if (verbose) Console.WriteLine ("getpsfmt32 {0} {1:X8}", idx, tmp);
 return tmp;
 }
 
-static void putpsfmt32(dsfmt_t dsfmt, int idx, uint arg)
+  static void putpsfmt32(ref dsfmt_t dsfmt, int idx, uint arg)
 {    
 if (verbose) Console.WriteLine ("putpsfmt32 {0} {1:X8}", idx, arg);
 if ((idx & 1) == 1)
@@ -111,7 +111,7 @@ else
     dsfmt.status[idx/4].pair[(idx/2)%2] = (dsfmt.status[idx/4].pair[(idx/2)%2]&0xFFFFFFFF00000000UL)|arg;
 }
 
-static void do_recursion(w128_t[] r, int roff, w128_t[] a, int aoff, w128_t[] b, int boff, w128_t[] lung)
+  static void do_recursion(ref w128_t[] r, int roff, ref w128_t[] a, int aoff, ref w128_t[] b, int boff, ref w128_t[] lung)
 {
 	uint64_t  t0;
 	uint64_t  t1;
@@ -128,7 +128,7 @@ put_ulong(r, roff*2+1, (get_ulong(lung, 1) >> 12) ^ (get_ulong(lung, 1) & 0x000f
 if (verbose) Console.WriteLine("r->u[0], r->u[1] = {0},{1}", get_ulong(r,roff*2), get_ulong(r,roff*2+1));
 }
 
-static void convert_o0o1(w128_t[] w, int woff)
+  static void convert_o0o1(ref w128_t[] w, int woff)
 {
 if (verbose) Console.WriteLine("w->u[0], w->u[1] = {0:X16},{1:X16}", get_ulong(w,woff*2), get_ulong(w,woff*2+1));
 put_ulong(w, woff*2, get_ulong(w, woff*2) | 1); 
@@ -141,30 +141,33 @@ if (verbose) Console.WriteLine("w'->u[0], w'->u[1] = {0:X16},{1:X16}", tmp0, tmp
 }
 
 public enum rsize { rsize = ((19937-128)/104+1)*2 };
-static public w128_t[] lung;
 
-static void gen_rand_array_o0o1(dsfmt_t dsfmt, w128_t[] array, int size)
+  static double[] rarray = new double[(int)rsize.rsize];
+  
+  static void gen_rand_array_o0o1(ref dsfmt_t dsfmt, ref w128_t[] array, int size)
 {
 int i;
 int j;
+    w128_t[] lung = new w128_t[1];
+    lung [0] = new w128_t ();
 if (verbose) Console.WriteLine("gen_rand_array_o0o1");
 put_ulong(lung, 0, get_ulong(dsfmt.status,((19937-128)/104+1)*2)); 
 put_ulong(lung, 1, get_ulong(dsfmt.status,((19937-128)/104+1)*2+1)); 
-do_recursion(array, 0, dsfmt.status, 0, dsfmt.status, 117, lung); 
+    do_recursion(ref array, 0, ref dsfmt.status, 0, ref dsfmt.status, 117, ref lung); 
 for ( i = 1; i < ((19937-128)/104+1)-117; i++)
 	{
-	do_recursion(array, i, dsfmt.status, i, dsfmt.status, i+117, lung); 
+        do_recursion(ref array, i, ref dsfmt.status, i, ref dsfmt.status, i+117, ref lung); 
 	}
 
 for ( ; i < ((19937-128)/104+1); i++)
 	{
-	do_recursion(array, i, dsfmt.status, i, array, i+117-((19937-128)/104+1), lung);
+        do_recursion(ref array, i, ref dsfmt.status, i, ref array, i+117-((19937-128)/104+1), ref lung);
 	}
 
 for ( ; i < size-((19937-128)/104+1); i++)
 	{
-	do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), lung);
-	convert_o0o1(array, (i-((19937-128)/104+1)));
+        do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref lung);
+        convert_o0o1(ref array, (i-((19937-128)/104+1)));
 	}
 
 for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
@@ -175,26 +178,24 @@ for ( j = 0; j < 2*((19937-128)/104+1)-size; j++)
 
 for ( ; i < size; i++, j++)
 	{
-	do_recursion(array, i, array, i-((19937-128)/104+1), array, i+117-((19937-128)/104+1), lung);
+        do_recursion(ref array, i, ref array, i-((19937-128)/104+1), ref array, i+117-((19937-128)/104+1), ref lung);
 	put_ulong(dsfmt.status, j*2, get_ulong(array,i*2));
 	put_ulong(dsfmt.status, j*2+1, get_ulong(array,i*2+1));
-	convert_o0o1(array, (i-((19937-128)/104+1)));
+        convert_o0o1(ref array, (i-((19937-128)/104+1)));
 	}
 
 for ( i = size-((19937-128)/104+1); i < size; i++)
 	{
-	convert_o0o1(array, i); 
+        convert_o0o1(ref array, i); 
 	}
 put_ulong(dsfmt.status, ((19937-128)/104+1)*2, get_ulong(lung,0)); 
 put_ulong(dsfmt.status, ((19937-128)/104+1)*2+1, get_ulong(lung,1)); 
 }
 
 static int dsfmt_mexp=19937;
-static int rptr=-1;
-static uint64_t[] pcv = new uint64_t[] {0x3d84e1ac0dc82880UL, 0x0000000000000001UL};
-static uint64_t[] tmp = new uint64_t[2];
+  static int rptr=0;
 
-static void initial_mask(dsfmt_t dsfmt)
+  static void initial_mask(ref dsfmt_t dsfmt)
 {
 int i;
 for ( i = 0; i < ((19937-128)/104+1)*2; i++)
@@ -203,8 +204,10 @@ for ( i = 0; i < ((19937-128)/104+1)*2; i++)
 	}
 }
 
-static void period_certification(dsfmt_t dsfmt)
+  static void period_certification(ref dsfmt_t dsfmt)
 {
+    uint64_t[] pcv = new uint64_t[] {0x3d84e1ac0dc82880UL, 0x0000000000000001UL};
+    uint64_t[] tmp = new uint64_t[2];
 uint64_t  inner;
 int i;
 tmp[0] = get_ulong(dsfmt.status, ((19937-128)/104+1)*2) ^ 0x90014964b32f4329UL; 
@@ -235,9 +238,15 @@ if (verbose) Console.WriteLine(__assertion + __file + __line + __function);
 Environment.Exit(1);
 }
 
-static void dsfmt_fill_array_open_open(dsfmt_t dsfmt, w128_t[] warray, int size)
+  static void dsfmt_fill_array_open_open(ref dsfmt_t dsfmt, double[] array, int size)
 {
-gen_rand_array_o0o1(dsfmt, warray, size/2);
+    w128_t [] warray = new w128_t [size/2];
+    for (int i = 0; i < warray.Length; i++) warray[i] = new w128_t();
+    gen_rand_array_o0o1(ref dsfmt, ref warray, size/2);
+    for (int i = 0; i < size; i++)
+      {
+        array [i] = get_double(warray, i);
+      }
 }
 
 static void exit(int __status)
@@ -261,6 +270,7 @@ static int [] T1 = new int []
 public static double sqrt(double arg)
   {
     if (arg<=0.0) return 0.0;
+    return TTsqrt.Sqrt(arg);
     byte[] b0 = BitConverter.GetBytes(arg);
     ulong u0 = BitConverter.ToUInt64(b0, 0);
     ulong k = (u0>>1) +(0x1ff8L << 48);
@@ -272,46 +282,37 @@ public static double sqrt(double arg)
     return pp;
 }
 
-static void dsfmt_chk_init_gen_rand(dsfmt_t dsfmt, uint32_t seed, int mexp)
+  static void dsfmt_chk_init_gen_rand(ref dsfmt_t dsfmt, uint32_t seed, int mexp)
 {
 int i;
-putpsfmt32(dsfmt, idxof(0), seed); 
+    if (mexp!=dsfmt_mexp) 
+            {
+              Console.WriteLine("DSFMT_MEXP doesn't match with dSFMT.c\n"); 
+              exit(1); 
+            }
+    
+    putpsfmt32(ref dsfmt, idxof(0), seed); 
 for (i = 1; i < (((19937-128)/104+1)+1)*4; i++)
 	{ 
-	uint prev = getpsfmt32 (dsfmt, idxof (i - 1));
+        uint prev = getpsfmt32 (ref dsfmt, idxof (i - 1));
 	uint tmp = 1812433253U*(prev^ (prev >> 30))+(uint)i;
 	if (verbose) Console.WriteLine ("prev = {0}, loop[{1}] = {2}", prev, i, tmp);
-	putpsfmt32(dsfmt, idxof(i), tmp);
+        putpsfmt32(ref dsfmt, idxof(i), tmp);
 	}
 
-initial_mask(dsfmt); 
-period_certification(dsfmt); 
-dsfmt.idx = (((19937-128)/104+1)*2);
-}
+    initial_mask(ref dsfmt); 
+    period_certification(ref dsfmt); 
+    dsfmt.idx = (((19937-128)/104+1)*2); }
 
-static double[] rarray;
-static w128_t [] warray ;
-
-[Kiwi.HardwareEntryPoint()]
 static void nextUniformRandom()
 {
-int size = (int)rsize.rsize;
-if (rptr < 0)
-   {
-   dsfmt = new dsfmt_t ();
-   lung = new w128_t[1];
-   lung [0] = new w128_t ();
-   rarray = new double[size];
-   warray = new w128_t [ size ];
-   for (int i = 0; i < warray.Length; i++) warray[i] = new w128_t();
-   dsfmt_chk_init_gen_rand(dsfmt, 7, dsfmt_mexp);
-   }
-dsfmt_fill_array_open_open(dsfmt, warray, size); 
-for (int i = 0; i < size; i++)
-	{
-	rarray [i] = get_double(warray, i);
-	}
+    dsfmt_fill_array_open_open(ref dsfmt, rarray, (int)rsize.rsize); 
 rptr = 0;
+  }
+  
+  static void dsfmt_init_gen_rand(ref dsfmt_t dsfmt, uint32_t seed)
+  {
+    dsfmt_chk_init_gen_rand(ref dsfmt, seed, 19937); 
 }
 
 static double gaussianRand(double dSigma)
@@ -351,12 +352,14 @@ return 0;
 
 static void testGaussian()
 {
-int t = 5;
+    double t = 5;
 double dSq = 0;
 double dAv = 0;
 int N = 1000000;
 int[] bin = new int[(int) (t*10+1)];
+    dsfmt_init_gen_rand(ref dsfmt, 7); 
 nextUniformRandom(); 
+   
 for (int ibin = 0; ibin<=t*10; ibin++) 
 	{
 	bin[ibin] = 0; 
@@ -372,8 +375,17 @@ bin[(int) (fmax(fmin(d+5*t, 10*t), 0))]++;
 Console.WriteLine("{0} {1}", dAv/N, sqrt(dSq/N-(dAv/N)*(dAv/N))); 
 for (int i = 0; i<=t*10; i++) Console.WriteLine("{0}\t{1}", i-5*t, bin[i]); 
 }
+  
+  
+  [Kiwi.HardwareEntryPoint()]
         static void Main()
         {
+    Console.WriteLine("Starting");
+    dsfmt = new dsfmt_t ();
+    Kiwi.Pause();
 	    testGaussian();
+    Console.WriteLine("Ending");
         }
     }
+
+// eof
