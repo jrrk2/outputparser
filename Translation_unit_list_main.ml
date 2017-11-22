@@ -24,15 +24,12 @@ let parse arg =
   close_in ch;
   rslt
 
-let main = "evalMOs"
-let main = "main"
-let main = "testGaussian"
-
 let _ = if Array.length Sys.argv > 1 then
     begin
-    let refs = frefs() in
-    let needed = dump parse refs stdout main Sys.argv in
-    let chan = open_out "mykernel.cs" in
-    Translation_unit_list_foreign.dump parse chan needed;
-    close_out chan;
+      let refs = frefs() in
+      let main = try Sys.getenv "TRANS_MAIN" with _ -> "main" in 
+      let needed = dump parse refs stdout main Sys.argv in
+      let chan = open_out "mykernel.c" in
+      Translation_unit_list_foreign.dump parse chan needed;
+      close_out chan;
     end

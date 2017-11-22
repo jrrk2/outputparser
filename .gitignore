@@ -35,3 +35,10 @@ y.output
 y.tab.c
 y.tab.h
 lex.yy.c
+a.out
+g.dat
+g.eps
+g.sh
+mykernel.c
+mykernel_main.c
+mykernel_test.c

@@ -6,6 +6,7 @@ open Translation_unit_list_transform
 
 let chan = open_out "mykernel.c";;
 let refs = frefs();;
+let main = try Sys.getenv "TRANS_MAIN" with _ -> "main";;
 let needed = dump parse refs chan main [|""; "convert.i"; "dSFMT.i"; "dynamics.i"; "kernel.i"; "main.i"; "support.i"; "dump.i"|];;
 close_out chan;;
 let chan = open_out "mykernel.cs";;

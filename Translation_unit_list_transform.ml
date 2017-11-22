@@ -554,6 +554,7 @@ let rec dump_body refs = function
     (TUPLE2 (TUPLE2 (DOT, IDENTIFIER field), EQUALS) :: TUPLE3 (LBRACE, TLIST clst, RBRACE) :: []), RBRACE) ->
         "{."^field^"={"^String.concat ",\n\t" (List.map (dump_body refs) clst)^" }}"
 | TUPLE3 (LBRACE, TLIST lst, RBRACE) -> "{"^String.concat ",\n\t" (List.map (dump_body refs) lst)^"}"
+| TUPLE3 (LBRACE, itm, RBRACE) -> dump_body refs (TUPLE3 (LBRACE, TLIST [itm], RBRACE))
 | TUPLE2 (SIZEOF, TUPLE3 (LPAREN, (IDENTIFIER id as l), RPAREN)) ->
     let _ = lmark refs l in "sizeof ("^id^")"
 | TUPLE2 (SIZEOF, TUPLE3 (LPAREN, TUPLE2 (STAR, (IDENTIFIER id as l)), RPAREN)) ->

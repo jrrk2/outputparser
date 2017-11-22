@@ -154,8 +154,8 @@ let rec dumpc refs = function
 | TUPLE3 (lft, VBAR, rght) -> dumpc refs lft^" | "^dumpc refs rght
 | TUPLE3 (lft, CARET, rght) -> dumpc refs lft^" ^ "^dumpc refs rght
 | TUPLE3 (lft, AMPERSAND, rght) -> dumpc refs lft^" & "^dumpc refs rght
-| TUPLE5 (IF, LPAREN, cond, RPAREN, then') -> "if "^dumpc refs cond^" then "^dumpc refs then'
-| TUPLE3 (LBRACE, body, RBRACE) -> "\n\tbegin\n\t"^dumpc refs body^"\n\tend\n"
+| TUPLE5 (IF, LPAREN, cond, RPAREN, then') -> "if ("^dumpc refs cond^") "^dumpc refs then'
+| TUPLE3 (LBRACE, body, RBRACE) -> "\n\t{\n\t"^dumpc refs body^"\n\t}\n"
 | TLIST lst -> String.concat "\n" (List.map (dumpc refs) lst)
 | TUPLE2 (stmt, SEMICOLON) -> dumpc refs stmt^"; "
 | TUPLE3 (lft, EQUALS, TUPLE3(LBRACE, TLIST lst, RBRACE)) ->
@@ -309,6 +309,7 @@ let rec dump_body refs = function
     (TUPLE2 (TUPLE2 (DOT, IDENTIFIER field), EQUALS) :: TUPLE3 (LBRACE, TLIST clst, RBRACE) :: []), RBRACE) ->
         "{."^field^"={"^String.concat ",\n\t" (List.map (dump_body refs) clst)^" }}"
 | TUPLE3 (LBRACE, TLIST lst, RBRACE) -> "{"^String.concat ",\n\t" (List.map (dump_body refs) lst)^"}"
+| TUPLE3 (LBRACE, itm, RBRACE) -> dump_body refs (TUPLE3 (LBRACE, TLIST [itm], RBRACE))
 | TUPLE2 (SIZEOF, TUPLE3 (LPAREN, IDENTIFIER id, RPAREN)) ->
     "sizeof ("^id^")"
 | TUPLE2 (SIZEOF, TUPLE3 (LPAREN, TUPLE2 (STAR, IDENTIFIER id), RPAREN)) ->
