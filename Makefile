@@ -18,61 +18,15 @@
 
 .PHONY: everything
 PARSER=ocamlyacc
+SIMPLEDMC=../simpleDMC_verify
+DMCFILES=dSFMT.i main.i Orbital.i position.i support.i System.i Walker.i walkthewalk.i Wavefunction.i
 SED=sed -e 's=\^ _Nonnull=* =g' -e 's=\* _Nonnull=* =g'
-CPP=clang -E -D __extension__= -D __restrict= -D __const=const -D __attribute__\(x\)= -D __asm__\(x\)= -D __PRETTY_FUNCTION__=__FILE__ -I ../simpleDMC_restructure/dest -D DSFMT_MEXP=19937 -D __inline__=inline -D _Nullable= -D__asm\(x\)=
-
-everything: output_parser.top output_parser output_parser.top output_parser
-
-output_parser.top: output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
-	ocamlmktop -g -o $@ output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
-
-output_parser: output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
-	ocamlopt -g -o $@ output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
-
-output_lexer.ml: output_lexer.mll
-	ocamllex output_lexer.mll
-
-output_parser.mli output_parser.ml: output_parser.mly
-	$(PARSER) output_parser.mly 
-
-ord.ml: ord.sh output_parser.mli
-	sh ord.sh
+CPP=clang -E -D __extension__= -D __restrict= -D __const=const -D __attribute__\(x\)= -D __asm__\(x\)= -D __PRETTY_FUNCTION__=__FILE__ -I $(SIMPLEDMC)/dest -I $(SIMPLEDMC)/dest/gcc/debug_dump -D DSFMT_MEXP=19937 -D __inline__=inline -D _Nullable= -D__asm\(x\)=
 
 clean:
 	rm -f output_lexer.ml output_parser.mli output_parser.ml outputparser outputparser.top ord.ml *.cm? *.o
 
-leftest: output_parser
-	env OCAMLRUNPARAM=b K_HISTORY=string T_STRING=string QSTRING=string NUMBER=float ./output_parser lef.output
-ctest: output_parser
-	env OCAMLRUNPARAM=b STRING=string IDENTIFIER=string CONSTANT=float ./output_parser c-parse.output
-
 MENHIRFLAGS=#--trace
-
-lef_file: lef_file_edited.cmo lef_file_lex.ml lef_file_main.ml
-	ocamlc -g -o $@ lef_file_edited.cmo lef_file_lex.ml lef_file_main.ml
-
-lef_file.top: lef_file_edited.cmo lef_file_lex.ml lef_file_main.ml
-	ocamlmktop -g -o $@ lef_file_edited.cmo lef_file_lex.ml lef_file_main.ml
-
-lef_file_lex.ml: lef_file_lex.mll
-	ocamllex $<
-
-lef_file_edited.cmo: lef_file_edited.mly
-	menhir $(MENHIRFLAGS) $<
-	ocamlc -g -c lef_file_edited.mli lef_file_edited.ml
-
-Program: Program_edited.cmo Program_types.ml Program_lex.ml Program_main.ml
-	ocamlc -g -o $@ Program_edited.cmo Program_types.ml Program_lex.ml Program_main.ml
-
-Program.top: Program_edited.cmo Program_types.ml Program_lex.ml Program_main.ml
-	ocamlmktop -g -o $@ Program_edited.cmo Program_types.ml Program_lex.ml Program_main.ml
-
-Program_lex.ml: Program_lex.mll
-	ocamllex $<
-
-Program_edited.cmo: Program_edited.mly
-	menhir $(MENHIRFLAGS) $<
-	ocamlc -g -c Program_edited.mli Program_types.ml Program_edited.ml
 
 ############################################################################
 
@@ -87,33 +41,14 @@ lex.yy.c: ansic.l
 
 ansitest: Translation_unit_list.mly
 
-Translation_unit_list.mly: ansic convert.i dSFMT.i dump.i dynamics.i kernel.i main.i support.i output_parser Translation_unit_list_78
-	-./ansic <kernel.i >& kernel.log
+Translation_unit_list.mly: ansic output_parser Translation_unit_list_78
 	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string CONSTANT=string TYPE_NAME=string ./output_parser y.output
 
-convert.i: ../simpleDMC_restructure/src/convert.c
-	$(CPP) $< | $(SED) >$@
-
-dSFMT.i: ../simpleDMC_restructure/src/dSFMT.c
-	$(CPP) $< | $(SED) >$@
-
-dump.i: ../simpleDMC_restructure/src/dump.c
-	$(CPP) $< | $(SED) >$@
-
-dynamics.i: ../simpleDMC_restructure/src/dynamics.c
-	$(CPP) $< | $(SED) >$@
-
-kernel.i: ../simpleDMC_restructure/src/kernel.c
-	$(CPP) $< | $(SED) >$@
-
-main.i: ../simpleDMC_restructure/src/main.c
-	$(CPP) $< | $(SED) >$@
-
-support.i: ../simpleDMC_restructure/src/support.c
+%.i: $(SIMPLEDMC)/src/%.c
 	$(CPP) $< | $(SED) >$@
 
 Translation_unit_list: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_foreign.cmo Translation_unit_list_main.cmo
-	 ocamlc -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_foreign.cmo Translation_unit_list_main.cmo
+	 ocamlc.opt -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_foreign.cmo Translation_unit_list_main.cmo
 
 Translation_unit_list.top: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo  Translation_unit_list_foreign.cmo Translation_unit_list_main.cmo
 	 ocamlmktop -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_foreign.cmo Translation_unit_list_main.cmo
@@ -125,19 +60,19 @@ Translation_unit_list.mli Translation_unit_list.ml: Translation_unit_list.mly Tr
 #	ocamlyacc $<
 	menhir $(MENHIRFLAGS) $<
 	echo 'val declst : (token * token) list ref' >> Translation_unit_list.mli
-	ocamlc -g -c Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
+	ocamlc.opt -g -c Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
 
-parsetest: Translation_unit_list Translation_unit_list.top convert.i dSFMT.i dump.i dynamics.i kernel.i main.i support.i
-	env OCAMLRUNPARAM=b TRANS_MAIN=testGaussian ./Translation_unit_list convert.i dSFMT.i dynamics.i kernel.i main.i support.i dump.i >mykernel_test.c
+parsetest: Translation_unit_list Translation_unit_list.top $(DMCFILES)
+	env OCAMLRUNPARAM=b TRANS_MAIN=testGaussian ./Translation_unit_list $(DMCFILES) >mykernel_test.c
 
-parsemain: Translation_unit_list Translation_unit_list.top convert.i dSFMT.i dump.i dynamics.i kernel.i main.i support.i
-	env OCAMLRUNPARAM=b TRANS_MAIN=main ./Translation_unit_list convert.i dSFMT.i dynamics.i kernel.i main.i support.i dump.i >mykernel_main.c
+parsemain: Translation_unit_list Translation_unit_list.top $(DMCFILES)
+	env OCAMLRUNPARAM=b TRANS_MAIN=main ./Translation_unit_list $(DMCFILES) >mykernel_main.c
 
 %.cmi: %.mli
-	ocamlc -g -c $<
+	ocamlc.opt -g -c $<
 
 %.cmo: %.ml
-	ocamlc -g -c $<
+	ocamlc.opt -g -c $<
 
 depend:
 	ocamldep *.ml >.depend

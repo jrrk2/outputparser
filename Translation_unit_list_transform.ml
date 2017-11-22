@@ -349,6 +349,7 @@ let rec dumparg refs = function
 | TUPLE2((VOID|CHAR|INT|DOUBLE) as typ, (TUPLE3 (IDENTIFIER _, LBRACK, RBRACK) as array)) -> dumptyp refs typ^" "^dumptyp refs array
 | TUPLE2(TUPLE2(CONST, ((CHAR|INT|DOUBLE) as typ)), STAR) -> "const "^dumptyp refs typ^" *"
 | TUPLE2(TUPLE2(UNSIGNED, INT) as typ, IDENTIFIER arg) -> dumptyp refs typ^" "^arg
+| TUPLE2(CHAR, TUPLE2(STAR, (TUPLE3 (IDENTIFIER _, LBRACK, RBRACK) as array))) -> "char * "^dumptyp refs array
 | TUPLE2(ty, p) -> "/* 339 */"^dumptyp refs ty^" "^Translation_unit_list_filt.dumptree p
 | ty -> dumptyp refs ty
 
@@ -357,15 +358,16 @@ let rec dumpc refs = function
 | IDENTIFIER id as s -> let _ = lmark refs s in id
 | STRING_LITERAL str -> str
 | TUPLE2 (STAR, IDENTIFIER ptr) -> " *"^ptr
+| TUPLE2 (TILDE, expr) -> " ~"^dumpc refs expr
 | TUPLE2 (RETURN, SEMICOLON) -> "return;"
 | TUPLE2 (CONTINUE, SEMICOLON) -> "continue;"
-| TUPLE3 ((VOID|CHAR|INT|DOUBLE|TUPLE2 (CONST, CHAR)|TYPE_NAME _) as typ, TLIST lst, SEMICOLON) ->
+| TUPLE3 ((VOID|BOOL|CHAR|INT|DOUBLE|TUPLE2 (CONST, CHAR)|TYPE_NAME _) as typ, TLIST lst, SEMICOLON) ->
     String.concat ";\n\t" (List.map (fun itm -> dumptyp refs typ^" "^dumpc refs itm) lst)^";"
-| TUPLE3 ((VOID|CHAR|INT|DOUBLE|TUPLE2 (CONST, CHAR)|TYPE_NAME _) as typ, ptr, SEMICOLON) -> dumptyp refs typ^" "^dumpc refs ptr^";"
+| TUPLE3 ((VOID|BOOL|CHAR|INT|DOUBLE|TUPLE2 (CONST, CHAR)|TYPE_NAME _) as typ, ptr, SEMICOLON) -> dumptyp refs typ^" "^dumpc refs ptr^";"
 | TUPLE3 (LPAREN, expr, RPAREN) -> "("^dumpc refs expr^")"
 | TUPLE5 (expr, QUERY, expr1, COLON, expr2) -> dumpc refs expr^" ? "^dumpc refs expr1^" : "^dumpc refs expr2
-| TUPLE4 (LPAREN, ((VOID|CHAR|INT|DOUBLE) as typ), RPAREN, expr) -> "("^dumptyp refs typ^") "^dumpc refs expr
-| TUPLE4 (LPAREN, (TUPLE2 ((VOID|CHAR|INT|DOUBLE|TYPE_NAME _), STAR) as typ), RPAREN, expr) -> "("^dumptyp refs typ^") "^dumpc refs expr
+| TUPLE4 (LPAREN, ((VOID|BOOL|CHAR|INT|DOUBLE) as typ), RPAREN, expr) -> "("^dumptyp refs typ^") "^dumpc refs expr
+| TUPLE4 (LPAREN, (TUPLE2 ((VOID|BOOL|CHAR|INT|DOUBLE|TYPE_NAME _), STAR) as typ), RPAREN, expr) -> "("^dumptyp refs typ^") "^dumpc refs expr
 | TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN) -> fmark refs fn; fn^"()"
 | TUPLE4 (IDENTIFIER fn, LPAREN, args, RPAREN) ->
     fmark refs fn;
@@ -375,6 +377,7 @@ let rec dumpc refs = function
 | TUPLE2 (HYPHEN, rght) -> "-"^dumpc refs rght
 | TUPLE2 (PLING, rght) -> "!"^dumpc refs rght
 | TUPLE2 (STAR, rght) -> "*"^dumpc refs rght
+| TUPLE2 (SIZEOF, rght) -> "sizeof("^dumpc refs rght^")"
 | TUPLE3 (lft, EQ_OP, rght) -> dumpc refs lft^"=="^dumpc refs rght
 | TUPLE3 (lft, NE_OP, rght) -> dumpc refs lft^"!="^dumpc refs rght
 | TUPLE3 (lft, GE_OP, rght) -> dumpc refs lft^">="^dumpc refs rght
@@ -391,6 +394,8 @@ let rec dumpc refs = function
 | TUPLE3 (lft, VBAR, rght) -> dumpc refs lft^" | "^dumpc refs rght
 | TUPLE3 (lft, CARET, rght) -> dumpc refs lft^" ^ "^dumpc refs rght
 | TUPLE3 (lft, AMPERSAND, rght) -> dumpc refs lft^" & "^dumpc refs rght
+| TUPLE3 (lft, OR_OP, rght) -> dumpc refs lft^" || "^dumpc refs rght
+| TUPLE3 (lft, AND_OP, rght) -> dumpc refs lft^" && "^dumpc refs rght
 | TUPLE5 (IF, LPAREN, cond, RPAREN, then') -> "if ("^dumpc refs cond^") "^dumpc refs then'
 | TUPLE3 (LBRACE, body, RBRACE) -> "\n\t{\n\t"^dumpc refs body^"\n\t}\n"
 | TLIST lst -> String.concat "\n" (List.map (dumpc refs) lst)
@@ -407,12 +412,12 @@ let rec dumpc refs = function
 | TUPLE3 (IDENTIFIER str, PTR_OP, IDENTIFIER memb) -> smark true refs str; str^"->"^memb
 | TUPLE4 (SIZEOF, LPAREN, typ, RPAREN) -> "sizeof("^dumptyp refs typ^")"
 | TUPLE2 (AMPERSAND, compound) -> "&"^dumpc refs compound
-| TUPLE7 (FOR, LPAREN, TUPLE3 (typ, initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ("^dumptyp refs typ^" "^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body
-| TUPLE7 (FOR, LPAREN, TUPLE2 (initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "for ( "^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^")\n\t{ "^dumpc refs body^" }\n"
-| TUPLE7 (FOR, LPAREN, SEMICOLON, TUPLE2 (condition, SEMICOLON), inc, RPAREN, TUPLE3 (LBRACE, body, RBRACE)) -> "for ( ; "^dumpc refs condition^"; "^dumpc refs inc^")\n\t{ "^dumpc refs body^" }\n"
-
+| TUPLE7 (FOR, LPAREN, TUPLE3 (typ, initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "{for ("^dumptyp refs typ^" "^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^") "^dumpc refs body^"}\n"
+| TUPLE7 (FOR, LPAREN, TUPLE2 (initial, SEMICOLON), TUPLE2 (condition, SEMICOLON), inc, RPAREN, body) -> "{for ( "^dumpc refs initial^"; "^dumpc refs condition^"; "^dumpc refs inc^")\n\t{ "^dumpc refs body^" }}\n"
+| TUPLE7 (FOR, LPAREN, SEMICOLON, TUPLE2 (condition, SEMICOLON), inc, RPAREN, TUPLE3 (LBRACE, body, RBRACE)) -> "{for ( ; "^dumpc refs condition^"; "^dumpc refs inc^")\n\t{ "^dumpc refs body^" }}\n"
 | TUPLE7 (IF, LPAREN, expr, RPAREN, then', ELSE, else') -> "if ("^dumpc refs expr^") "^dumpc refs then'^" else "^dumpc refs else'
 | TUPLE2 (lvalue, INC_OP) -> dumpc refs lvalue^"++"
+| TUPLE2 (lvalue, DEC_OP) -> dumpc refs lvalue^"--"
 | TUPLE3 (RETURN, arg, SEMICOLON) -> "return "^dumpc refs arg^"; "
 | TUPLE3 (lvalue, ADD_ASSIGN, expr) -> dumpc refs lvalue^"+="^dumpc refs expr
 | TUPLE3 (lvalue, SUB_ASSIGN, expr) -> dumpc refs lvalue^"-="^dumpc refs expr
@@ -426,6 +431,26 @@ let rec dumpc refs = function
 | TUPLE3 (lft, COMMA, rght) -> dumpc refs lft^", "^dumpc refs rght
 | TUPLE3 (lft, PTR_OP, rght) -> dumpc refs lft^"->"^dumpc refs rght
 | TUPLE3 (TUPLE4 (lft, LBRACK, expr, RBRACK), DOT, IDENTIFIER field) -> dumpc refs lft^"["^dumpc refs expr^"]."^field
+| TUPLE3 (TUPLE4 (UNION, LBRACE, TLIST lst, RBRACE), IDENTIFIER u, SEMICOLON) ->
+   "union { "^String.concat "\n\t" (List.map (dumpc refs) lst)^" } "^u^";"
+| TUPLE4 (LPAREN, TYPE_NAME name_t, RPAREN, expr) -> "("^name_t^")"^dumpc refs expr
+| TUPLE3 (TUPLE2 (LONG, LONG), TUPLE3 (IDENTIFIER lhs, EQUALS, rhs), SEMICOLON) ->
+   "long long "^lhs^" = "^dumpc refs rhs^";"
+| TUPLE3 (TUPLE4 (UNION, LBRACE, TLIST lst, RBRACE), TUPLE3 (IDENTIFIER u, EQUALS, expr), SEMICOLON) ->
+   "union { "^String.concat "\n\t" (List.map (dumpc refs) lst)^" } "^u^" = "^dumpc refs expr^";"
+| TUPLE3 (IDENTIFIER id, LBRACK, RBRACK) -> id^"[]"
+| TUPLE5 (SWITCH, LPAREN, swexpr, RPAREN, TUPLE3 (LBRACE, TLIST lst, RBRACE)) ->
+   "switch("^dumpc refs swexpr^") {"^String.concat "\n\t" (List.map (dumpc refs) lst)^" }"
+| TUPLE4 (CASE, cexpr, COLON, stmt) -> "case "^dumpc refs cexpr^": "^dumpc refs stmt
+| TUPLE3 (DEFAULT, COLON, stmt) -> "default: "^dumpc refs stmt
+| TUPLE7 (DO, TUPLE3 (LBRACE, TLIST lst, RBRACE), WHILE, LPAREN, doexpr, RPAREN, SEMICOLON) ->
+   "do { "^String.concat "\n\t" (List.map (dumpc refs) lst)^" } while ("^dumpc refs doexpr^");"
+| TUPLE5 (WHILE, LPAREN, whexpr, RPAREN, TUPLE3 (LBRACE, TLIST lst, RBRACE)) ->
+   "while ("^dumpc refs whexpr^") { "^String.concat "\n\t" (List.map (dumpc refs) lst)^" };"
+| TUPLE6 (LPAREN, TYPE_NAME name_t, RPAREN, LBRACE, cexpr, RBRACE) ->
+   "("^name_t^") {"^dumpc refs cexpr^"} "
+| TUPLE2 (TUPLE2 (STAR, CONST), TUPLE3 (IDENTIFIER ty, LBRACK, RBRACK)) -> "* const "^ty^"[] "
+| TUPLE2 (LBRACE, RBRACE) -> "{ }"
 | oth -> "/* 416 */"^Translation_unit_list_filt.dumptree oth
 
 and adump refs = function
@@ -544,11 +569,13 @@ let bodylst = ref []
 let bodylst' = ref []
 let rec dump_body refs = function
 | CONSTANT str -> str
+| STRING_LITERAL str -> str
 | TUPLE2 (HYPHEN, CONSTANT str) -> "-"^str
 | TLIST [TUPLE2 (TUPLE2 (DOT, IDENTIFIER field), EQUALS); CONSTANT num] -> "."^field^"="^num    
 | TLIST (TUPLE2 (TUPLE2 (DOT, IDENTIFIER field), EQUALS) ::
         TUPLE3 (LBRACE, TLIST lst, RBRACE) :: []) ->
      "."^field^"={"^String.concat ",\n\t" (List.map (dump_body refs) lst)^" }"
+| TUPLE2 (TUPLE2 (DOT, IDENTIFIER field), EQUALS) -> "."^field^"= "
 | TUPLE2 (TUPLE2 (TUPLE2 (DOT, IDENTIFIER field), EQUALS), rslt) -> "."^field^"= "^dump_body refs rslt
 | TUPLE3 (LBRACE, TLIST
     (TUPLE2 (TUPLE2 (DOT, IDENTIFIER field), EQUALS) :: TUPLE3 (LBRACE, TLIST clst, RBRACE) :: []), RBRACE) ->

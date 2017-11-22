@@ -29,7 +29,10 @@ let _ = if Array.length Sys.argv > 1 then
       let refs = frefs() in
       let main = try Sys.getenv "TRANS_MAIN" with _ -> "main" in 
       let needed = dump parse refs stdout main Sys.argv in
+(*
       let chan = open_out "mykernel.c" in
       Translation_unit_list_foreign.dump parse chan needed;
       close_out chan;
+ *)
+      ()
     end

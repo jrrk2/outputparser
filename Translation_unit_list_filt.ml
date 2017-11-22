@@ -142,6 +142,8 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
    loc := 18; _externs nam (TUPLE2(typ,STAR))
 | TUPLE3 (TUPLE2 (EXTERN, typ), TLIST tlst, SEMICOLON) -> List.iter (function
     | TUPLE2(STAR, IDENTIFIER id) -> loc := 19; _externs id (TUPLE2(typ,STAR))
+    | IDENTIFIER id -> loc := 38; _externs id typ
+    | TUPLE4 (IDENTIFIER id, LBRACK, IDENTIFIER id', RBRACK) -> loc := 39; _externs id (TUPLE2(typ,IDENTIFIER id'))
     | oth -> failtree oth) tlst
 | TUPLE3
   (typ,
