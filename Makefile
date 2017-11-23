@@ -23,6 +23,18 @@ DMCFILES=dSFMT.i main.i Orbital.i position.i support.i System.i Walker.i walkthe
 SED=sed -e 's=\^ _Nonnull=* =g' -e 's=\* _Nonnull=* =g'
 CPP=clang -E -D __extension__= -D __restrict= -D __const=const -D __attribute__\(x\)= -D __asm__\(x\)= -D __PRETTY_FUNCTION__=__FILE__ -I $(SIMPLEDMC)/dest -I $(SIMPLEDMC)/dest/gcc/debug_dump -D DSFMT_MEXP=19937 -D __inline__=inline -D _Nullable= -D__asm\(x\)=
 
+output_parser: output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
+	ocamlopt -g -o $@ output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
+
+output_lexer.ml: output_lexer.mll
+	ocamllex output_lexer.mll
+
+output_parser.mli output_parser.ml: output_parser.mly
+	$(PARSER) output_parser.mly 
+
+ord.ml: ord.sh output_parser.mli
+	sh ord.sh
+
 clean:
 	rm -f output_lexer.ml output_parser.mli output_parser.ml outputparser outputparser.top ord.ml *.cm? *.o
 
