@@ -270,7 +270,8 @@ let empty_refs () = {brefs=ref [];erefs=ref [];frefs=ref [];grefs=ref [];
 		ttab=Hashtbl.create 257;utab=Hashtbl.create 257}
 
 let typerrlst = ref []
-
+let markfile = open_out "markfile"
+  
 let emark' lev refs key k = function
   | IDENTIFIER e when e=key ->
     setlevel key lev;
@@ -325,7 +326,7 @@ let umark lev refs str =
 let tmark lev' refs str =
   let lev = lev' + 2 in
   setlevel str lev;
-  prerr_endline ("tmark "^str^":"^string_of_int lev);
+  output_string markfile ("tmark "^str^":"^string_of_int lev^"\n");
   if not (List.mem str !(refs.trefs)) then
     begin
     refs.trefs := str :: !(refs.trefs)
@@ -524,12 +525,15 @@ if simplify && is_int cexpr then
     cdumplst := (cexpr,rslt) :: !cdumplst; string_of_int rslt)
 else dumpc lev refs cexpr
 
-let edump' refs str fields =
+let edump' lev refs str fields =
     "enum "^str^"\n\t{\n\t"^String.concat "/* 494 */,\n\t" (List.map (function
-      | IDENTIFIER field -> field
-      | oth -> "/* 473 */"^Translation_unit_list_filt.dumptree oth) fields)^"\n\t} "
+    | IDENTIFIER field ->
+       emark lev refs (IDENTIFIER field);
+      field
+    | oth -> "/* 473 */"^Translation_unit_list_filt.dumptree oth) fields)^"\n\t} "
 
 let sdump' lev refs str fields =
+  smark lev true refs str;
     "struct "^str^"\n\t{\n\t"^String.concat "/* 499 */\n\t" (List.map (function
       | TUPLE3 (TUPLE2 (STRUCT, IDENTIFIER str), TUPLE2 (STAR, IDENTIFIER field), SEMICOLON) ->
            smark lev false refs str; "struct "^str^" *"^field^";"
@@ -548,6 +552,7 @@ let sdump' lev refs str fields =
       | oth -> "/* 491 */"^Translation_unit_list_filt.dumptree oth) fields)^"\n\t} "
 
 let udump' lev refs str fields =
+  umark lev refs str;
     "union "^str^"\n\t{\n\t"^String.concat "/* 527 */\n\t" (List.map (function
       | TUPLE3 (typ, IDENTIFIER field, SEMICOLON) ->
            dumptyp lev refs typ^" "^field^";"
@@ -626,7 +631,7 @@ let rec alldump lev refs key = function
       refs.ftab, ("\n"^dumptyp lev refs typ^" "^key^"("^String.concat "/* 679 */, " (List.map (dumparg lev refs) paramlst)^");\n")
    | E body->
       refs.etab, (match body with
-      | TUPLE5 (ENUM, IDENTIFIER str, LBRACE, TLIST fields, RBRACE) -> (edump' refs str fields)
+      | TUPLE5 (ENUM, IDENTIFIER str, LBRACE, TLIST fields, RBRACE) -> (edump' lev refs str fields)
       | TUPLE3 (IDENTIFIER e, EQUALS, CONSTANT n) -> "enum "^key^" {"^e^"="^n^"};\n"
       | TUPLE2 (STRUCT, TYPE_NAME nam) -> "struct "^nam^";\n"
       | TUPLE2 (TYPE_NAME typ, IDENTIFIER id) -> typ^" "^id^";\n"
@@ -635,7 +640,7 @@ let rec alldump lev refs key = function
    | T body ->
       refs.ttab, (match body with
        | TUPLE5 (ENUM, IDENTIFIER str, LBRACE, TLIST fields, RBRACE) -> 
-          ("typedef "^edump' refs str fields^key^";\n")
+          ("typedef "^edump' lev refs str fields^key^";\n")
        | TUPLE5 (STRUCT, IDENTIFIER str, LBRACE, TLIST fields, RBRACE) ->
           ("typedef "^sdump' lev refs str fields^key^";\n")
        | TUPLE5 (STRUCT, IDENTIFIER str, LBRACE, field, RBRACE) ->
@@ -694,7 +699,7 @@ let rec setlev maxlev lev0 refs = function
       end
 	
 let print_uniq chan i ch str (lev,_,itm) =
-  if i = lev && itm <> "//\n" then
+  if i = level str && itm <> "//\n" then
     begin
       if !verbose then
         output_string chan ("/* "^String.make 1 ch^string_of_int lev^":"^str^" */\n"^itm)
@@ -708,6 +713,7 @@ let dump parse refs chan main argv =
   for i = 1 to Array.length argv - 1 do rslts := getrslt parse argv.(i) :: !rslts; done;
   prerr_endline "*/";
   let maxlev = ref 0 in
+  setlev maxlev 0 refs [main];
   setlev maxlev 0 refs [main];
   let needed = ref [] in
   for i = !maxlev downto 0 do
