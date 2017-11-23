@@ -26,7 +26,7 @@ let parse arg =
 
 let _ = if Array.length Sys.argv > 1 then
     begin
-      let refs = frefs() in
+      let refs = empty_refs() in
       let main = try Sys.getenv "TRANS_MAIN" with _ -> "main" in 
       let needed = dump parse refs stdout main Sys.argv in
 (*

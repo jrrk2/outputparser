@@ -206,4 +206,14 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
 	  TUPLE3 (TUPLE3 (IDENTIFIER array, LBRACK, RBRACK), EQUALS,
 		  TUPLE4 (LBRACE, TLIST lst, COMMA, RBRACE)), SEMICOLON) ->
    loc := 43; _globals array (TUPLE3 (typ, TUPLE3 (IDENTIFIER array, LBRACK, RBRACK), TLIST lst))
+| TUPLE3 (typ, (TUPLE3 (TUPLE4 (IDENTIFIER array, LBRACK, CONSTANT len, RBRACK), EQUALS, _) as shape), SEMICOLON) ->
+   loc := 44; _globals array (TUPLE2 (typ, shape))
+| TUPLE3 (typ, (TUPLE3 (IDENTIFIER id, EQUALS, _) as shape), SEMICOLON) ->
+   loc := 45; _globals id (TUPLE2 (typ, shape))
+| TUPLE3 (typ, (TLIST (IDENTIFIER id :: tl) as shape), SEMICOLON) ->
+   loc := 46; _globals id (TUPLE2 (typ, shape))
+| TUPLE3 (typ, IDENTIFIER id, SEMICOLON) ->
+   loc := 47; _globals id (TUPLE2 (typ, IDENTIFIER id))
+| TUPLE3 (typ, (TUPLE4 (IDENTIFIER array, LBRACK, len, RBRACK) as shape), SEMICOLON) ->
+   loc := 48; _globals array (TUPLE2 (typ, shape))
 | oth -> errlst := oth :: !errlst
