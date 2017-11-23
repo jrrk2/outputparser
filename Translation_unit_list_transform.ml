@@ -3,6 +3,17 @@ open Translation_unit_list
 open Translation_unit_list_types
 open Translation_unit_list_lex
 
+type citm =
+  | B of token*token list*token list
+  | E of token
+  | F of token*token list
+  | G of token
+  | I of (token*token)
+  | L of (token*token list*token list)
+  | S of token list
+  | T of token
+  | U of token list
+	   
 let verbose = ref false
 
 let rec findlst2 = function
@@ -49,11 +60,11 @@ let rec search fn = function
 
 let othlst = ref []
 let enums = Hashtbl.create 257
-let externs = Hashtbl.create 257
-let structs = Hashtbl.create 257
+let (externs:(string, citm) Hashtbl.t) = Hashtbl.create 257
+let (structs:(string, citm) Hashtbl.t) = Hashtbl.create 257
 let unions = Hashtbl.create 257
-let ftypes = Hashtbl.create 257
-let typedefs = Hashtbl.create 257
+let (ftypes:(string, citm) Hashtbl.t) = Hashtbl.create 257
+let (typedefs:(string, citm) Hashtbl.t) = Hashtbl.create 257
 let inlines = Hashtbl.create 257
 let globals = Hashtbl.create 257
 let inits = Hashtbl.create 257
@@ -63,7 +74,7 @@ let redeflst = ref []
 
 let ty_lookup ty =
   if Hashtbl.mem typedefs ty then
-    Hashtbl.find typedefs ty
+    let typ = match Hashtbl.find typedefs ty with T typ -> typ in typ
   else
     STRING_LITERAL (string_of_int (Hashtbl.hash ty)) (* make a unique incompatible result *)
 
@@ -73,93 +84,99 @@ let rec ty_incompat = function
 | (ty', TUPLE2 (EXTERN, ty'')) -> ty_incompat (ty', ty'')
 | (oldt,typ) -> oldt <> typ
 
+let hashmem hash key =
+  Hashtbl.mem hash key
+
+let hashadd (hash:(string, citm) Hashtbl.t) key (defn:citm) =
+    Hashtbl.add hash key defn
+
 let _globals key typ =
-  if Hashtbl.mem globals key then
+  if hashmem globals key then
     begin
-    let old = Hashtbl.find globals key in
-    if old <> typ then (redeflst := ('g',key) :: !redeflst;Hashtbl.add globals key typ)
+    match Hashtbl.find globals key with G old ->
+    if old <> typ then (redeflst := ('g',key) :: !redeflst;hashadd globals key (G typ))
     end
-  else Hashtbl.add globals key typ
+  else hashadd globals key (G typ)
 
 let _fbody key (typ,params,body) =
   if false then assert(key <> "xcalloc");
-  if Hashtbl.mem fbody key then
+  if hashmem fbody key then
       begin
       assert(key <> "get_idstring");
       redeflst := ('b',key) :: !redeflst;
-      Hashtbl.add fbody key (typ,params,body);
+      hashadd fbody key (B (typ,params,body))
       end
-  else Hashtbl.add fbody key (typ,params,body)
+  else hashadd fbody key (B (typ,params,body))
 
 let _structs key params =
   if params <> [] then
     begin
-    if Hashtbl.mem structs key then
+    if hashmem structs key then
        begin
-       let old = Hashtbl.find structs key in
+       match Hashtbl.find structs key with S old ->
        if old <> params then (
 	   redeflst := ('s',key) :: !redeflst;
-	   Hashtbl.add structs key params)
+	   hashadd structs key (S params))
        end
-     else Hashtbl.add structs key params
+     else hashadd structs key (S params)
      end
 
 let _enums key enumerations =
-  if Hashtbl.mem enums key then
+  if hashmem enums key then
     begin
-    let old = Hashtbl.find enums key in
-    if old <> enumerations then (redeflst := ('e',key) :: !redeflst;Hashtbl.add enums key enumerations)
+    match Hashtbl.find enums key with E old ->
+    if old <> enumerations then (redeflst := ('e',key) :: !redeflst;hashadd enums key (E enumerations))
     end
-  else Hashtbl.add enums key enumerations
+  else hashadd enums key (E enumerations)
 
 let _ftypes key (typ,params) =
-  if Hashtbl.mem ftypes key then
+  if hashmem ftypes key then
     begin
-    let (oldt,oldp) = Hashtbl.find ftypes key in
-    if ty_incompat (oldt, typ) || oldp <> params then (redeflst := ('T',key) :: !redeflst;Hashtbl.add ftypes key (typ,params))
+    match Hashtbl.find ftypes key with F (oldt,oldp) ->
+    if ty_incompat (oldt, typ) || oldp <> params then (redeflst := ('T',key) :: !redeflst;hashadd ftypes key (F (typ,params)))
     end
-  else Hashtbl.add ftypes key (typ,params)
+  else hashadd ftypes key (F(typ,params))
 
 let _typedefs key typedef =
-  if Hashtbl.mem typedefs key then
+  if hashmem typedefs key then
     begin
-    let old = Hashtbl.find typedefs key in
+    match Hashtbl.find typedefs key with T old ->
     if ty_incompat (old, typedef) then (
         redeflst := ('t',key) :: !redeflst;
         assert(key<>"va_list");
-        Hashtbl.add typedefs key typedef)
+        hashadd typedefs key (T typedef))
     end
-  else Hashtbl.add typedefs key typedef
+  else hashadd typedefs key (T typedef)
 
 let _externs key typ =
-  if Hashtbl.mem externs key then
+  if hashmem externs key then
     begin
-    let old = Hashtbl.find externs key in
-    if old <> typ then (redeflst := ('x',key) :: !redeflst; Hashtbl.add externs key typ)
+    match Hashtbl.find externs key with E old ->
+    if old <> typ then (redeflst := ('x',key) :: !redeflst; hashadd externs key (E typ))
     end
-  else Hashtbl.add externs key typ
+  else hashadd externs key (E typ)
 
 let _unions key ulst =
-  if Hashtbl.mem unions key then
+  if hashmem unions key then
     begin
-    let old = Hashtbl.find unions key in
-    if old <> ulst then (redeflst := ('u',key) :: !redeflst; Hashtbl.add unions key ulst)
+    match Hashtbl.find unions key with U old ->
+    if old <> ulst then (redeflst := ('u',key) :: !redeflst; hashadd unions key (U ulst))
     end
-  else Hashtbl.add unions key ulst
+  else hashadd unions key (U ulst)
 
 let _inlines key (typ,params,body) =
-  if Hashtbl.mem inlines key then
+  if hashmem inlines key then
     begin
-    let old = Hashtbl.find inlines key in
+    match Hashtbl.find inlines key with L old ->
     if old <> (typ,params,body) then (
-	redeflst := ('I',key) :: !redeflst;
-	Hashtbl.add inlines key (typ,params,body))
+	redeflst := ('L',key) :: !redeflst;
+	hashadd inlines key (L (typ,params,body)))
     end
-  else Hashtbl.add inlines key (typ,params,body)
+  else hashadd inlines key (L (typ,params,body))
 
 let _inits key (typ,num) =
-  if Hashtbl.mem inits key then redeflst := ('i', key) :: !redeflst;
-  Hashtbl.add inits key (typ,num)
+  if hashmem inits key then redeflst := ('i', key) :: !redeflst;
+  hashadd inits key (I (typ,num))
 
 let nxtlst = ref []
 let errlst = ref []
@@ -186,7 +203,7 @@ let getrslt parse arg =
 	let typlst = ref [] in
 	Hashtbl.iter (fun k _ -> typlst := k :: !typlst) typedefs;
         Printf.fprintf stderr
-"Types=%d, Fun=%d, ext=%d, enum=%d, struc=%d, union=%d, ftyp=%d, type=%d, unrecog=%d, redef=%d\n"
+"Types=%d, Fun=%d, ext=%d, enum=%d, struc=%d, union=%d, ftyp=%d, unrecog=%d, redef=%d\n"
 (List.length !typlst)
 (List.length !fnlst)
 (List.length !extlst)
@@ -194,7 +211,6 @@ let getrslt parse arg =
 (List.length !structlst)
 (List.length !unionlst)
 (List.length !ftyplst)
-(List.length !typlst)
 (List.length !errlst)
 (List.length !redeflst);
 flush stderr;
@@ -243,8 +259,8 @@ let emark' refs key k = function
 let emark refs = function
   | IDENTIFIER key ->
     Hashtbl.iter (fun k x -> match x with
-      | TUPLE3 (e, EQUALS, CONSTANT _) -> emark' refs key k e
-      | TLIST lst -> List.iter (emark' refs key k) lst
+      | E (TUPLE3 (e, EQUALS, CONSTANT _)) -> emark' refs key k e
+      | E (TLIST lst) -> List.iter (emark' refs key k) lst
       | oth -> ()) enums;
     false
   | oth -> false
@@ -290,7 +306,7 @@ let rec is_enum id = function
 let rec is_int = function
 | CONSTANT n -> (try let _ = int_of_string n in true with _ -> false)
 | IDENTIFIER id -> let found = ref false in
-    Hashtbl.iter (fun _ x -> if is_enum id x then found := true) enums;
+    Hashtbl.iter (fun _ x -> match x with E x -> if is_enum id x then found := true) enums;
     !found
 | TUPLE3 (LPAREN, cexpr, RPAREN) -> is_int cexpr
 | TUPLE3 (lft, (PLUS|HYPHEN|STAR|SLASH), rght) when is_int lft && is_int rght -> true
@@ -299,7 +315,7 @@ let rec is_int = function
 let rec cexpr_as_int = function
 | CONSTANT n -> int_of_string n
 | IDENTIFIER id -> let found = ref None in
-    Hashtbl.iter (fun _ x -> as_enum found id x) enums;
+    Hashtbl.iter (fun _ x -> match x with E x -> as_enum found id x) enums;
     let f = function Some x -> x | None -> failwith "Called cexpr_as_int on non-int" in f !found
 | TUPLE3 (LPAREN, cexpr, RPAREN) -> cexpr_as_int cexpr
 | TUPLE3 (lft, PLUS, rght) -> cexpr_as_int lft + cexpr_as_int rght
@@ -333,6 +349,10 @@ let rec dumptyp refs = function
 | TUPLE2 (typ,typ') -> dumptyp refs typ^" "^dumptyp refs typ'
 | TYPE_NAME nam -> tmark refs nam; nam^" "
 | TLIST lst -> String.concat " " (List.map (dumptyp refs) lst)^" "
+| TUPLE3 (TUPLE2 (CONST, DOUBLE), TUPLE3 (IDENTIFIER array, LBRACK, RBRACK), TLIST lst) ->
+   "const double "^array^"[] = {"^String.concat ",\n\t" (List.map (function
+								 | CONSTANT str -> str
+								 | oth -> Translation_unit_list_filt.dumptree oth) lst)^"};"
 | oth -> typerrlst := oth :: !typerrlst; "/* 357 */"^Translation_unit_list_filt.dumptree oth
 
 let rec dumparg refs = function
@@ -497,9 +517,9 @@ let sdump' refs str fields =
       | oth -> "/* 491 */"^Translation_unit_list_filt.dumptree oth) fields)^"\n\t} "
 
 let sdump refs key =
-  if Hashtbl.mem structs key then
+  if hashmem structs key then
     begin
-    let fields = Hashtbl.find structs key in sdump' refs key fields^";\n"
+    match Hashtbl.find structs key with S fields -> sdump' refs key fields^";\n"
     end
   else
     begin
@@ -515,9 +535,9 @@ let udump' refs str fields =
       | oth -> "/* 509 */"^Translation_unit_list_filt.dumptree oth) fields)^"\n\t} "
 
 let udump refs key =
-  if Hashtbl.mem unions key then
+  if hashmem unions key then
     begin
-    let fields = Hashtbl.find unions key in udump' refs key fields^";\n"
+    match Hashtbl.find unions key with U fields -> udump' refs key fields^";\n"
     end
   else
     begin
@@ -525,9 +545,9 @@ let udump refs key =
     end
 
 let edump refs key =
-  if Hashtbl.mem enums key then
+  if hashmem enums key then
     begin
-    let body = Hashtbl.find enums key in
+    match Hashtbl.find enums key with E body ->
     match body with
       | TUPLE5 (ENUM, IDENTIFIER str, LBRACE, TLIST fields, RBRACE) -> (edump' refs str fields)
       | TUPLE3 (IDENTIFIER e, EQUALS, CONSTANT n) -> "enum "^key^" {"^e^"="^n^"};\n"
@@ -539,9 +559,9 @@ let edump refs key =
     end
 
 let tdump refs key =
-  if Hashtbl.mem typedefs key then
+  if hashmem typedefs key then
     begin
-    let body = Hashtbl.find typedefs key in
+    match Hashtbl.find typedefs key with T body ->
     match body with
       | TUPLE5 (ENUM, IDENTIFIER str, LBRACE, TLIST fields, RBRACE) -> 
            ("typedef "^edump' refs str fields^key^";\n")
@@ -598,19 +618,19 @@ let rec dump_body refs = function
 
 let idumplst = ref []
 let idump refs key =
-  if Hashtbl.mem inits key then
+  if hashmem inits key then
     begin
-    let typ,body = Hashtbl.find inits key in
+    match Hashtbl.find inits key with I (typ,body) ->
     (match typ with
       | TYPE_NAME id_t -> tmark refs id_t; id_t^" "^key^"="^dump_body refs body^";\n"
       | TUPLE2 (DOUBLE, STAR) -> dumptyp refs typ^" "^key^"="^dump_body refs body^";\n"
       | INT -> dumptyp refs typ^" "^key^"="^dump_body refs body^";\n"
-      | DOUBLE -> dumptyp refs typ^" "^key^"["^cdump refs body^"]="^dump_body refs body^";\n"
+      | DOUBLE -> dumptyp refs typ^" "^key^"="^dump_body refs body^";\n"
       | oth -> "/* 595 */"^Translation_unit_list_filt.dumptree oth);
     end
-  else if Hashtbl.mem globals key then
+  else if hashmem globals key then
     begin
-    let typ = Hashtbl.find globals key in
+    match Hashtbl.find globals key with G typ ->
     (match typ with
       | TYPE_NAME id_t -> id_t^" "^key^";\n"
       | TUPLE2 (DOUBLE, STAR) -> dumptyp refs typ^" "^key^";\n"
@@ -628,28 +648,28 @@ let idump refs key =
   else "//\n"
 
 let rdump refs key =
-  if Hashtbl.mem typedefs key then tdump refs key
-  else if Hashtbl.mem enums key then edump refs key
-  else if Hashtbl.mem structs key then sdump refs key
-  else if Hashtbl.mem unions key then udump refs key
+  if hashmem typedefs key then tdump refs key
+  else if hashmem enums key then edump refs key
+  else if hashmem structs key then sdump refs key
+  else if hashmem unions key then udump refs key
   else "// rdump "^key^"\n"
 
 let fdump refs key =
-  if Hashtbl.mem fbody key then
+  if hashmem fbody key then
     begin
-    let (typ,paramlst,body) = Hashtbl.find fbody key in
+    match Hashtbl.find fbody key with B (typ,paramlst,body) ->
     ("\n"^dumptyp refs typ^" "^key^"("^String.concat ", " (List.map (dumparg refs) paramlst)^")\n{")^
     String.concat "\n" (List.map (fun itm -> (dumpc refs itm)) body)^"}\n";
     end
-  else if Hashtbl.mem inlines key then
+  else if hashmem inlines key then
     begin
-    let (typ,paramlst,body) = Hashtbl.find inlines key in
+    match Hashtbl.find inlines key with L (typ,paramlst,body) ->
     ("\n"^dumptyp refs typ^" "^key^"("^String.concat ", " (List.map (dumparg refs) paramlst)^")\n{")^
     String.concat "\n" (List.map (fun itm -> (dumpc refs itm)) body)^"}\n";
     end
-  else if Hashtbl.mem ftypes key then
+  else if hashmem ftypes key then
     begin
-    let (typ,paramlst) = Hashtbl.find ftypes key in
+    match Hashtbl.find ftypes key with F (typ,paramlst) ->
     ("\n"^dumptyp refs typ^" "^key^"("^String.concat ", " (List.map (dumparg refs) paramlst)^");\n");
     end
   else "// fdump "^key^"\n"
@@ -657,7 +677,7 @@ let fdump refs key =
 let rec setlev maxlev lev refs tab dump itmlst =
     if lev > !maxlev then maxlev := lev;
     let itm = List.hd itmlst in
-    let deps = if Hashtbl.mem tab itm then let (oldlev,deps,src) = Hashtbl.find tab itm in
+    let deps = if hashmem tab itm then let (oldlev,deps,src) = Hashtbl.find tab itm in
       begin
       Hashtbl.replace tab itm (max lev oldlev,deps,src);
       if !verbose then prerr_endline ("setlev loop over "^itm^" at level: "^string_of_int lev);
@@ -719,4 +739,4 @@ let dump parse refs chan main argv =
   Hashtbl.iter (print_uniq 'i' (idump refs)) refs.itab;
   Hashtbl.iter (print_uniq 'f' (fdump refs)) refs.ftab;
   done;
-  List.rev !needed
+  List.rev !needed, !rslts

@@ -195,5 +195,15 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
 | TUPLE3 (TUPLE2 (STATIC, typ), IDENTIFIER data, SEMICOLON) ->
     loc := 36; _globals data typ
 | TUPLE2 (TUPLE2 (TYPEDEF, TUPLE2 (TYPE_NAME "__gnuc_va_list" as typ, TYPE_NAME "va_list")), SEMICOLON) ->
-    loc := 37; _typedefs "va_list" typ
+   loc := 37; _typedefs "va_list" typ
+| TUPLE3 (typ, TUPLE3 (IDENTIFIER fn, LPAREN, RPAREN), SEMICOLON) ->
+   loc := 40; _ftypes fn (typ, [])
+| TUPLE3 (TUPLE2 (EXTERN, typ), TUPLE4 (IDENTIFIER fn, LBRACK, id, RBRACK), SEMICOLON) ->
+   loc := 41; _ftypes fn (typ, pcnv id)
+| TUPLE3 (TUPLE2 (EXTERN, typ), TUPLE2 ((TUPLE2 (STAR, STAR) as typ'), IDENTIFIER nam), SEMICOLON) ->
+   loc := 42; _externs nam (TUPLE2(typ,typ'))
+| TUPLE3 (TUPLE2 (STATIC, (TUPLE2 (CONST, DOUBLE) as typ)),
+	  TUPLE3 (TUPLE3 (IDENTIFIER array, LBRACK, RBRACK), EQUALS,
+		  TUPLE4 (LBRACE, TLIST lst, COMMA, RBRACE)), SEMICOLON) ->
+   loc := 43; _globals array (TUPLE3 (typ, TUPLE3 (IDENTIFIER array, LBRACK, RBRACK), TLIST lst))
 | oth -> errlst := oth :: !errlst
