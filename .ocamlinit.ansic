@@ -6,12 +6,11 @@ open Translation_unit_list_transform
 
 let main = try Sys.getenv "TRANS_MAIN" with _ -> "main";;
 let chan = open_out ("mykernel_"^main^".c");;
-let refs = empty_refs();;
 let args = [| ""; "main.i"; "Orbital.i"; "position.i"; "support.i"; "System.i"; "Walker.i"; "walkthewalk.i"; "Wavefunction.i"; "dSFMT.i" |];;
 (*
 let args = [| ""; "main.i" |];;
 *)
-let needed,rslts = dump parse refs chan main args;;
+let tab, printed, rslts = dump parse chan main args;;
 close_out chan;;
 let (fnlst,extlst,enumlst,struclst,ulst,ftyplst,typlst,errlst,redeflst) = List.hd rslts;;
 (*

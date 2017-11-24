@@ -75,7 +75,8 @@ Translation_unit_list.mli Translation_unit_list.ml: Translation_unit_list.mly Tr
 	ocamlc.opt -g -c Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
 
 parsetest: Translation_unit_list Translation_unit_list.top $(DMCFILES)
-	env OCAMLRUNPARAM=b TRANS_MAIN=testGaussian ./Translation_unit_list $(DMCFILES) >mykernel_test.c
+	env OCAMLRUNPARAM=b TRANS_MAIN=testgaussian ./Translation_unit_list $(DMCFILES) >mykernel_test.c
+	clang mykernel_test.c -lm -g -Dtestgaussian=main -o testgaussian
 
 parsemain: Translation_unit_list Translation_unit_list.top $(DMCFILES)
 	env OCAMLRUNPARAM=b TRANS_MAIN=main ./Translation_unit_list $(DMCFILES) >mykernel_main.c
@@ -88,14 +89,5 @@ parsemain: Translation_unit_list Translation_unit_list.top $(DMCFILES)
 
 depend:
 	ocamldep *.ml >.depend
-
-testGaussian: testGaussian.c
-	clang testGaussian.c -lm -g -DtestGaussian=main -o testGaussian
-
-testGaussian_tmp: testGaussian_tmp.c
-	clang testGaussian_tmp.c -lm -g -DtestGaussian=main -o testGaussian_tmp
-
-testGaussian_old2: testGaussian_old2.c
-	clang testGaussian_old2.c -lm -g -DtestGaussian=main -o testGaussian_old2
 
 include .depend
