@@ -14,7 +14,7 @@
 %token  CARET
 %token  CASE
 %token  CATCH
-%token  CHARACTERLITERAL
+%token <string> CHARACTERLITERAL
 %token  CLASS
 %token  COLON
 %token  COMMA
@@ -40,7 +40,7 @@
 %token  FALSE
 %token  FINAL
 %token  FINALLY
-%token  FLOATINGPOINTLITERAL
+%token <float> FLOATINGPOINTLITERAL
 %token  FOR
 %token  FOR_SOME
 %token  GREATER
@@ -49,7 +49,7 @@
 %token  IF
 %token  IMPLICIT
 %token  IMPORT
-%token  INTEGERLITERAL
+%token <int> INTEGERLITERAL
 %token  LAZY
 %token  LBRACE
 %token  LBRACK
@@ -63,10 +63,8 @@
 %token  OBJECT
 %token  OVERRIDE
 %token  PACKAGE
-%token  PARAMTYPE
-%token  PARAMTYPECOMMALST
 %token  PERCENT
-%token  PLAINID
+%token <string> PLAINID
 %token  PLING
 %token  PLUS
 %token  PRIVATE
@@ -79,9 +77,10 @@
 %token  RPAREN
 %token  SEALED
 %token  SEMICOLON
+%token  SLASH
 %token <string list> SLIST
 %token  STAR
-%token  STRINGLITERAL
+%token <string> STRINGLITERAL
 %token  SUPER
 %token  THIS
 %token  THROW
@@ -104,8 +103,6 @@
 %token  VBAR
 %token  WHILE
 %token  WITH
-%token  XMLEXPR
-%token  XMLPATTERN
 %token  YIELD
 %type <token> ml_start
 %start ml_start
@@ -114,8 +111,8 @@
 
 ml_start: CompilationUnit EOF_TOKEN { TUPLE2($1,EOF_TOKEN) }
 
-id: plainid { ($1) }
-	|	BACKQUOTE stringLiteral BACKQUOTE { TUPLE3(BACKQUOTE,$2,BACKQUOTE) }
+id: PLAINID { (PLAINID $1) }
+	|	BACKQUOTE STRINGLITERAL BACKQUOTE { TUPLE3(BACKQUOTE,STRINGLITERAL $2,BACKQUOTE) }
 
 ids: id { ($1) }
 
@@ -131,19 +128,19 @@ idopt: /* empty */ { EMPTY_TOKEN }
 Path: StableId { ($1) }
 	|	idopt THIS { TUPLE2($1,THIS) }
 
-booleanLiteral: TRUE { (TRUE) }
+BOOLEANLITERAL: TRUE { (TRUE) }
 	|	FALSE { (FALSE) }
 
-symbolLiteral: QUOTE plainid { TUPLE2(QUOTE,$2) }
+SYMBOLLITERAL: QUOTE PLAINID { TUPLE2(QUOTE,PLAINID $2) }
 
-Literal: integerLiteral { ($1) }
-	|	HYPHEN integerLiteral { TUPLE2(HYPHEN,$2) }
-	|	floatingPointLiteral { ($1) }
-	|	HYPHEN floatingPointLiteral { TUPLE2(HYPHEN,$2) }
-	|	booleanLiteral { ($1) }
-	|	characterLiteral { ($1) }
-	|	stringLiteral { ($1) }
-	|	symbolLiteral { ($1) }
+Literal: INTEGERLITERAL { (INTEGERLITERAL $1) }
+	|	HYPHEN INTEGERLITERAL { TUPLE2(HYPHEN,INTEGERLITERAL $2) }
+	|	FLOATINGPOINTLITERAL { (FLOATINGPOINTLITERAL $1) }
+	|	HYPHEN FLOATINGPOINTLITERAL { TUPLE2(HYPHEN,FLOATINGPOINTLITERAL $2) }
+	|	BOOLEANLITERAL { ($1) }
+	|	CHARACTERLITERAL { (CHARACTERLITERAL $1) }
+	|	STRINGLITERAL { (STRINGLITERAL $1) }
+	|	SYMBOLLITERAL { ($1) }
 	|	NULL { (NULL) }
 
 SimpleType: StableId { ($1) }
@@ -164,7 +161,10 @@ ParamType: Type { ($1) }
 	|	Type STAR { TUPLE2($1,STAR) }
 
 ParamTypeCommaLstOpt: /* empty */ { EMPTY_TOKEN }
-	|	ParamtypeCommaLst { ($1) }
+	|	ParamTypeCommaLst { ($1) }
+
+ParamTypeCommaLst: ParamType { ($1) }
+	|	ParamTypeCommaLst COMMA ParamType { TUPLE3($1,COMMA,$3) }
 
 FunctionArgTypes: InfixType { ($1) }
 	|	LPAREN ParamTypeCommaLstOpt RPAREN { TUPLE3(LPAREN,$2,RPAREN) }
@@ -191,25 +191,24 @@ Bindings: LPAREN Binding /* 1 */ RPAREN { TUPLE3(LPAREN,$2,RPAREN) }
 TypePat: Type { ($1) }
 
 SimplePattern: UNDERSCORE { (UNDERSCORE) }
-	|	varid { ($1) }
+	|	VARID { (VARID) }
 	|	Literal { ($1) }
 	|	StableId { ($1) }
 	|	StableId LPAREN RPAREN { TUPLE3($1,LPAREN,RPAREN) }
-	|	StableId LPAREN PatternCommaOpt varidat UNDERSCORE STAR RPAREN { TUPLE7($1,LPAREN,$3,$4,UNDERSCORE,STAR,RPAREN) }
+	|	StableId LPAREN PatternCommaOpt VARIDat UNDERSCORE STAR RPAREN { TUPLE7($1,LPAREN,$3,$4,UNDERSCORE,STAR,RPAREN) }
 	|	LPAREN RPAREN { TUPLE2(LPAREN,RPAREN) }
-	|	XmlPattern { ($1) }
 
 PatternCommaOpt: /* empty */ { EMPTY_TOKEN }
 	|	Patterns COMMA { TUPLE2($1,COMMA) }
 
-varidat: /* empty */ { EMPTY_TOKEN }
-	|	varid AT { TUPLE2($1,AT) }
+VARIDat: /* empty */ { EMPTY_TOKEN }
+	|	VARID AT { TUPLE2(VARID,AT) }
 
 Pattern3: SimplePattern { ($1) }
 	|	SimplePattern { ($1) }
 
 Pattern2: Pattern3 { ($1) }
-	|	varid atpattern3 { TUPLE2($1,$2) }
+	|	VARID atpattern3 { TUPLE2(VARID,$2) }
 
 atpattern3: /* empty */ { EMPTY_TOKEN }
 	|	AT Pattern3 { TUPLE2(AT,$2) }
@@ -218,7 +217,7 @@ cmpatterns: /* empty */ { EMPTY_TOKEN }
 	|	COMMA Patterns { TUPLE2(COMMA,$2) }
 
 Pattern1: Pattern2 { ($1) }
-	|	varid COLON TypePat { TUPLE3($1,COLON,$3) }
+	|	VARID COLON TypePat { TUPLE3(VARID,COLON,$3) }
 	|	UNDERSCORE COLON TypePat { TUPLE3(UNDERSCORE,COLON,$3) }
 
 Pattern: Pattern1 { ($1) }
@@ -266,7 +265,7 @@ vaopt: /* empty */ { EMPTY_TOKEN }
 ClassParam: /* 7 */ /* 8 */ vaopt id COLON ParamType eqexp { TUPLE5($1,$2,COLON,$4,$5) }
 
 ClassParamCommaLst: ClassParam { ($1) }
-	|	ParamtypeCommaLst COMMA Paramtype { TUPLE3($1,COMMA,$3) }
+	|	ParamTypeCommaLst COMMA ParamType { TUPLE3($1,COMMA,$3) }
 
 ClassParams: ClassParamCommaLst { ($1) }
 
@@ -296,7 +295,6 @@ SimpleExpr1: Literal { ($1) }
 	|	SimpleExpr DOT id { TUPLE3($1,DOT,$3) }
 	|	SimpleExpr TypeArgs { TUPLE2($1,$2) }
 	|	SimpleExpr1 ArgumentExprs { TUPLE2($1,$2) }
-	|	XmlExpr { ($1) }
 
 unopt: /* empty */ { EMPTY_TOKEN }
 	|	UNDERSCORE { (UNDERSCORE) }

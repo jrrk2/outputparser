@@ -20,12 +20,4 @@
 #use ".ocamlinit.output"
 *)
 
-(*
-#use ".ocamlinit.lef"
-*)
-
-(*
-#use ".ocamlinit.program"
-*)
-
-#use ".ocamlinit.ansic"
+#use ".ocamlinit.scala"

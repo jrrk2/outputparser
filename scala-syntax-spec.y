@@ -1,6 +1,6 @@
 %token ABSTRACT
 %token CATCH
-%token characterLiteral
+%token CHARACTERLITERAL
 %token CLASS
 %token DEF
 %token DO
@@ -8,35 +8,31 @@
 %token EXTENDS
 %token FINAL
 %token FINALLY
-%token floatingPointLiteral
+%token FLOATINGPOINTLITERAL
 %token FOR
 %token FOR_SOME
 %token IMPORT
-%token integerLiteral
+%token INTEGERLITERAL
 %token LAZY
 %token MATCH
 %token NEWLINE
 %token OBJECT
 %token OVERRIDE
 %token PACKAGE
-%token ParamtypeCommaLst
-%token Paramtype
-%token plainid
+%token PLAINID
 %token PRIVATE
 %token PROTECTED
 %token RETURN
 %token SEALED
-%token stringLiteral
+%token STRINGLITERAL
 %token THROW
 %token TRAIT
 %token TRY
 %token VAL
-%token varid
+%token VARID
 %token VAR
 %token WHILE
 %token WITH
-%token XmlExpr
-%token XmlPattern
 %token YIELD
 %token SUPER
 %token THIS
@@ -51,6 +47,7 @@
 %token SEMICOLON
 %token IMPLICIT
 %token QUOTE
+%token SLASH
 
 %start CompilationUnit
 
@@ -60,9 +57,9 @@
                                 // digit | paren | delim | Unicode_Sm | Unicode_So)
 //                        op :  opchar {opchar}
 //                    idrest :  {letter | digit} ['_' op]
-//                     varid :  lower idrest
-//                   plainid :  (upper idrest) | varid | op
-                        id :  plainid | '`' stringLiteral '`'
+//                     VARID :  lower idrest
+//                   PLAINID :  (upper idrest) | VARID | op
+                        id :  PLAINID | '`' STRINGLITERAL '`'
                        ids :  id {',' id}
                     QualId :  id {'.' id}
             ClassQualifier :  '[' id ']'
@@ -72,14 +69,14 @@
                       Path :  StableId | idopt THIS
 
 // LITERALS
-            booleanLiteral :  TRUE | FALSE
-             symbolLiteral :  QUOTE plainid
-                   Literal :  integerLiteral | '-' integerLiteral
-                             |  floatingPointLiteral | '-' floatingPointLiteral
-                             |  booleanLiteral
-                             |  characterLiteral
-                             |  stringLiteral
-                             |  symbolLiteral
+            BOOLEANLITERAL :  TRUE | FALSE
+             SYMBOLLITERAL :  QUOTE PLAINID
+                   Literal :  INTEGERLITERAL | '-' INTEGERLITERAL
+                             |  FLOATINGPOINTLITERAL | '-' FLOATINGPOINTLITERAL
+                             |  BOOLEANLITERAL
+                             |  CHARACTERLITERAL
+                             |  STRINGLITERAL
+                             |  SYMBOLLITERAL
                              |  NULL
 
 // TYPES
@@ -92,8 +89,8 @@
               CompoundType :  AnnotType {'with' AnnotType} [Refinement] | Refinement
                  InfixType :  CompoundType {id [nl] CompoundType}
                  ParamType :  Type | EQGT Type | Type '*'
-	 ParamTypeCommaLstOpt :  | ParamtypeCommaLst
-	 ParamTypeCommaLst :  ParamType | ParamTypeCommaLst ',' Paramtype
+	 ParamTypeCommaLstOpt :  | ParamTypeCommaLst
+	 ParamTypeCommaLst :  ParamType | ParamTypeCommaLst ',' ParamType
           FunctionArgTypes :  InfixType | '(' ParamTypeCommaLstOpt ')'
                       Type :  InfixType [ExistentialClause] | FunctionArgTypes EQGT Type
 
@@ -108,20 +105,20 @@
 // PATTERN MATCHING
                    TypePat :  Type
              SimplePattern :  '_'
-                             |  varid
+                             |  VARID
                              |  Literal
                              |  StableId
                              |  StableId '(' [Patterns] ')'
-                             |  StableId '(' PatternCommaOpt varidat '_' '*' ')'
+                             |  StableId '(' PatternCommaOpt VARIDat '_' '*' ')'
                              |  '(' [Patterns] ')'
-                             |  XmlPattern // TODO: What's an XmlPattern
+//                             |  XmlPattern // TODO: What's an XmlPattern
 	   PatternCommaOpt : | Patterns ','
-		  varidat  : | varid '@'
+		  VARIDat  : | VARID '@'
                   Pattern3 :  SimplePattern | SimplePattern { id [nl] SimplePattern }
-                  Pattern2 :  Pattern3 | varid atpattern3
+                  Pattern2 :  Pattern3 | VARID atpattern3
 		  atpattern3 : | '@' Pattern3
 		  cmpatterns : | ',' Patterns
-                  Pattern1 :  Pattern2 | varid ':' TypePat | '_' ':' TypePat
+                  Pattern1 :  Pattern2 | VARID ':' TypePat | '_' ':' TypePat
                    Pattern :  Pattern1 { '|' Pattern1 }
                   Patterns :  Pattern cmpatterns | '_' '*'
 
@@ -153,7 +150,7 @@
 
                 ClassParam :  {Annotation} {Modifier} vaopt id ':' ParamType eqexp
 	 ClassParamCommaLstOpt :  | ClassParamCommaLst
-	 ClassParamCommaLst :  ClassParam | ParamtypeCommaLst ',' Paramtype
+	 ClassParamCommaLst :  ClassParam | ParamTypeCommaLst ',' ParamType
                ClassParams :  ClassParamCommaLst
           ClassParamClause :  nlopt '(' [ClassParams] ')'
          ClassParamClauses :  {ClassParamClause} | {ClassParamClause} nlopt '(' IMPLICIT ClassParams ')'
@@ -178,7 +175,7 @@
                              |  SimpleExpr '.' id
                              |  SimpleExpr TypeArgs
                              |  SimpleExpr1 ArgumentExprs
-                             |  XmlExpr // TODO: What's an XmlExpr
+//                             |  XmlExpr // TODO: What's an XmlExpr
 	       unopt : | '_'
                 SimpleExpr :  SimpleExpr1 unopt | BlockExpr | NEW ClassTemplate | NEW TemplateBody
                 Prefix :  | '-' | '+' | '~' | '!'
