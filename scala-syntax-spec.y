@@ -1,48 +1,108 @@
+%token ABSTRACT
+%token CATCH
+%token characterLiteral
+%token CLASS
+%token DEF
+%token DO
+%token ELSE
+%token EXTENDS
+%token FINAL
+%token FINALLY
+%token floatingPointLiteral
+%token FOR
+%token FOR_SOME
+%token IMPORT
+%token integerLiteral
+%token LAZY
+%token MATCH
+%token NEWLINE
+%token OBJECT
+%token OVERRIDE
+%token PACKAGE
+%token ParamtypeCommaLst
+%token Paramtype
+%token plainid
+%token PRIVATE
+%token PROTECTED
+%token RETURN
+%token SEALED
+%token stringLiteral
+%token THROW
+%token TRAIT
+%token TRY
+%token VAL
+%token varid
+%token VAR
+%token WHILE
+%token WITH
+%token XmlExpr
+%token XmlPattern
+%token YIELD
+%token SUPER
+%token THIS
+%token TRUE
+%token FALSE
+%token NULL
+%token TYPE
+%token EQGT
+%token CASE
+%token IF
+%token NEW
+%token SEMICOLON
+%token IMPLICIT
+%token QUOTE
+
+%start CompilationUnit
+
 %%
 // IDS
-                    opchar :  // printableChar not matched by (whiteSpace | letter |
+//                    opchar :  // printableChar not matched by (whiteSpace | letter |
                                 // digit | paren | delim | Unicode_Sm | Unicode_So)
-                        op :  opchar {opchar}
-                    idrest :  {letter | digit} ['_' op]
-                     varid :  lower idrest
-                   plainid :  (upper idrest) | varid | op
-                        id :  plainid | ('`' stringLiteral '`')
+//                        op :  opchar {opchar}
+//                    idrest :  {letter | digit} ['_' op]
+//                     varid :  lower idrest
+//                   plainid :  (upper idrest) | varid | op
+                        id :  plainid | '`' stringLiteral '`'
                        ids :  id {',' id}
                     QualId :  id {'.' id}
             ClassQualifier :  '[' id ']'
-           AccessQualifier :  '[' (id | 'this') ']'
-                  StableId :  id | (Path '.' id) | ([id '.'] 'super' [ClassQualifier] '.' id)
-                      Path :  StableId | ([id '.'] 'this')
+           AccessQualifier :  '[' id ']' | '[' THIS ']'
+                  StableId :  id | Path '.' id | idopt SUPER [ClassQualifier] '.' id
+		     idopt :  | id '.'
+                      Path :  StableId | idopt THIS
 
 // LITERALS
-            booleanLiteral :  'true' | 'false'
-             symbolLiteral :  ''' plainid
-                   Literal :  ['-'] integerLiteral
-                             |  ['-'] floatingPointLiteral
+            booleanLiteral :  TRUE | FALSE
+             symbolLiteral :  QUOTE plainid
+                   Literal :  integerLiteral | '-' integerLiteral
+                             |  floatingPointLiteral | '-' floatingPointLiteral
                              |  booleanLiteral
                              |  characterLiteral
                              |  stringLiteral
                              |  symbolLiteral
-                             |  'null'
+                             |  NULL
 
 // TYPES
                 SimpleType :  StableId
-                             |  Path '.' 'type'
+                             |  Path '.' TYPE
                              |  SimpleType TypeArgs
                              |  SimpleType '#' id
                              |  '(' Types ')'
                  AnnotType :  SimpleType {Annotation}
-              CompoundType :  (AnnotType {'with' AnnotType} [Refinement]) | Refinement
+              CompoundType :  AnnotType {'with' AnnotType} [Refinement] | Refinement
                  InfixType :  CompoundType {id [nl] CompoundType}
-                 ParamType :  Type | ('=>' Type) | (Type '*')
-          FunctionArgTypes :  InfixType | ('(' [ ParamType {',' ParamType } ] ')')
-                      Type :  (InfixType [ExistentialClause]) | (FunctionArgTypes '=>' Type)
+                 ParamType :  Type | EQGT Type | Type '*'
+	 ParamTypeCommaLstOpt :  | ParamtypeCommaLst
+	 ParamTypeCommaLst :  ParamType | ParamTypeCommaLst ',' Paramtype
+          FunctionArgTypes :  InfixType | '(' ParamTypeCommaLstOpt ')'
+                      Type :  InfixType [ExistentialClause] | FunctionArgTypes EQGT Type
 
                      Types :  Type {',' Type}
                   TypeArgs :  '[' Types ']'
 
-                Ascription :  (':' InfixType) | (':' Annotation {Annotation}) | (':' '_' '*')
-                   Binding :  (id | '_') [':' Type]
+                Ascription :  ':' InfixType | ':' Annotation {Annotation} | ':' '_' '*'
+                   Binding :  id_ | id_ ':' Type
+		       id_ :  id | '_'
                   Bindings :  '(' Binding {',' Binding} ')'
 
 // PATTERN MATCHING
@@ -52,47 +112,63 @@
                              |  Literal
                              |  StableId
                              |  StableId '(' [Patterns] ')'
-                             |  StableId '(' [Patterns ','] [varid '@'] '_' '*' ')'
+                             |  StableId '(' PatternCommaOpt varidat '_' '*' ')'
                              |  '(' [Patterns] ')'
                              |  XmlPattern // TODO: What's an XmlPattern
-                  Pattern3 :  SimplePattern | (SimplePattern { id [nl] SimplePattern })
-                  Pattern2 :  Pattern3 | (varid ['@' Pattern3])
-                  Pattern1 :  Pattern2 | (varid ':' TypePat) | ('_' ':' TypePat)
+	   PatternCommaOpt : | Patterns ','
+		  varidat  : | varid '@'
+                  Pattern3 :  SimplePattern | SimplePattern { id [nl] SimplePattern }
+                  Pattern2 :  Pattern3 | varid atpattern3
+		  atpattern3 : | '@' Pattern3
+		  cmpatterns : | ',' Patterns
+                  Pattern1 :  Pattern2 | varid ':' TypePat | '_' ':' TypePat
                    Pattern :  Pattern1 { '|' Pattern1 }
-                  Patterns :  (Pattern [',' Patterns]) | ('_' *)
+                  Patterns :  Pattern cmpatterns | '_' '*'
 
-                     Guard :  'if' PostfixExpr
-                CaseClause :  'case' Pattern [Guard] '=>' Block
+                     Guard :  IF PostfixExpr
+                CaseClause :  CASE Pattern [Guard] EQGT Block
                CaseClauses :  CaseClause { CaseClause }
 
 // PARAMS & PARAM CLAUSES
-                     Param :  {Annotation} id [':' ParamType] ['=' Expr]
+                     Param :  {Annotation} id clnpt eqexp
+		     clnpt : | ':' ParamType
+		     eqexp : | '=' Expr
                     Params :  Param {',' Param}
                ParamClause :  [nl] '(' [Params] ')'
-              ParamClauses :  {ParamClause} [[nl] '(' 'implicit' Params ')']
-
-                 TypeParam :  (id | '_') [TypeParamClause] ['>:' Type] ['<:' Type] {'<%' Type} {':' Type}
-          VariantTypeParam :  {Annotation} ['+' | '-'] TypeParam
+              ParamClauses :  {ParamClause} iparamopt
+	      nlopt :        | NEWLINE
+	      iparamopt    : | nlopt '(' IMPLICIT Params ')'
+	      idun : id | '_'
+	      gtclnt : | '>' ':' Type
+	      ltclnt : | '<' ':' Type
+	      ltpct : | '<' '%' Type
+	      clnt : | ':' Type
+	      plmi : | '+' | '-'
+	      vaopt : | VAL | VAR
+                 TypeParam :  idun [TypeParamClause] gtclnt ltclnt ltpct clnt
+          VariantTypeParam :  {Annotation} plmi TypeParam
            TypeParamClause :  '[' VariantTypeParam {',' VariantTypeParam} ']'
 
         FunTypeParamClause :  '[' TypeParam {',' TypeParam} ']'
 
-                ClassParam :  {Annotation} {Modifier} [(`val` | `var`)] id ':' ParamType ['=' Expr]
-               ClassParams :  ClassParam {',' ClassParam}
-          ClassParamClause :  [nl] '(' [ClassParams] ')'
-         ClassParamClauses :  {ClassParamClause} [[nl] '(' 'implicit' ClassParams ')']
+                ClassParam :  {Annotation} {Modifier} vaopt id ':' ParamType eqexp
+	 ClassParamCommaLstOpt :  | ClassParamCommaLst
+	 ClassParamCommaLst :  ClassParam | ParamtypeCommaLst ',' Paramtype
+               ClassParams :  ClassParamCommaLst
+          ClassParamClause :  nlopt '(' [ClassParams] ')'
+         ClassParamClauses :  {ClassParamClause} | {ClassParamClause} nlopt '(' IMPLICIT ClassParams ')'
 
 // DECLARATIONS
                     FunSig :  id [FunTypeParamClause] ParamClauses
 
                     ValDcl :  ids ':' Type
                     VarDcl :  ids ':' Type
-                    FunDcl :  FunSig [':' Type]
-                   TypeDcl :  id [TypeParamClause] ['>:' Type] ['<:' Type]
-                       Dcl :  'val' ValDcl | 'var' VarDcl | 'def' FunDcl | 'type' {nl} TypeDcl
+                    FunDcl :  FunSig | FunSig ':' Type
+                   TypeDcl :  id [TypeParamClause] gtclnt ltclnt
+                       Dcl :  VAL ValDcl | VAR VarDcl | DEF FunDcl | TYPE {nl} TypeDcl
 
-            ExistentialDcl :  ('type' TypeDcl) | ('val' ValDcl)
-         ExistentialClause :  'forSome' '{' ExistentialDcl {semi ExistentialDcl} '}'
+            ExistentialDcl :  TYPE TypeDcl | VAL ValDcl
+         ExistentialClause :  FOR_SOME '{' ExistentialDcl {SEMICOLON ExistentialDcl} '}'
 
 // EXPRESSIONS
                SimpleExpr1 :  Literal
@@ -103,105 +179,126 @@
                              |  SimpleExpr TypeArgs
                              |  SimpleExpr1 ArgumentExprs
                              |  XmlExpr // TODO: What's an XmlExpr
-                SimpleExpr :  SimpleExpr1 ['_'] | BlockExpr | ('new' (ClassTemplate | TemplateBody))
-                PrefixExpr :  ['-' | '+' | '~' | '!'] SimpleExpr
-                 InfixExpr :  PrefixExpr | (InfixExpr id [nl] InfixExpr)
-               PostfixExpr :  InfixExpr [id [nl]]
+	       unopt : | '_'
+                SimpleExpr :  SimpleExpr1 unopt | BlockExpr | NEW ClassTemplate | NEW TemplateBody
+                Prefix :  | '-' | '+' | '~' | '!'
+	        semiopt : | SEMICOLON
+                 InfixExpr :  Prefix SimpleExpr | InfixExpr id nlopt InfixExpr
+               PostfixExpr :  InfixExpr | InfixExpr id nlopt
+	 elseopt: | semiopt ELSE Expr
+	 tryblk : '{' Block '}' | Expr
+	 forblk: '(' Enumerators ')' | '{' Enumerators '}'
+	 yieldopt: | YIELD
+	 catchopt: CATCH '{' CaseClauses '}'
                      Expr1 :  PostfixExpr
                              |  PostfixExpr Ascription
-                             |  PostfixExpr `match` `{` CaseClauses `}`
-                             |  [SimpleExpr `.`] id `=` Expr
-                             |  SimpleExpr1 ArgumentExprs `=` Expr
-                             |  `if` `(` Expr `)` {nl} Expr [[semi] `else` Expr]
-                             |  `while` `(` Expr `)` {nl} Expr
-                             |  `try` (`{` Block `}` | Expr) [`catch` `{` CaseClauses `}`] [`finally` Expr]
-                             |  `do` Expr [semi] `while` `(` Expr `)`
-                             |  `for` (`(` Enumerators `)` | `{` Enumerators `}`) {nl} [`yield`] Expr
-                             |  `throw` Expr
-                             |  `return` [Expr]
-                      Expr :  Expr1 | ((Bindings | (['implicit'] id) | '_') '=>' Expr)
-                ResultExpr :  Expr1 | ((Bindings | (['implicit'] id | '_') ':' CompoundType) '=>' Block)
-                 BlockExpr :  ('{' Block '}') | ('{' CaseClauses '}')
+                             |  PostfixExpr MATCH '{' CaseClauses '}'
+                             |  id '=' Expr | SimpleExpr '.' id '=' Expr
+                             |  SimpleExpr1 ArgumentExprs '=' Expr
+                             |  IF '(' Expr ')' {nl} Expr elseopt
+                             |  WHILE '(' Expr ')' {nl} Expr
+                             |  TRY tryblk catchopt |TRY tryblk catchopt FINALLY Expr
+                             |  DO Expr semiopt WHILE '(' Expr ')'
+                             |  FOR forblk {nl} yieldopt Expr
+                             |  THROW Expr
+                             |  RETURN | RETURN Expr
+			     impopt: | IMPLICIT
+		     bindopt: Bindings | impopt id | '_'
+                      Expr :  Expr1 | bindopt EQGT Expr
+                ResultExpr :  Expr1 | bindopt ':' CompoundType EQGT Block
+                 BlockExpr :  '{' Block '}' | '{' CaseClauses '}'
 
                      Exprs :  Expr {',' Expr}
-             ArgumentExprs :  '(' [Exprs] ')'
-                             |  '(' [Exprs ','] PostfixExpr ':' '_' '*' ')'
-                             |  [nl] BlockExpr
+exprsopt : | Exprs
+exprscmopt : | Exprs ','
+             ArgumentExprs :  '(' exprsopt ')'
+                             |  '(' exprscmopt PostfixExpr ':' '_' '*' ')'
+                             |  nlopt BlockExpr
 
-            SelfInvocation :  'this' ArgumentExprs {ArgumentExprs}
-               ConstrBlock :  '{' SelfInvocation {semi BlockStat} '}'
+            SelfInvocation :  THIS ArgumentExprs {ArgumentExprs}
+               ConstrBlock :  '{' SelfInvocation {SEMICOLON BlockStat} '}'
                 ConstrExpr :  SelfInvocation | ConstrBlock
 
 // FOR COMPREHENSIONS
-                 Generator :  Pattern1 '<-' Expr {[semi] Guard | semi Pattern1 '=' Expr}
-               Enumerators :  Generator {semi Generator}
+                 Generator :  Pattern1 '<' '-' Expr {semiopt Guard | SEMICOLON Pattern1 '=' Expr}
+               Enumerators :  Generator {SEMICOLON Generator}
 
 // MODIFIERS
-            AccessModifier :  ('private' | 'protected') [AccessQualifier]
-             LocalModifier :  'abstract' | 'final' | 'sealed' | 'implicit' | 'lazy'
-                  Modifier :  LocalModifier | AccessModifier | 'override'
+access: PRIVATE | PROTECTED
+            AccessModifier :  access | access AccessQualifier
+             LocalModifier :  ABSTRACT | FINAL | SEALED | IMPLICIT | LAZY
+                  Modifier :  LocalModifier | AccessModifier | OVERRIDE
 
 // ANNOTATIONS
                 Annotation :  '@' SimpleType {ArgumentExprs}
           ConstrAnnotation :  '@' SimpleType ArgumentExprs
 
 // DEFINITIONS
-                    PatDef :  Pattern2 {',' Pattern2} [':' Type] '=' Expr
-                    VarDef :  PatDef | (ids ':' Type '=' '_')
-                 PatVarDef :  ('val' PatDef) | ('var' VarDef)
-                    FunDef :  FunSig [':' Type] '=' Expr
-                             |  FunSig [nl] '{' Block '}'
-                             |  'this' ParamClause ParamClauses ('=' ConstrExpr | [nl] ConstrBlock)
+                    PatDef :  Pattern2 {',' Pattern2} clnt '=' Expr
+                    VarDef :  PatDef | ids ':' Type '=' '_'
+                 PatVarDef :  VAL PatDef | VAR VarDef
+                    FunDef :  FunSig clnt '=' Expr
+                             |  FunSig nlopt '{' Block '}'
+                             |  THIS ParamClause ParamClauses '=' ConstrExpr
+                             |  THIS ParamClause ParamClauses nlopt ConstrBlock
                    TypeDef :  id [TypeParamClause] '=' Type
                   ClassDef :  id [TypeParamClause] {ConstrAnnotation} [AccessModifier]
                                 ClassParamClauses ClassTemplateOpt
                  ObjectDef :  id ClassTemplateOpt
                   TraitDef :  id [TypeParamClause] TraitTemplateOpt
-                   TmplDef :  ['case'] 'class' ClassDef
-                             |  ['case'] 'object' ObjectDef
-                             |  'trait' TraitDef
-                       Def :  PatVarDef | ('def' FunDef) | ('type' {nl} TypeDef) | TmplDef
+		  caseopt : | CASE
+                   TmplDef :  caseopt CLASS ClassDef
+                             |  caseopt OBJECT ObjectDef
+                             |  TRAIT TraitDef
+                       Def :  PatVarDef | DEF FunDef | TYPE {nl} TypeDef | TmplDef
 
-                  EarlyDef :  {Annotation [nl]} {Modifier} PatVarDef
-                 EarlyDefs :  '{' [EarlyDef {semi EarlyDef}] '}' 'with'
+                  EarlyDef :  {Annotation nlopt} {Modifier} PatVarDef
+		  earlydeflstopt : | earlydeflst
+		  earlydeflst : EarlyDef | earlydeflst SEMICOLON EarlyDef
+                 EarlyDefs :  '{' earlydeflstopt '}' WITH
 
 // REFINEMENTS
-                RefineStat :  Dcl | ('type' TypeDef)
-                Refinement :  [nl] '{' RefineStat {semi RefineStat} '}'
+                RefineStat :  Dcl | TYPE TypeDef
+                Refinement :  nlopt '{' RefineStat {SEMICOLON RefineStat} '}'
 
 // IMPORTS
-            ImportSelector :  id ['=>' id | '=>' '_']
-           ImportSelectors :  '{' {ImportSelector ','} (ImportSelector | '_') '}'
-                ImportExpr :  StableId '.' (id | '_' | ImportSelectors)
-                    Import :  'import' ImportExpr {',' ImportExpr}
+            ImportSelector :  id EQGT id | id EQGT '_'
+	    ImportSelectorAlt : ImportSelector | '_'
+           ImportSelectors :  '{' {ImportSelector ','} ImportSelectorAlt '}'
+                ImportExpr :  StableId '.' id | StableId '.' '_' | StableId '.' ImportSelectors
+		ImportExprLst : ImportExpr | ImportExprLst ',' ImportExpr
+                    Import :  IMPORT ImportExprLst
 
 // BLOCKS
                  BlockStat :  Import
-                             |  {Annotation} ['implicit' | 'lazy'] Def
+                             |  {Annotation} IMPLICIT Def
+                             |  {Annotation} LAZY Def
                              |  {Annotation} {LocalModifier} TmplDef
                              |  Expr1
-                     Block :  BlockStat {semi BlockStat} [ResultExpr]
+                     Block :  BlockStat {SEMICOLON BlockStat} [ResultExpr]
 
 // CLASSES/TRAITS
-                  SelfType :  (id [':' Type] '=>') | ('this' ':' Type '=>')
-
-              TemplateStat :  Import | Expr | {Annotation [nl]} {Modifier} (Def | Dcl)
-              TemplateBody :  [nl] '{' [SelfType] TemplateStat {semi TemplateStat} '}'
+                  SelfType :  id clnt EQGT | THIS ':' Type EQGT
+		  annotlst : | annotlst Annotation | annotlst Annotation NEWLINE
+		     defalt : Def | Dcl
+              TemplateStat :  Import | Expr | annotlst {Modifier} defalt
+              TemplateBody :  nlopt '{' [SelfType] TemplateStat {SEMICOLON TemplateStat} '}'
 
                     Constr :  AnnotType {ArgumentExprs}
 
-              ClassParents :  Constr {'with' AnnotType}
+              ClassParents :  Constr {WITH AnnotType}
              ClassTemplate :  [EarlyDefs] ClassParents [TemplateBody]
-          ClassTemplateOpt :  'extends' ClassTemplate | [['extends'] TemplateBody]
+	     extendsopt : | EXTENDS
+          ClassTemplateOpt : | EXTENDS ClassTemplate | extendsopt TemplateBody
 
-              TraitParents :  AnnotType {'with' AnnotType}
+              TraitParents :  AnnotType {WITH AnnotType}
              TraitTemplate :  [EarlyDefs] TraitParents [TemplateBody]
-          TraitTemplateOpt :  'extends' TraitTemplate | [['extends'] TemplateBody]
+          TraitTemplateOpt : | EXTENDS TraitTemplate | extendsopt TemplateBody
 
 // COMPILATION UNIT
-                 Packaging :  'package' QualId [nl] '{' TopStatSeq '}'
-             PackageObject :  'package' 'object' ObjectDef
-                   TopStat :  Packaging | Import | PackageObject | ({Annotation [nl]} {Modifier} TmplDef)
-                TopStatSeq :  TopStat {semi TopStat}
+                 Packaging :  PACKAGE QualId nlopt '{' TopStatSeq '}'
+             PackageObject :  PACKAGE OBJECT ObjectDef
+                   TopStat :  Packaging | Import | PackageObject | {Annotation nlopt} {Modifier} TmplDef
+                TopStatSeq :  TopStat {SEMICOLON TopStat}
 
-           CompilationUnit :  {'package' QualId semi} TopStatSeq
+           CompilationUnit :  {PACKAGE QualId SEMICOLON} TopStatSeq

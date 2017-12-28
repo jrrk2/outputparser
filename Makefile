@@ -42,44 +42,38 @@ MENHIRFLAGS=#--trace
 
 ############################################################################
 
-ansic: y.tab.o lex.yy.o ansimain.o
-	gcc -o $@ y.tab.o lex.yy.o ansimain.o
+y.output: scala-syntax-spec.y
+	bison -v -y -d scala-syntax-spec.y
 
-y.tab.c y.tab.h: ansic.y
-	bison -v -y -d ansic.y
+scalatest: CompilationUnit.mly
 
-lex.yy.c: ansic.l
-	flex ansic.l
-
-ansitest: Translation_unit_list.mly
-
-Translation_unit_list.mly: ansic output_parser Translation_unit_list_78
+CompilationUnit.mly: y.output output_parser
 	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string CONSTANT=string TYPE_NAME=string ./output_parser y.output
 
 %.i: $(SIMPLEDMC)/src/%.c
 	$(CPP) $< | $(SED) >$@
 
-Translation_unit_list: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_main.cmo
-	 ocamlc.opt -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_main.cmo
+CompilationUnit: CompilationUnit.cmi CompilationUnit_types.cmo CompilationUnit.cmo CompilationUnit_lex.cmo CompilationUnit_filt.cmo CompilationUnit_transform.cmo CompilationUnit_main.cmo
+	 ocamlc.opt -g -o $@ CompilationUnit_types.cmo CompilationUnit.cmo CompilationUnit_lex.cmo CompilationUnit_filt.cmo CompilationUnit_transform.cmo CompilationUnit_main.cmo
 
-Translation_unit_list.top: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo  Translation_unit_list_main.cmo
-	 ocamlmktop -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_main.cmo
+CompilationUnit.top: CompilationUnit.cmi CompilationUnit_types.cmo CompilationUnit.cmo CompilationUnit_lex.cmo CompilationUnit_filt.cmo CompilationUnit_transform.cmo  CompilationUnit_main.cmo
+	 ocamlmktop -g -o $@ CompilationUnit_types.cmo CompilationUnit.cmo CompilationUnit_lex.cmo CompilationUnit_filt.cmo CompilationUnit_transform.cmo CompilationUnit_main.cmo
 
-Translation_unit_list_lex.ml: Translation_unit_list_lex.mll
-	ocamllex Translation_unit_list_lex.mll
+CompilationUnit_lex.ml: CompilationUnit_lex.mll
+	ocamllex CompilationUnit_lex.mll
 
-Translation_unit_list.mli Translation_unit_list.ml: Translation_unit_list.mly Translation_unit_list_types.ml
+CompilationUnit.mli CompilationUnit.ml: CompilationUnit.mly CompilationUnit_types.ml
 #	ocamlyacc $<
 	menhir $(MENHIRFLAGS) $<
-	echo 'val declst : (token * token) list ref' >> Translation_unit_list.mli
-	ocamlc.opt -g -c Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
+	echo 'val declst : (token * token) list ref' >> CompilationUnit.mli
+	ocamlc.opt -g -c CompilationUnit.mli CompilationUnit_types.ml CompilationUnit.ml
 
-parsetest: Translation_unit_list Translation_unit_list.top $(DMCFILES)
-	env OCAMLRUNPARAM=b TRANS_MAIN=testgaussian ./Translation_unit_list $(DMCFILES) >mykernel_test.c
+parsetest: CompilationUnit CompilationUnit.top $(DMCFILES)
+	env OCAMLRUNPARAM=b TRANS_MAIN=testgaussian ./CompilationUnit $(DMCFILES) >mykernel_test.c
 	clang mykernel_test.c -lm -g -Dtestgaussian=main -o testgaussian
 
-parsemain: Translation_unit_list Translation_unit_list.top $(DMCFILES)
-	env OCAMLRUNPARAM=b TRANS_MAIN=main ./Translation_unit_list $(DMCFILES) >mykernel_main.c
+parsemain: CompilationUnit CompilationUnit.top $(DMCFILES)
+	env OCAMLRUNPARAM=b TRANS_MAIN=main ./CompilationUnit $(DMCFILES) >mykernel_main.c
 
 %.cmi: %.mli
 	ocamlc.opt -g -c $<

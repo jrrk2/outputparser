@@ -83,20 +83,17 @@
 %token <token*int> NONTERMITM
 %token <token*token list> STATEITM
 %token <token list> TLIST
-%type <string list*token list*token list*token list*token list> start
+%type <token list*token list*token list*token list*token list> start
 %type <token list> termlst
 %type <token> termitm
+%type <token> confitm
 %start start
 %%
 
 
 /* Parser rules */
 
-start: unused grammar terminals nonterminals statelst EOF_TOKEN { ($1, $2, $3, List.rev $4, List.rev $5); }
-
-unused:
-	conflst { [] }
-    |	TERMINALS ID ID ID unlst conflst { List.rev $5; }
+start: conflst grammar terminals nonterminals statelst EOF_TOKEN { ($1, $2, $3, List.rev $4, List.rev $5); }
 
 grammar:
 	GRAMMAR gramitmlst { List.mapi (fun ix (n,lft,rght) -> assert (ix=n); GRAMITM(lft,rght)) (List.rev $2) }
@@ -111,9 +108,14 @@ conflst:
 	/*empty*/ { [ ] }
     | conflst confitm { $2 :: $1 }
 
-confitm:
-    |   STATE NUMBER ID COLON NUMBER ID SLASH ID { STATEITM(NUMBER $2,[]) }
-
+confitm: spunct { $1 }
+    | STATE { STATE }
+    | NUMBER { NUMBER $1 }
+    | ID { ID $1 }
+    | QUOTE { QUOTE }
+    | NONTERMINALS { NONTERMINALS }
+    | TERMINALS { TERMINALS }
+    
 statelst:
 	stateitm { [ $1 ] }
     | statelst stateitm { $2 :: $1 }
