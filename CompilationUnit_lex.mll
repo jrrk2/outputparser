@@ -120,7 +120,7 @@ let tok arg = if !verbose then print_endline (
 }
 
 let ident = ['a'-'z' 'A'-'Z' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
-let fltnum = ['-' '+']*['0'-'9']*['.']*['0'-'9']*['E' '-' '+' '0'-'9']*
+let fltnum = ['-' '+']*['0'-'9']+['.']*['0'-'9']*['E' '-' '+' '0'-'9']*
 let number = ['-' '+']*['0'-'9']+
 let space = [' ' '\t' '\r']+
 let newline = ['\n']

@@ -484,7 +484,7 @@ TraitTemplateOpt: /* empty */ { EMPTY_TOKEN }
 	|	EXTENDS TraitTemplate { TUPLE2(EXTENDS,$2) }
 	|	extendsopt TemplateBody { TUPLE2($1,$2) }
 
-Packaging: PACKAGE QualId nlopt LBRACE TopStatSeq RBRACE { TUPLE6(PACKAGE,$2,$3,LBRACE,$5,RBRACE) }
+Packaging: PACKAGE QualId nlopt TopStatSeqOpt { TUPLE4(PACKAGE,$2,$3,$4) }
 
 PackageObject: PACKAGE OBJECT ObjectDef { TUPLE3(PACKAGE,OBJECT,$3) }
 
@@ -494,6 +494,9 @@ TopStat: Packaging { ($1) }
 	|	/* 29 */ /* 30 */ TmplDef { ($1) }
 
 TopStatSeq: TopStat { ($1) }
+
+TopStatSeqOpt: /* empty */ { EMPTY_TOKEN }
+	|	TopStatSeq { ($1) }
 
 CompilationUnit: /* 31 */ TopStatSeq { ($1) }
 

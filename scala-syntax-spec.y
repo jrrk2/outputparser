@@ -293,9 +293,9 @@ access: PRIVATE | PROTECTED
           TraitTemplateOpt : | EXTENDS TraitTemplate | extendsopt TemplateBody
 
 // COMPILATION UNIT
-                 Packaging :  PACKAGE QualId nlopt '{' TopStatSeq '}'
+                 Packaging :  PACKAGE QualId nlopt TopStatSeqOpt
              PackageObject :  PACKAGE OBJECT ObjectDef
                    TopStat :  Packaging | Import | PackageObject | {Annotation nlopt} {Modifier} TmplDef
                 TopStatSeq :  TopStat {SEMICOLON TopStat}
-
+             TopStatSeqOpt : | TopStatSeq
            CompilationUnit :  {PACKAGE QualId SEMICOLON} TopStatSeq
