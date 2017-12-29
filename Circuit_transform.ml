@@ -1,7 +1,7 @@
 
-open CompilationUnit
-open CompilationUnit_types
-open CompilationUnit_lex
+open Circuit
+open Circuit_types
+open Circuit_lex
 
 type citm =
   | B of token*token list*token list

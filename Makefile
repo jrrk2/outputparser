@@ -47,7 +47,7 @@ ordfirrtl.ml: ordfirrtl.sh Circuit.mli
 	sh ordfirrtl.sh
 
 Circuit.mly: y.output output_parser
-	env OCAMLRUNPARAM=b STRINGLITERAL=string PLAINID=string CHARACTERLITERAL=string INTEGERLITERAL=int FLOATINGPOINTLITERAL=float ./output_parser y.output
+	env OCAMLRUNPARAM=b STRING=string ID=string CHARACTERLITERAL=string INT=int FLOATINGPOINTLITERAL=float ./output_parser y.output
 
 %.i: $(SIMPLEDMC)/src/%.c
 	$(CPP) $< | $(SED) >$@

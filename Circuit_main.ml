@@ -1,7 +1,7 @@
-open CompilationUnit
-open CompilationUnit_types
-open CompilationUnit_lex
-open CompilationUnit_transform
+open Circuit
+open Circuit_types
+open Circuit_lex
+open Circuit_transform
 
 let verbose = ref false
 
@@ -30,7 +30,7 @@ let _ = if Array.length Sys.argv > 1 then
       let needed = dump parse stdout main Sys.argv in
 (*
       let chan = open_out "mykernel.c" in
-      CompilationUnit_foreign.dump parse chan needed;
+      Circuit_foreign.dump parse chan needed;
       close_out chan;
  *)
       ()

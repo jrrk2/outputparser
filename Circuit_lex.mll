@@ -18,7 +18,7 @@
 
 {
   open Lexing
-  open CompilationUnit
+  open Circuit
 
   let verbose = ref true
   let lincnt = ref 0
@@ -28,99 +28,130 @@
     List.iter 
       (fun (k,s) -> Hashtbl.add h s k)
       [
-	ABSTRACT, "ABSTRACT"; 
-	ACCEPT, "ACCEPT"; 
-	AMPERSAND, "AMPERSAND"; 
-	AT, "AT"; 
-	BACKQUOTE, "BACKQUOTE"; 
-	BACKSLASH, "BACKSLASH"; 
-	CARET, "CARET"; 
-	CASE, "CASE"; 
-	CATCH, "CATCH"; 
-	CLASS, "CLASS"; 
-	COLON, "COLON"; 
-	COMMA, "COMMA"; 
-	DEFAULT, "DEFAULT"; 
-	DEF, "DEF"; 
-	DOLLAR, "DOLLAR"; 
-	DOT, "DOT"; 
-	DOUBLEQUOTE, "DOUBLEQUOTE"; 
-	DO, "DO"; 
-	ELSE, "ELSE"; 
-	EMPTY_TOKEN, "EMPTY_TOKEN"; 
-	END, "END"; 
-	EOF_TOKEN, "EOF_TOKEN"; 
-	EQGT, "EQGT"; 
-	EQUALS, "EQUALS"; 
-	ERROR_TOKEN, "ERROR_TOKEN"; 
-	ERROR, "ERROR"; 
-	EXTENDS, "EXTENDS"; 
-	FALSE, "FALSE"; 
-	FINALLY, "FINALLY"; 
-	FINAL, "FINAL"; 
-	FOR_SOME, "FOR_SOME"; 
-	FOR, "FOR"; 
-	GREATER, "GREATER"; 
-	HASH, "HASH"; 
-	HYPHEN, "HYPHEN"; 
-	IF, "IF"; 
-	IMPLICIT, "IMPLICIT"; 
-	IMPORT, "IMPORT"; 
-	LAZY, "LAZY"; 
-	LBRACE, "LBRACE"; 
-	LBRACK, "LBRACK"; 
-	LESS, "LESS"; 
-	LINEFEED, "LINEFEED"; 
-	LPAREN, "LPAREN"; 
-	MATCH, "MATCH"; 
-	NEWLINE, "NEWLINE"; 
-	NEW, "NEW"; 
-	NULL, "NULL"; 
-	OBJECT, "OBJECT"; 
-	OVERRIDE, "OVERRIDE"; 
-	PACKAGE, "PACKAGE"; 
-	PERCENT, "PERCENT"; 
-	PLING, "PLING"; 
-	PLUS, "PLUS"; 
-	PRIVATE, "PRIVATE"; 
-	PROTECTED, "PROTECTED"; 
-	QUERY, "QUERY"; 
-	QUOTE, "QUOTE"; 
-	RBRACE, "RBRACE"; 
-	RBRACK, "RBRACK"; 
-	RETURN, "RETURN"; 
-	RPAREN, "RPAREN"; 
-	SEALED, "SEALED"; 
-	SEMICOLON, "SEMICOLON"; 
-	STAR, "STAR"; 
-	SUPER, "SUPER"; 
-	THIS, "THIS"; 
-	THROW, "THROW"; 
-	TILDE, "TILDE"; 
-	TRAIT, "TRAIT"; 
-	TRUE, "TRUE"; 
-	TRY, "TRY"; 
-	TYPE, "TYPE"; 
-	UNDERSCORE, "UNDERSCORE"; 
-	VAL, "VAL"; 
-	VARID, "VARID"; 
-	VAR, "VAR"; 
-	VBAR, "VBAR"; 
-	WHILE, "WHILE"; 
-	WITH, "WITH"; 
-	YIELD, "YIELD"; 
+       ACCEPT, "ACCEPT"; 
+       ADD, "ADD"; 
+       AMPERSAND, "AMPERSAND"; 
+       ANDR, "ANDR"; 
+       AND, "AND"; 
+       ASCLOCK, "ASCLOCK"; 
+       ASSINT, "ASSINT"; 
+       ASUINT, "ASUINT"; 
+       AT, "AT"; 
+       BACKQUOTE, "BACKQUOTE"; 
+       BACKSLASH, "BACKSLASH"; 
+       BITS, "BITS"; 
+       BREAK, "BREAK"; 
+       CARET, "CARET"; 
+       CASE, "CASE"; 
+       CAT, "CAT"; 
+       CIRCUIT, "CIRCUIT"; 
+       CLOCK, "CLOCK"; 
+       COLON, "COLON"; 
+       COMMA, "COMMA"; 
+       CONTINUE, "CONTINUE"; 
+       CVT, "CVT"; 
+       DATA_TYPE, "DATA_TYPE"; 
+       DEFAULT, "DEFAULT"; 
+       DEPTH, "DEPTH"; 
+       DIV, "DIV"; 
+       DOLLAR, "DOLLAR"; 
+       DOT, "DOT"; 
+       DOUBLEQUOTE, "DOUBLEQUOTE"; 
+       DO, "DO"; 
+       DSHL, "DSHL"; 
+       DSHR, "DSHR"; 
+       ELSE, "ELSE"; 
+       EMPTY_TOKEN, "EMPTY_TOKEN"; 
+       END, "END"; 
+       EOF_TOKEN, "EOF_TOKEN"; 
+       EQUALS, "EQUALS"; 
+       EQ, "EQ"; 
+       ERROR_TOKEN, "ERROR_TOKEN"; 
+       ERROR, "ERROR"; 
+       EXTMODULE, "EXTMODULE"; 
+       FLIP, "FLIP"; 
+       FOR, "FOR"; 
+       GEQ, "GEQ"; 
+       GOTO, "GOTO"; 
+       GREATER, "GREATER"; 
+       GT, "GT"; 
+       HASH, "HASH"; 
+       HEAD, "HEAD"; 
+       HYPHEN, "HYPHEN"; 
+       IF, "IF"; 
+       INPUT, "INPUT"; 
+       INST, "INST"; 
+       INVALID, "INVALID"; 
+       IS, "IS"; 
+       LBRACE, "LBRACE"; 
+       LBRACK, "LBRACK"; 
+       LEQ, "LEQ"; 
+       LESS, "LESS"; 
+       LINEFEED, "LINEFEED"; 
+       LPAREN, "LPAREN"; 
+       LT, "LT"; 
+       MEM, "MEM"; 
+       MODULE, "MODULE"; 
+       MOD, "MOD"; 
+       MUL, "MUL"; 
+       MUX, "MUX"; 
+       NEG, "NEG"; 
+       NEQ, "NEQ"; 
+       NEW, "NEW"; 
+       NODE, "NODE"; 
+       NOT, "NOT"; 
+       OF, "OF"; 
+       OLD, "OLD"; 
+       ORR, "ORR"; 
+       OR, "OR"; 
+       OUTPUT, "OUTPUT"; 
+       PAD, "PAD"; 
+       PERCENT, "PERCENT"; 
+       PLING, "PLING"; 
+       PRINTF, "PRINTF"; 
+       QUERY, "QUERY"; 
+       QUOTE, "QUOTE"; 
+       RBRACE, "RBRACE"; 
+       RBRACK, "RBRACK"; 
+       READER, "READER"; 
+       READ_LATENCY, "READ_LATENCY"; 
+       READ_UNDER_WRITE, "READ_UNDER_WRITE"; 
+       READWRITER, "READWRITER"; 
+       REG, "REG"; 
+       RETURN, "RETURN"; 
+       RPAREN, "RPAREN"; 
+       SHL, "SHL"; 
+       SHR, "SHR"; 
+       SINT, "SINT"; 
+       SKIP, "SKIP"; 
+       STOP, "STOP"; 
+       SUB, "SUB"; 
+       SWITCH, "SWITCH"; 
+       TAIL, "TAIL"; 
+       TILDE, "TILDE"; 
+       UINT, "UINT"; 
+       UNDEFINED, "UNDEFINED"; 
+       UNDERSCORE, "UNDERSCORE"; 
+       VALIDIF, "VALIDIF"; 
+       VBAR, "VBAR"; 
+       WHEN, "WHEN"; 
+       WHILE, "WHILE"; 
+       WIRE, "WIRE"; 
+       WRITE_LATENCY, "WRITE_LATENCY"; 
+       WRITER, "WRITER"; 
+       XORR, "XORR"; 
+       XOR, "XOR"; 
       ];
     fun s -> Hashtbl.find h (String.uppercase s)
 
 let tok arg = if !verbose then print_endline (
   match arg with
-    | PLAINID s -> "'"^s^"'"
-    | _ -> Ordscala.getstr arg );
+    | ID s -> "'"^s^"'"
+    | _ -> Ordfirrtl.getstr arg );
   arg
 }
 
 let ident = ['a'-'z' 'A'-'Z' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
-let fltnum = ['-' '+']*['0'-'9']+['.']*['0'-'9']*['E' '-' '+' '0'-'9']*
 let number = ['-' '+']*['0'-'9']+
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
@@ -135,13 +166,11 @@ rule token = parse
   | newline
       { incr lincnt; token lexbuf }
   | number as n
-      { tok ( INTEGERLITERAL (int_of_string n) ) }
-  | fltnum as n
-      { tok ( let f = float_of_string n in FLOATINGPOINTLITERAL f ) }
+      { tok ( INT (int_of_string n) ) }
   | ident as s
-      { tok ( try keyword s with Not_found -> PLAINID s ) }
+      { tok ( try keyword s with Not_found -> ID s ) }
   | qstring as s
-      { tok ( STRINGLITERAL s ) }
+      { tok ( STRING s ) }
   | eof
       { tok ( EOF_TOKEN ) }
 | '!'
@@ -188,13 +217,13 @@ rule token = parse
 
 | '>'
 { tok ( GREATER ) }
-
+(*
 | '*'
 { tok ( STAR ) }
 
 | '+'
 { tok ( PLUS ) }
-
+*)
 | ','
 { tok ( COMMA ) }
 
@@ -203,19 +232,19 @@ rule token = parse
 
 | '.'
 { tok ( DOT ) }
-
+(*
 | '/'
 { tok ( SLASH ) }
-
+*)
 | '\\'
 { tok ( BACKSLASH ) }
 
 | ':'
 { tok ( COLON ) }
-
+(*
 | ';'
 { tok ( SEMICOLON ) }
-
+*)
 | '='
 { tok ( EQUALS ) }
 

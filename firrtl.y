@@ -1,74 +1,74 @@
 %token CASE DEFAULT IF SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
-%token  add
+%token  ADD
 %token  AND
-%token  andr
-%token  asClock
-%token  asSInt
-%token  asUInt
-%token  bits
-%token  cat
-%token  cvt
-%token  circuit
-%token  Clock
-%token  data_type
-%token  depth
-%token  div
-%token  dshl
-%token  dshr
-%token  else
-%token  flip
+%token  ANDR
+%token  ASCLOCK
+%token  ASSINT
+%token  ASUINT
+%token  BITS
+%token  CAT
+%token  CVT
+%token  CIRCUIT
+%token  CLOCK
+%token  DATA_TYPE
+%token  DEPTH
+%token  DIV
+%token  DSHL
+%token  DSHR
+%token  ELSE
+%token  FLIP
 %token  EQ
-%token  extmodule
-%token  geq
-%token  gt
-%token  head
-%token  id
-%token  input
-%token  inst
-%token  int
-%token  invalid
-%token  is
-%token  leq
-%token  lt
-%token  mem
+%token  EXTMODULE
+%token  GEQ
+%token  GT
+%token  HEAD
+%token  ID
+%token  INPUT
+%token  INST
+%token  INT
+%token  INVALID
+%token  IS
+%token  LEQ
+%token  LT
+%token  MEM
 %token  MOD
 %token  MODULE
-%token  mul
-%token  mux
-%token  neg
-%token  neq
+%token  MUL
+%token  MUX
+%token  NEG
+%token  NEQ
 %token  NEW
-%token  node
-%token  not
+%token  NODE
+%token  NOT
 %token  OF
-%token  old
+%token  OLD
 %token  OR
-%token  orr
-%token  output
-%token  pad
-%token  printf
-%token  reader
-%token  read_latency
-%token  read_under_write
-%token  readwriter
-%token  reg
-%token  shl
-%token  shr
-%token  skip
-%token  SInt
-%token  stop
-%token  string
-%token  sub
-%token  tail
+%token  ORR
+%token  OUTPUT
+%token  PAD
+%token  PRINTF
+%token  READER
+%token  READ_LATENCY
+%token  READ_UNDER_WRITE
+%token  READWRITER
+%token  REG
+%token  SHL
+%token  SHR
+%token  SKIP
+%token  SINT
+%token  STOP
+%token  STRING
+%token  SUB
+%token  TAIL
 %token  UNDEFINED
-%token  UInt
-%token  validif
+%token  UINT
+%token  VALIDIF
 %token  WHEN
-%token  wire
-%token  write_latency
-%token  writer
-%token  xor
-%token  xorr
+%token  WIRE
+%token  WRITE_LATENCY
+%token  WRITER
+%token  XOR
+%token  XORR
 
 %start Circuit
 
@@ -78,88 +78,88 @@
 
 %%
 
-Circuit:info_opt circuit id ':' '(' module_lst ')'  // Circuit
-Module : info_opt MODULE id ':' '('  port_lst stmt  ')'  // Module
-| info_opt  extmodule id ':' '('  port_lst  ')'  // External Module
-port : info_opt  dir id ':' Type // Port
-dir : input | output // Port Direction
-int_opt : | '<' int '>'
-Type : UInt int_opt  // Unsigned Integer
-| SInt int_opt  // Signed Integer
-| Clock // Clock
+Circuit:info_opt CIRCUIT ID ':' '(' module_lst ')'  // CIRCUIT
+Module : info_opt MODULE ID ':' '('  port_lst stmt  ')'  // Module
+| info_opt  EXTMODULE ID ':' '('  port_lst  ')'  // External Module
+port : info_opt  dir ID ':' Type // Port
+dir : INPUT | OUTPUT // Port Direction
+INT_opt : | '<' INT '>'
+Type : UINT INT_opt  // Unsigned INTeger
+| SINT INT_opt  // Signed INTeger
+| CLOCK // CLOCK
 | '{' field_lst '}'  // Bundle
-| Type '[' int ']'  // Vector
-field : flip_opt id ':' Type // Bundle Field
-stmt : info_opt  wire id ':' Type // Wire
-| info_opt  reg id ':' Type  ','  exp  '['  exp  ','  exp_opt  // Register
-| info_opt  mem id ':' '('  // Memory
-data_type '=' '>' Type depth '=' '>' int read_latency '=' '>' int write_latency '=' '>' int read_under_write '=' '>' ruw reader '=' '>' id_lst writer '=' '>' id_lst readwriter '=' '>' id_lst  ')'  | info_opt  inst id OF id // Instance
-| info_opt  node id '=' exp // Node
+| Type '[' INT ']'  // Vector
+field : FLIP_opt ID ':' Type // Bundle Field
+stmt : info_opt  WIRE ID ':' Type // WIRE
+| info_opt  REG ID ':' Type  ','  exp  '['  exp  ','  exp_opt  // REGISter
+| info_opt  MEM ID ':' '('  // MEMory
+DATA_TYPE '=' '>' Type DEPTH '=' '>' INT READ_LATENCY '=' '>' INT WRITE_LATENCY '=' '>' INT READ_UNDER_WRITE '=' '>' ruw READER '=' '>' ID_lst WRITER '=' '>' ID_lst READWRITER '=' '>' ID_lst  ')'  | info_opt  INST ID OF ID // INSTance
+| info_opt  NODE ID '=' exp // NODE
 | info_opt  exp '<' '=' exp // Connect
 | info_opt  exp '<' '-' exp // Partial Connect
-| info_opt  exp is invalid // Invalidate
-| info_opt  WHEN exp ':' stmt else_stmt_opt  // Conditional
-| info_opt  stop'('  exp  ','  exp  ','  int  ')'  // Stop
-| info_opt  printf'('  exp  ','  exp  ','  string  ','  exp_lst  ')'  // Printf
-| info_opt  skip // Empty
+| info_opt  exp IS INVALID // InvalIDate
+| info_opt  WHEN exp ':' stmt ELSE_stmt_opt  // Conditional
+| info_opt  STOP'('  exp  ','  exp  ','  INT  ')'  // STOP
+| info_opt  PRINTF'('  exp  ','  exp  ','  STRING  ','  exp_lst  ')'  // PrINTf
+| info_opt  SKIP // Empty
 | info_opt  '('  stmt_lst  ')'  // Statement Group
-ruw : old | NEW | UNDEFINED // Read Under Write Flag
-info : '@'  '['  string  ','  int  ','  int  ']'  // File Information Token
+ruw : OLD | NEW | UNDEFINED // Read Under Write Flag
+info : '@'  '['  STRING  ','  INT  ','  INT  ']'  // File Information Token
 
-exp : UInt int_opt '('  int  ')'  // Literal Unsigned Integer
-| UInt int_opt  '('  string  ')'  // Literal Unsigned Integer From Bits
-| SInt int_opt  '('  int  ')'  // Literal Signed Integer
-| SInt int_opt  '('  string  ')'  // Literal Signed Integer From Bits
-| id // Reference
-| exp '.' id // Subfield
-| exp  '['  int  ']'  // Subindex
-| exp  '['  exp  ']'  // Subaccess
-| mux '('  exp  ','  exp  ','  exp  ')'  // Multiplexor
-| validif '('  exp  ','  exp  ')'  // Conditionally Valid
-| primop '('  exp_lst  ','  int_lst  ')' 
+exp : UINT INT_opt '('  INT  ')'  // Literal Unsigned INTeger
+| UINT INT_opt  '('  STRING  ')'  // Literal Unsigned INTeger From BITS
+| SINT INT_opt  '('  INT  ')'  // Literal Signed INTeger
+| SINT INT_opt  '('  STRING  ')'  // Literal Signed INTeger From BITS
+| ID // Reference
+| exp '.' ID // SUBfield
+| exp  '['  INT  ']'  // SUBindex
+| exp  '['  exp  ']'  // SUBaccess
+| MUX '('  exp  ','  exp  ','  exp  ')'  // MULTipleXOR
+| VALIDIF '('  exp  ','  exp  ')'  // Conditionally ValID
+| primop '('  exp_lst  ','  INT_lst  ')' 
 
-primop : add // Add
-| sub // Subtract
-| mul // Multiply
-| div // Divide
+primop : ADD // ADD
+| SUB // SUBtract
+| MUL // MULTiply
+| DIV // DIVIDe
 | MOD // Modulo
-| lt // Less Than
-| leq // Less or Equal
-| gt // Greater Than
-| geq // Greater or Equal
+| LT // Less Than
+| LEQ // Less or Equal
+| GT // Greater Than
+| GEQ // Greater or Equal
 | EQ // Equal
-| neq // Not Equal
-| pad // Pad
-| asUInt // Interpret Bits as UInt
-| asSInt // Interpret Bits as SInt
-| asClock // Interpret as Clock
-| shl // Shift Left
-| shr // Shift Right
-| dshl // Dynamic Shift Left
-| dshr // Dynamic Shift Right
-| cvt // Arithmetic Convert to Signed
-| neg // Negate
-| not // Not
+| NEQ // NOT Equal
+| PAD // PAD
+| ASUINT // INTerpret BITS as UINT
+| ASSINT // INTerpret BITS as SINT
+| ASCLOCK // INTerpret as CLOCK
+| SHL // Shift Left
+| SHR // Shift Right
+| DSHL // Dynamic Shift Left
+| DSHR // Dynamic Shift Right
+| CVT // Arithmetic Convert to Signed
+| NEG // NEGate
+| NOT // NOT
 | AND // And
 | OR // Or
-| xor // Xor
-| andr // And Reduce
-| orr // Or Reduce
-| xorr // Xor Reduce
-| cat // Concatenation
-| bits // Bit Extraction
-| head // Head
-| tail // Tail
+| XOR // XOR
+| ANDR // And Reduce
+| ORR // Or Reduce
+| XORR // XOR Reduce
+| CAT // ConCATenation
+| BITS // Bit Extraction
+| HEAD // HEAD
+| TAIL // TAIL
 
-id_lst: id | id_lst id
+ID_lst: ID | ID_lst ID
 exp_lst: exp | exp_lst exp
 field_lst: field | field_lst field
-int_lst: int | int_lst int
+INT_lst: INT | INT_lst INT
 module_lst: Module | module_lst Module
 port_lst: port | port_lst port
 stmt_lst: stmt | stmt_lst stmt
 
 info_opt: | info
-else_stmt_opt: | else ':' stmt
+ELSE_stmt_opt: | ELSE ':' stmt
 exp_opt: | exp
-flip_opt: | flip
+FLIP_opt: | FLIP

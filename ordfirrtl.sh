@@ -16,8 +16,8 @@
 #*                                                                        *)
 #**************************************************************************)
 
-echo open String > ordscala.ml
-echo open CompilationUnit >> ordscala.ml
-echo let getstr = function >> ordscala.ml
-sed '/exception/,$d' CompilationUnit.mli | grep '\ [A-Z][A-Za-z_]' | cut -d\( -f1 | tr '\011' ' ' |\
-sed -e 's=[|\ ]*\([A-Z][A-Za-z0-9_\ o]*\)=|\ \1 -> uppercase(\"\1\") \;=' -e 's= of [A-Za-z0-9\ ]*= _=' -e 's= of[A-Za-z0-9\ ]*==' | cut -d\; -f1 | sort >> ordscala.ml
+echo open String > ordfirrtl.ml
+echo open Circuit >> ordfirrtl.ml
+echo let getstr = function >> ordfirrtl.ml
+sed '/exception/,$d' Circuit.mli | grep '\ [A-Z][A-Za-z_]' | cut -d\( -f1 | tr '\011' ' ' |\
+sed -e 's=[|\ ]*\([A-Z][A-Za-z0-9_\ o]*\)=|\ \1 -> uppercase(\"\1\") \;=' -e 's= of [A-Za-z0-9\ ]*= _=' -e 's= of[A-Za-z0-9\ ]*==' | cut -d\; -f1 | sort >> ordfirrtl.ml

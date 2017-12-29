@@ -5,7 +5,7 @@
 *.i
 *.o
 ord.ml
-ordscala.ml
+ordfirrtl.ml
 output_lexer.ml
 output_parser
 output_parser.top
