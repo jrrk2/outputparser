@@ -41,7 +41,7 @@ MENHIRFLAGS=--trace
 y.output: firrtl.y
 	bison -v -y -d firrtl.y
 
-firrtltest: Circuit.mly Circuit
+firrtltest: Circuit.mly Circuit Circuit.top
 
 ordfirrtl.ml: ordfirrtl.sh Circuit.mli
 	sh ordfirrtl.sh

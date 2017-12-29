@@ -1,0 +1,11 @@
+open Circuit
+open Circuit_types
+open Circuit_main
+open Circuit_filt
+open Circuit_transform
+
+let main = "CoreplexTop";;
+let args = [| ""; "../lowrisc-chip-update-jrrk2/fpga/board/nexys4_ddr/generated-src/CoreplexTop.LoRCNexys4Config.fir" |];;
+let rslts = dump parse stdout main args;;
+close_out chan;;
+let (hd::tl) = rslts;;

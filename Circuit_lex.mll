@@ -156,7 +156,7 @@ let number = ['-' '+']*['0'-'9']+
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let qstring = '"'[^'"']*'"'
-let comment = '/''/'[^'\n']*
+let comment = ';'[^'\n']*
 
 rule token = parse
   | comment
