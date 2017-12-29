@@ -25,7 +25,6 @@ CompilationUnit.mli
 CompilationUnit.mly
 CompilationUnit_lex.ml
 CompilationUnit_types.ml
-ansic
 kernel.i
 kernel.log
 lef_file

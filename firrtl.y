@@ -1,6 +1,6 @@
-%token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
+%token CASE DEFAULT IF SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 %token  add
-%token  and
+%token  AND
 %token  andr
 %token  asClock
 %token  asSInt
@@ -10,14 +10,14 @@
 %token  cvt
 %token  circuit
 %token  Clock
-%token  data-type
+%token  data_type
 %token  depth
 %token  div
 %token  dshl
 %token  dshr
 %token  else
 %token  flip
-%token  eq
+%token  EQ
 %token  extmodule
 %token  geq
 %token  gt
@@ -31,25 +31,25 @@
 %token  leq
 %token  lt
 %token  mem
-%token  mod
-%token  module
+%token  MOD
+%token  MODULE
 %token  mul
 %token  mux
 %token  neg
 %token  neq
-%token  new
+%token  NEW
 %token  node
 %token  not
-%token  of
+%token  OF
 %token  old
-%token  or
+%token  OR
 %token  orr
 %token  output
 %token  pad
 %token  printf
 %token  reader
-%token  read-latency
-%token  read-under-write
+%token  read_latency
+%token  read_under_write
 %token  readwriter
 %token  reg
 %token  shl
@@ -60,12 +60,12 @@
 %token  string
 %token  sub
 %token  tail
-%token  undefined
+%token  UNDEFINED
 %token  UInt
 %token  validif
-%token  when
+%token  WHEN
 %token  wire
-%token  write-latency
+%token  write_latency
 %token  writer
 %token  xor
 %token  xorr
@@ -79,31 +79,31 @@
 %%
 
 Circuit:info_opt circuit id ':' '(' module_lst ')'  // Circuit
-Module : info_opt  module id ':' '('  port_lst stmt  ')'  // Module
+Module : info_opt MODULE id ':' '('  port_lst stmt  ')'  // Module
 | info_opt  extmodule id ':' '('  port_lst  ')'  // External Module
-port : info_opt  dir id ':' type // Port
+port : info_opt  dir id ':' Type // Port
 dir : input | output // Port Direction
 int_opt : | '<' int '>'
-type : UInt int_opt  // Unsigned Integer
+Type : UInt int_opt  // Unsigned Integer
 | SInt int_opt  // Signed Integer
 | Clock // Clock
 | '{' field_lst '}'  // Bundle
-| type '[' int ']'  // Vector
-field : flip_opt id ':' type // Bundle Field
-stmt : info_opt  wire id ':' type // Wire
-| info_opt  reg id ':' type  ','  exp  '['  exp  ','  exp_opt  // Register
+| Type '[' int ']'  // Vector
+field : flip_opt id ':' Type // Bundle Field
+stmt : info_opt  wire id ':' Type // Wire
+| info_opt  reg id ':' Type  ','  exp  '['  exp  ','  exp_opt  // Register
 | info_opt  mem id ':' '('  // Memory
-data-type '=' '>' type depth '=' '>' int read-latency '=' '>' int write-latency '=' '>' int read-under-write '=' '>' ruw reader '=' '>' id_lst writer '=' '>' id_lst readwriter '=' '>' id_lst  ')'  | info_opt  inst id of id // Instance
+data_type '=' '>' Type depth '=' '>' int read_latency '=' '>' int write_latency '=' '>' int read_under_write '=' '>' ruw reader '=' '>' id_lst writer '=' '>' id_lst readwriter '=' '>' id_lst  ')'  | info_opt  inst id OF id // Instance
 | info_opt  node id '=' exp // Node
 | info_opt  exp '<' '=' exp // Connect
 | info_opt  exp '<' '-' exp // Partial Connect
 | info_opt  exp is invalid // Invalidate
-| info_opt  when exp ':' stmt else_stmt_opt  // Conditional
+| info_opt  WHEN exp ':' stmt else_stmt_opt  // Conditional
 | info_opt  stop'('  exp  ','  exp  ','  int  ')'  // Stop
 | info_opt  printf'('  exp  ','  exp  ','  string  ','  exp_lst  ')'  // Printf
 | info_opt  skip // Empty
 | info_opt  '('  stmt_lst  ')'  // Statement Group
-ruw : old | new | undefined // Read Under Write Flag
+ruw : old | NEW | UNDEFINED // Read Under Write Flag
 info : '@'  '['  string  ','  int  ','  int  ']'  // File Information Token
 
 exp : UInt int_opt '('  int  ')'  // Literal Unsigned Integer
@@ -122,13 +122,13 @@ primop : add // Add
 | sub // Subtract
 | mul // Multiply
 | div // Divide
-| mod // Modulo
+| MOD // Modulo
 | lt // Less Than
 | leq // Less or Equal
 | gt // Greater Than
 | geq // Greater or Equal
-| eq // Equal
-| neq // Not-Equal
+| EQ // Equal
+| neq // Not Equal
 | pad // Pad
 | asUInt // Interpret Bits as UInt
 | asSInt // Interpret Bits as SInt
@@ -140,8 +140,8 @@ primop : add // Add
 | cvt // Arithmetic Convert to Signed
 | neg // Negate
 | not // Not
-| and // And
-| or // Or
+| AND // And
+| OR // Or
 | xor // Xor
 | andr // And Reduce
 | orr // Or Reduce

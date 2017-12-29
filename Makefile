@@ -38,40 +38,40 @@ MENHIRFLAGS=--trace
 
 ############################################################################
 
-y.output: scala-syntax-spec.y
-	bison -v -y -d scala-syntax-spec.y
+y.output: firrtl.y
+	bison -v -y -d firrtl.y
 
-scalatest: CompilationUnit.mly CompilationUnit
+firrtltest: Circuit.mly Circuit
 
-ordscala.ml: ordscala.sh CompilationUnit.mli
-	sh ordscala.sh
+ordfirrtl.ml: ordfirrtl.sh Circuit.mli
+	sh ordfirrtl.sh
 
-CompilationUnit.mly: y.output output_parser
+Circuit.mly: y.output output_parser
 	env OCAMLRUNPARAM=b STRINGLITERAL=string PLAINID=string CHARACTERLITERAL=string INTEGERLITERAL=int FLOATINGPOINTLITERAL=float ./output_parser y.output
 
 %.i: $(SIMPLEDMC)/src/%.c
 	$(CPP) $< | $(SED) >$@
 
-CompilationUnit: CompilationUnit.cmi ordscala.cmo CompilationUnit_types.cmo CompilationUnit.cmo CompilationUnit_lex.cmo CompilationUnit_filt.cmo CompilationUnit_transform.cmo CompilationUnit_main.cmo
-	 ocamlc.opt -g -o $@ CompilationUnit_types.cmo ordscala.cmo CompilationUnit.cmo CompilationUnit_lex.cmo CompilationUnit_filt.cmo CompilationUnit_transform.cmo CompilationUnit_main.cmo
+Circuit: Circuit.cmi ordfirrtl.cmo Circuit_types.cmo Circuit.cmo Circuit_lex.cmo Circuit_filt.cmo Circuit_transform.cmo Circuit_main.cmo
+	 ocamlc.opt -g -o $@ Circuit_types.cmo ordfirrtl.cmo Circuit.cmo Circuit_lex.cmo Circuit_filt.cmo Circuit_transform.cmo Circuit_main.cmo
 
-CompilationUnit.top: CompilationUnit.cmi ordscala.cmo CompilationUnit_types.cmo CompilationUnit.cmo CompilationUnit_lex.cmo CompilationUnit_filt.cmo CompilationUnit_transform.cmo  CompilationUnit_main.cmo
-	 ocamlmktop -g -o $@ CompilationUnit_types.cmo ordscala.cmo CompilationUnit.cmo CompilationUnit_lex.cmo CompilationUnit_filt.cmo CompilationUnit_transform.cmo CompilationUnit_main.cmo
+Circuit.top: Circuit.cmi ordfirrtl.cmo Circuit_types.cmo Circuit.cmo Circuit_lex.cmo Circuit_filt.cmo Circuit_transform.cmo  Circuit_main.cmo
+	 ocamlmktop -g -o $@ Circuit_types.cmo ordfirrtl.cmo Circuit.cmo Circuit_lex.cmo Circuit_filt.cmo Circuit_transform.cmo Circuit_main.cmo
 
-CompilationUnit_lex.ml: CompilationUnit_lex.mll
-	ocamllex CompilationUnit_lex.mll
+Circuit_lex.ml: Circuit_lex.mll
+	ocamllex Circuit_lex.mll
 
-CompilationUnit.mli CompilationUnit.ml: CompilationUnit.mly CompilationUnit_types.ml
+Circuit.mli Circuit.ml: Circuit.mly Circuit_types.ml
 #	ocamlyacc $<
 	menhir $(MENHIRFLAGS) $<
-	echo 'val declst : (token * token) list ref' >> CompilationUnit.mli
-	ocamlc.opt -g -c CompilationUnit.mli CompilationUnit_types.ml CompilationUnit.ml
+	echo 'val declst : (token * token) list ref' >> Circuit.mli
+	ocamlc.opt -g -c Circuit.mli Circuit_types.ml Circuit.ml
 
-parsetest: CompilationUnit CompilationUnit.top
-	env OCAMLRUNPARAM=b ./CompilationUnit.top
+parsetest: Circuit Circuit.top
+	env OCAMLRUNPARAM=b ./Circuit.top
 
-parsemain: CompilationUnit CompilationUnit.top
-	env OCAMLRUNPARAM=b ./CompilationUnit
+parsemain: Circuit Circuit.top
+	env OCAMLRUNPARAM=b ./Circuit
 
 %.cmi: %.mli
 	ocamlc.opt -g -c $<
