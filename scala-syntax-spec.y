@@ -59,14 +59,12 @@
 //                    idrest :  {letter | digit} ['_' op]
 //                     VARID :  lower idrest
 //                   PLAINID :  (upper idrest) | VARID | op
-                        id :  PLAINID | '`' STRINGLITERAL '`'
-                       ids :  id {',' id}
-                    QualId :  id {'.' id}
-            ClassQualifier :  '[' id ']'
-           AccessQualifier :  '[' id ']' | '[' THIS ']'
-                  StableId :  id | Path '.' id | idopt SUPER [ClassQualifier] '.' id
-		     idopt :  | id '.'
-                      Path :  StableId | idopt THIS
+ //                        id :  PLAINID | '`' STRINGLITERAL '`'
+                       ids :  PLAINID {',' PLAINID}
+                    QualId :  PLAINID {'.' PLAINID}
+            ClassQualifier :  '[' PLAINID ']'
+           AccessQualifier :  '[' PLAINID ']' | '[' THIS ']'
+                  StableId :  PLAINID | StableId '.' PLAINID | THIS '.' PLAINID | PLAINID '.' THIS '.' PLAINID | SUPER [ClassQualifier] '.' PLAINID | PLAINID '.' SUPER [ClassQualifier] '.' PLAINID
 
 // LITERALS
             BOOLEANLITERAL :  TRUE | FALSE
@@ -81,11 +79,13 @@
 
 // TYPES
                 SimpleType :  StableId
-                             |  Path '.' TYPE
+                             |  StableId '.' TYPE
+                             |  THIS '.' TYPE
+                             |  PLAINID '.' THIS '.' TYPE
                              |  SimpleType TypeArgs
-                             |  SimpleType '#' id
+                             |  SimpleType '#' PLAINID
                              |  '(' Types ')'
-                 AnnotType :  SimpleType {Annotation}
+                 AnnotType :  SimpleType | SimpleType AnnotationLst
               CompoundType :  AnnotType {'with' AnnotType} [Refinement] | Refinement
                  InfixType :  CompoundType {id [nl] CompoundType}
                  ParamType :  Type | EQGT Type | Type '*'
@@ -99,7 +99,7 @@
 
                 Ascription :  ':' InfixType | ':' Annotation {Annotation} | ':' '_' '*'
                    Binding :  id_ | id_ ':' Type
-		       id_ :  id | '_'
+		       id_ :  PLAINID | '_'
                   Bindings :  '(' Binding {',' Binding} ')'
 
 // PATTERN MATCHING
@@ -114,7 +114,7 @@
 //                             |  XmlPattern // TODO: What's an XmlPattern
 	   PatternCommaOpt : | Patterns ','
 		  VARIDat  : | VARID '@'
-                  Pattern3 :  SimplePattern | SimplePattern { id [nl] SimplePattern }
+                  Pattern3 :  SimplePattern | SimplePattern { PLAINID [nl] SimplePattern }
                   Pattern2 :  Pattern3 | VARID atpattern3
 		  atpattern3 : | '@' Pattern3
 		  cmpatterns : | ',' Patterns
@@ -127,7 +127,7 @@
                CaseClauses :  CaseClause { CaseClause }
 
 // PARAMS & PARAM CLAUSES
-                     Param :  {Annotation} id clnpt eqexp
+                     Param :  {Annotation} PLAINID clnpt eqexp
 		     clnpt : | ':' ParamType
 		     eqexp : | '=' Expr
                     Params :  Param {',' Param}
@@ -135,7 +135,7 @@
               ParamClauses :  {ParamClause} iparamopt
 	      nlopt :        | NEWLINE
 	      iparamopt    : | nlopt '(' IMPLICIT Params ')'
-	      idun : id | '_'
+	      idun : PLAINID | '_'
 	      gtclnt : | '>' ':' Type
 	      ltclnt : | '<' ':' Type
 	      ltpct : | '<' '%' Type
@@ -148,20 +148,23 @@
 
         FunTypeParamClause :  '[' TypeParam {',' TypeParam} ']'
 
-                ClassParam :  {Annotation} {Modifier} vaopt id ':' ParamType eqexp
-	 ClassParamCommaLstOpt :  | ClassParamCommaLst
-	 ClassParamCommaLst :  ClassParam | ParamTypeCommaLst ',' ParamType
-               ClassParams :  ClassParamCommaLst
-          ClassParamClause :  nlopt '(' [ClassParams] ')'
-         ClassParamClauses :  {ClassParamClause} | {ClassParamClause} nlopt '(' IMPLICIT ClassParams ')'
+                ClassParam : PLAINID ':' ParamType eqexp
+                             |  VAL PLAINID ':' ParamType eqexp		
+                             |  VAR PLAINID ':' ParamType eqexp		
+			     |  AnnotationLst vaopt PLAINID ':' ParamType eqexp
+			     |  ModifierLst vaopt PLAINID ':' ParamType eqexp
+			     |  AnnotationLst ModifierLst vaopt PLAINID ':' ParamType eqexp
+	 ClassParamCommaLst :  ClassParam | ClassParamCommaLst ',' ClassParam
+          ClassParamClause :  nlopt '(' ')' | nlopt '(' ClassParamCommaLst ')'
+         ClassParamClauses :  ClassParamClause | ClassParamClause nlopt '(' IMPLICIT ClassParamCommaLst ')'
 
 // DECLARATIONS
-                    FunSig :  id [FunTypeParamClause] ParamClauses
+                    FunSig :  PLAINID [FunTypeParamClause] ParamClauses
 
                     ValDcl :  ids ':' Type
                     VarDcl :  ids ':' Type
                     FunDcl :  FunSig | FunSig ':' Type
-                   TypeDcl :  id [TypeParamClause] gtclnt ltclnt
+                   TypeDcl :  PLAINID [TypeParamClause] gtclnt ltclnt
                        Dcl :  VAL ValDcl | VAR VarDcl | DEF FunDcl | TYPE {nl} TypeDcl
 
             ExistentialDcl :  TYPE TypeDcl | VAL ValDcl
@@ -169,10 +172,12 @@
 
 // EXPRESSIONS
                SimpleExpr1 :  Literal
-                             |  Path
+                             |  StableId
+	                     | THIS
+	                     | PLAINID '.' THIS
                              |  '_'
                              |  '(' [Exprs] ')'
-                             |  SimpleExpr '.' id
+                             |  SimpleExpr '.' PLAINID
                              |  SimpleExpr TypeArgs
                              |  SimpleExpr1 ArgumentExprs
 //                             |  XmlExpr // TODO: What's an XmlExpr
@@ -180,8 +185,8 @@
                 SimpleExpr :  SimpleExpr1 unopt | BlockExpr | NEW ClassTemplate | NEW TemplateBody
                 Prefix :  | '-' | '+' | '~' | '!'
 	        semiopt : | SEMICOLON
-                 InfixExpr :  Prefix SimpleExpr | InfixExpr id nlopt InfixExpr
-               PostfixExpr :  InfixExpr | InfixExpr id nlopt
+                 InfixExpr :  Prefix SimpleExpr | InfixExpr PLAINID nlopt InfixExpr
+               PostfixExpr :  InfixExpr | InfixExpr PLAINID nlopt
 	 elseopt: | semiopt ELSE Expr
 	 tryblk : '{' Block '}' | Expr
 	 forblk: '(' Enumerators ')' | '{' Enumerators '}'
@@ -190,7 +195,7 @@
                      Expr1 :  PostfixExpr
                              |  PostfixExpr Ascription
                              |  PostfixExpr MATCH '{' CaseClauses '}'
-                             |  id '=' Expr | SimpleExpr '.' id '=' Expr
+                             |  PLAINID '=' Expr | SimpleExpr '.' PLAINID '=' Expr
                              |  SimpleExpr1 ArgumentExprs '=' Expr
                              |  IF '(' Expr ')' {nl} Expr elseopt
                              |  WHILE '(' Expr ')' {nl} Expr
@@ -200,7 +205,7 @@
                              |  THROW Expr
                              |  RETURN | RETURN Expr
 			     impopt: | IMPLICIT
-		     bindopt: Bindings | impopt id | '_'
+		     bindopt: Bindings | impopt PLAINID | '_'
                       Expr :  Expr1 | bindopt EQGT Expr
                 ResultExpr :  Expr1 | bindopt ':' CompoundType EQGT Block
                  BlockExpr :  '{' Block '}' | '{' CaseClauses '}'
@@ -225,9 +230,10 @@ access: PRIVATE | PROTECTED
             AccessModifier :  access | access AccessQualifier
              LocalModifier :  ABSTRACT | FINAL | SEALED | IMPLICIT | LAZY
                   Modifier :  LocalModifier | AccessModifier | OVERRIDE
-
+               ModifierLst : Modifier | ModifierLst Modifier
 // ANNOTATIONS
                 Annotation :  '@' SimpleType {ArgumentExprs}
+             AnnotationLst : Annotation | AnnotationLst Annotation
           ConstrAnnotation :  '@' SimpleType ArgumentExprs
 
 // DEFINITIONS
@@ -238,14 +244,19 @@ access: PRIVATE | PROTECTED
                              |  FunSig nlopt '{' Block '}'
                              |  THIS ParamClause ParamClauses '=' ConstrExpr
                              |  THIS ParamClause ParamClauses nlopt ConstrBlock
-                   TypeDef :  id [TypeParamClause] '=' Type
-                  ClassDef :  id [TypeParamClause] {ConstrAnnotation} [AccessModifier]
+                   TypeDef :  PLAINID [TypeParamClause] '=' Type
+                  ClassDef :  PLAINID [TypeParamClause] {ConstrAnnotation} [AccessModifier]
                                 ClassParamClauses ClassTemplateOpt
-                 ObjectDef :  id ClassTemplateOpt
-                  TraitDef :  id [TypeParamClause] TraitTemplateOpt
-		  caseopt : | CASE
-                   TmplDef :  caseopt CLASS ClassDef
-                             |  caseopt OBJECT ObjectDef
+                 ObjectDef :  PLAINID ClassTemplateOpt
+                  TraitDef :  PLAINID [TypeParamClause] TraitTemplateOpt
+		  TmplDefAnno : TmplDef
+		             | Modifier TmplDef
+		             | Annotation nlopt TmplDef
+		             | Annotation nlopt Modifier TmplDef
+                   TmplDef : CLASS ClassDef
+		             | CASE CLASS ClassDef
+                             | OBJECT ObjectDef
+                             | CASE OBJECT ObjectDef
                              |  TRAIT TraitDef
                        Def :  PatVarDef | DEF FunDef | TYPE {nl} TypeDef | TmplDef
 
@@ -259,10 +270,10 @@ access: PRIVATE | PROTECTED
                 Refinement :  nlopt '{' RefineStat {SEMICOLON RefineStat} '}'
 
 // IMPORTS
-            ImportSelector :  id EQGT id | id EQGT '_'
+            ImportSelector :  PLAINID EQGT PLAINID | PLAINID EQGT '_'
 	    ImportSelectorAlt : ImportSelector | '_'
            ImportSelectors :  '{' {ImportSelector ','} ImportSelectorAlt '}'
-                ImportExpr :  StableId '.' id | StableId '.' '_' | StableId '.' ImportSelectors
+                ImportExpr :  StableId '.' PLAINID | PLAINID '.' '_' | StableId '.' ImportSelectors
 		ImportExprLst : ImportExpr | ImportExprLst ',' ImportExpr
                     Import :  IMPORT ImportExprLst
 
@@ -275,7 +286,7 @@ access: PRIVATE | PROTECTED
                      Block :  BlockStat {SEMICOLON BlockStat} [ResultExpr]
 
 // CLASSES/TRAITS
-                  SelfType :  id clnt EQGT | THIS ':' Type EQGT
+                  SelfType :  PLAINID clnt EQGT | THIS ':' Type EQGT
 		  annotlst : | annotlst Annotation | annotlst Annotation NEWLINE
 		     defalt : Def | Dcl
               TemplateStat :  Import | Expr | annotlst {Modifier} defalt
@@ -283,8 +294,9 @@ access: PRIVATE | PROTECTED
 
                     Constr :  AnnotType {ArgumentExprs}
 
-              ClassParents :  Constr {WITH AnnotType}
-             ClassTemplate :  [EarlyDefs] ClassParents [TemplateBody]
+              ClassParents :  Constr | Constr WITH AnnotType
+             ClassTemplate :  ClassParents [TemplateBody]
+	                     | EarlyDefs ClassParents [TemplateBody]
 	     extendsopt : | EXTENDS
           ClassTemplateOpt : | EXTENDS ClassTemplate | extendsopt TemplateBody
 
@@ -293,9 +305,8 @@ access: PRIVATE | PROTECTED
           TraitTemplateOpt : | EXTENDS TraitTemplate | extendsopt TemplateBody
 
 // COMPILATION UNIT
-                 Packaging :  PACKAGE QualId nlopt TopStatSeqOpt
+                 Packaging :  PACKAGE QualId nlopt | PACKAGE QualId nlopt TopStatSeq
              PackageObject :  PACKAGE OBJECT ObjectDef
-                   TopStat :  Packaging | Import | PackageObject | {Annotation nlopt} {Modifier} TmplDef
-                TopStatSeq :  TopStat {SEMICOLON TopStat}
-             TopStatSeqOpt : | TopStatSeq
-           CompilationUnit :  {PACKAGE QualId SEMICOLON} TopStatSeq
+                   TopStat :  Packaging | Import | PackageObject | TmplDefAnno
+                TopStatSeq :  TopStat | TopStatSeq TopStat | TopStatSeq SEMICOLON TopStat
+           CompilationUnit :   TopStatSeq | PACKAGE QualId SEMICOLON TopStatSeq 
