@@ -20,7 +20,7 @@
   open Lexing
   open Circuit
 
-  let verbose = ref true
+  let verbose = ref false
   let lincnt = ref 0
 
   let keyword =
@@ -36,63 +36,41 @@
        ASCLOCK, "asClock("; 
        ASSINT, "asSInt("; 
        ASUINT, "asUInt("; 
-       AT, "AT"; 
-       BACKQUOTE, "BACKQUOTE"; 
-       BACKSLASH, "BACKSLASH"; 
        BITS, "bits("; 
-       BREAK, "BREAK"; 
-       CARET, "CARET"; 
-       CASE, "CASE"; 
        CAT, "cat("; 
        CIRCUIT, "circuit"; 
        CLOCK, "Clock"; 
-       COLON, "COLON"; 
-       COMMA, "COMMA"; 
-       CONTINUE, "CONTINUE"; 
+       CMEM, "cmem"; 
        CVT, "cvt("; 
        DATA_TYPE, "DATA_TYPE"; 
        DEFAULT, "DEFAULT"; 
-       DEPTH, "DEPTH"; 
+       DEFNAME, "defname"; 
+       DEPTH, "depth"; 
        DIV, "div("; 
-       DOLLAR, "DOLLAR"; 
-       DOT, "DOT"; 
-       DOUBLEQUOTE, "DOUBLEQUOTE"; 
-       DO, "DO"; 
        DSHL, "dshl("; 
        DSHR, "dshr("; 
        ELSE, "ELSE"; 
        EMPTY_TOKEN, "EMPTY_TOKEN"; 
        END, "END"; 
        EOF_TOKEN, "EOF_TOKEN"; 
-       EQUALS, "EQUALS"; 
        EQ, "eq("; 
        ERROR_TOKEN, "ERROR_TOKEN"; 
        ERROR, "ERROR"; 
-       EXTMODULE, "EXTMODULE"; 
+       EXTMODULE, "extmodule"; 
        FLIP, "flip"; 
-       FOR, "FOR"; 
        GEQ, "geq("; 
-       GOTO, "GOTO"; 
-       GREATER, "GREATER"; 
        GT, "gt("; 
-       HASH, "HASH"; 
        HEAD, "head("; 
-       HYPHEN, "HYPHEN"; 
-       IF, "IF"; 
        INPUT, "input"; 
-       INST, "INST"; 
-       INVALID, "invalid"; 
+       INST, "inst"; 
        IS, "is"; 
-       LBRACE, "LBRACE"; 
-       LBRACK, "LBRACK"; 
        LEQ, "leq("; 
        LESS, "LESS"; 
-       LINEFEED, "LINEFEED"; 
-       LPAREN, "LPAREN"; 
        LT, "lt("; 
-       MEM, "MEM"; 
+       MEM, "mem("; 
        MODULE, "module"; 
        MOD, "mod("; 
+       MPORT, "mport"; 
        MUL, "mul("; 
        MUX, "mux("; 
        NEG, "neg("; 
@@ -100,43 +78,37 @@
        NEW, "NEW"; 
        NODE, "node"; 
        NOT, "not("; 
-       OF, "OF"; 
+       OF, "of"; 
        OLD, "OLD"; 
        ORR, "orr("; 
        OR, "or("; 
        OUTPUT, "output"; 
        PAD, "pad("; 
-       PERCENT, "PERCENT"; 
+       PARAMETER, "parameter"; 
        PLING, "PLING"; 
-       PRINTF, "PRINTF"; 
-       QUERY, "QUERY"; 
+       PRINTF, "printf("; 
        QUOTE, "QUOTE"; 
-       RBRACE, "RBRACE"; 
-       RBRACK, "RBRACK"; 
        READER, "READER"; 
        READ_LATENCY, "READ_LATENCY"; 
        READ_UNDER_WRITE, "READ_UNDER_WRITE"; 
        READWRITER, "READWRITER"; 
        REG, "reg"; 
-       RETURN, "RETURN"; 
-       RPAREN, "RPAREN"; 
        SHL, "shl("; 
        SHR, "shr("; 
        SINT, "SInt"; 
-       SKIP, "SKIP"; 
-       STOP, "STOP"; 
+       SKIP, "skip"; 
+       SMEM, "smem"; 
+       STOP, "stop("; 
        SUB, "sub("; 
-       SWITCH, "SWITCH"; 
        TAIL, "tail("; 
        TILDE, "TILDE"; 
        UINT, "UInt"; 
        UNDEFINED, "UNDEFINED"; 
-       UNDERSCORE, "UNDERSCORE"; 
        VALIDIF, "VALIDIF"; 
        VBAR, "VBAR"; 
-       WHEN, "WHEN"; 
-       WHILE, "WHILE"; 
+       WHEN, "when"; 
        WIRE, "wire"; 
+       WITH, "with"; 
        WRITE_LATENCY, "WRITE_LATENCY"; 
        WRITER, "WRITER"; 
        XORR, "xorr("; 
@@ -146,7 +118,8 @@
 
 let tok arg = if !verbose then print_endline (
   match arg with
-    | ID s -> "'"^s^"'"
+    | ID s -> "ID '"^s^"'"
+    | STRING s -> "STRING '"^s^"'"
     | _ -> Ordfirrtl.getstr arg );
   arg
 }
@@ -156,7 +129,6 @@ let ident = ['a'-'z' 'A'-'Z' '_' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
 let number = ['-' '+']*['0'-'9']+
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
-let qstring = '"'[^'"']*'"'
 let comment = ';'[^'\n']*
 
 rule token = parse
@@ -172,15 +144,13 @@ rule token = parse
       { tok ( try keyword s with Not_found -> ID s ) }
   | identlpar as s
       { tok ( try keyword s with Not_found -> STRING s ) }
-  | qstring as s
-      { tok ( STRING s ) }
   | eof
       { tok ( EOF_TOKEN ) }
 | '!'
 { tok ( PLING ) }
 
 | '"'
-{ tok ( DOUBLEQUOTE ) }
+{ tok ( STRING (string (Buffer.create 100) lexbuf ) ) }
 
 | '#'
 { tok ( HASH ) }
@@ -274,3 +244,24 @@ rule token = parse
 
 | _ as oth
 { tok ( failwith ("lex_file_lex: "^String.make 1 oth) ) }
+
+(* This bit contributed by Christian Lindig https://medium.com/@huund/recipes-for-ocamllex-bb4efa0afe53 *)
+
+and string buf = parse
+| [^'"' '\n' '\\']+ as s
+            { Buffer.add_string buf @@ s
+            ; string buf lexbuf 
+            }
+| '\n'      { Buffer.add_string buf @@ "\n"
+            ; Lexing.new_line lexbuf
+            ; string buf lexbuf
+            }
+| '\\' '"'  { Buffer.add_char buf '"'
+            ; string buf lexbuf
+            }
+| '\\'      { Buffer.add_char buf '\\'
+            ; string buf lexbuf
+            }
+| '"'       { Buffer.contents buf } (* return *)
+| eof       { failwith "end of input inside of a string" }
+| _         { failwith "found '%s' - don't know how to handle" }

@@ -34,7 +34,7 @@ ord.ml: ord.sh output_parser.mli
 clean:
 	rm -f output_lexer.ml output_parser.mli output_parser.ml outputparser outputparser.top ord.ml *.cm? *.o
 
-MENHIRFLAGS=--trace
+MENHIRFLAGS=#--trace
 
 ############################################################################
 

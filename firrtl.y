@@ -1,4 +1,3 @@
-%token CASE DEFAULT IF SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 %token  ADD
 %token  AND
 %token  ANDR
@@ -7,10 +6,13 @@
 %token  ASUINT
 %token  BITS
 %token  CAT
+%token  CMEM
 %token  CVT
 %token  CIRCUIT
 %token  CLOCK
 %token  DATA_TYPE
+%token  DEFAULT
+%token  DEFNAME
 %token  DEPTH
 %token  DIV
 %token  DSHL
@@ -26,13 +28,13 @@
 %token  INPUT
 %token  INST
 %token  INT
-%token  INVALID
 %token  IS
 %token  LEQ
 %token  LT
 %token  MEM
 %token  MOD
 %token  MODULE
+%token  MPORT
 %token  MUL
 %token  MUX
 %token  NEG
@@ -46,6 +48,7 @@
 %token  ORR
 %token  OUTPUT
 %token  PAD
+%token  PARAMETER
 %token  PRINTF
 %token  READER
 %token  READ_LATENCY
@@ -56,6 +59,7 @@
 %token  SHR
 %token  SKIP
 %token  SINT
+%token  SMEM
 %token  STOP
 %token  STRING
 %token  SUB
@@ -65,6 +69,7 @@
 %token  VALIDIF
 %token  WHEN
 %token  WIRE
+%token  WITH
 %token  WRITE_LATENCY
 %token  WRITER
 %token  XOR
@@ -73,52 +78,60 @@
 %start Circuit
 
 %{
-  // #include "firrtl.h"
+ // #include "firrtl.h"
 %}
 
 %%
 
-Circuit:CIRCUIT ID ':' module_lst  // CIRCUIT
-Module : MODULE ID ':' port_lst stmt_lst  // Module
-|  EXTMODULE ID ':' port_lst  // External Module
-port :  dir ID ':' Type // Port
+Circuit:CIRCUIT ID ':' module_lst // CIRCUIT
+Module : MODULE ID ':' port_lst stmt_lst // Module
+| EXTMODULE ID ':' port_lst ext_lst // External Module
+port : dir ID ':' Type // Port
 dir : INPUT | OUTPUT // Port Direction
 INT_opt : | '<' INT '>'
-Type : UINT INT_opt  // Unsigned Integer
-| SINT INT_opt  // Signed Integer
+Type : UINT INT_opt // Unsigned Integer
+| SINT INT_opt // Signed Integer
 | CLOCK // CLOCK
-| '{' field_clst '}'  // Bundle
-| Type '[' INT ']'  // Vector
+| '{' field_clst_opt '}' // Bundle
+| Type '[' INT ']' // Vector
 field : FLIP_opt ID ':' Type // Bundle Field
 | FLIP_opt BITS ':' Type // Bundle Field
 | FLIP_opt INT ':' Type // Bundle Field
-stmt :  WIRE ID ':' Type // WIRE
-|  REG ID ':' Type  ','  exp  '['  exp  ','  exp_opt  // REGISter
-|  MEM ID ':' '('  // MEMory
-DATA_TYPE '=' '>' Type DEPTH '=' '>' INT READ_LATENCY '=' '>' INT WRITE_LATENCY '=' '>' INT READ_UNDER_WRITE '=' '>' ruw READER '=' '>' ID_lst WRITER '=' '>' ID_lst READWRITER '=' '>' ID_lst  ')'  |  INST ID OF ID // INSTance
-|  NODE ID '=' exp // NODE
-|  exp '<' '=' exp // Connect
-|  exp '<' '-' exp // Partial Connect
-|  exp IS INVALID // InvalIDate
-|  WHEN exp ':' stmt ELSE_stmt_opt  // Conditional
-|  STOP'('  exp  ','  exp  ','  INT  ')'  // STOP
-|  PRINTF'('  exp  ','  exp  ','  STRING  ','  exp_lst  ')'  // PrINTf
-|  SKIP // Empty
-|  '('  stmt_lst  ')'  // Statement Group
+| FLIP_opt INST ':' Type // Bundle Field (INST special case)
+stmt : WIRE ID ':' Type // WIRE
+| REG ID ':' Type ',' exp with_opt // REGISter
+| CMEM ID ':' Type // Cmemory
+| SMEM ID ':' Type // Smemory
+| MEM ID ':' '(' // Memory
+DATA_TYPE '=' '>' Type DEPTH '=' '>' INT READ_LATENCY '=' '>' INT WRITE_LATENCY '=' '>' INT READ_UNDER_WRITE '=' '>' ruw READER '=' '>' ID_lst WRITER '=' '>' ID_lst READWRITER '=' '>' ID_lst ')' | INST ID OF ID // Instance
+| NODE any '=' exp // Node
+| exp '<' '=' exp // Connect
+| exp '<' '-' exp // Partial Connect
+| exp IS ID // Invalidate
+| WHEN exp ':' info_opt stmt ELSE_stmt_opt // Conditional
+| STOP exp ',' exp ',' INT ')' // STOP
+| PRINTF exp ',' exp ',' STRING exp_lst ')' // Printf
+| SKIP // Empty
+| ID MPORT exp '=' ID '[' exp ']' ',' ID
+| '(' stmt_lst ')' // Statement Group
 ruw : OLD | NEW | UNDEFINED // Read Under Write Flag
-info : '@'  '[' ID '.' ID INT ':'  INT  ']'  // File Information Token
+info : '@' '[' ID '.' ID INT ':' INT ']' // File Information Token
 
-exp : UINT INT_opt '('  INT  ')'  // Literal Unsigned Integer
-| UINT INT_opt  '('  STRING  ')'  // Literal Unsigned Integer From BITS
-| SINT INT_opt  '('  INT  ')'  // Literal Signed Integer
-| SINT INT_opt  '('  STRING  ')'  // Literal Signed Integer From BITS
+any : ID | INST // Convert keyword to ID
+
+exp : UINT INT_opt '(' INT ')' // Literal Unsigned Integer
+| UINT INT_opt '(' STRING ')' // Literal Unsigned Integer From BITS
+| SINT INT_opt '(' INT ')' // Literal Signed Integer
+| SINT INT_opt '(' STRING ')' // Literal Signed Integer From BITS
 | ID // Reference
+| INST // Reference special case
 | exp '.' ID // SUBfield
 | exp '.' INT // SUBfield
-| exp  '['  INT  ']'  // SUBindex
-| exp  '['  exp  ']'  // SUBaccess
-| MUX exp  ','  exp  ','  exp  ')'  // MULTipleXOR (LPAREN grabbed by Lexer)
-| VALIDIF '('  exp  ','  exp  ')'  // Conditionally ValID
+| exp '.' INST // SUBfield INST special case
+| exp '[' INT ']' // SUBindex
+| exp '[' exp ']' // SUBaccess
+| MUX exp ',' exp ',' exp ')' // MULTipleXOR (LPAREN grabbed by Lexer)
+| VALIDIF '(' exp ',' exp ')' // Conditionally ValID
 | primop exp_int_clst ')' // Lexer adds the '(' automatically
 
 primop : ADD // ADD
@@ -154,14 +167,20 @@ primop : ADD // ADD
 | HEAD // HEAD
 | TAIL // TAIL
 
+ext: DEFNAME '=' ID
+| PARAMETER ID '=' STRING
+| PARAMETER DEFAULT '=' INT
+
 ID_lst: ID | ID_lst ID
-exp_lst: exp | exp_lst exp
+exp_lst: | exp_lst ',' exp
 exp_int_clst: exp | INT | exp_int_clst ',' exp | exp_int_clst ',' INT
 field_clst: field | field_clst ',' field
-INT_lst: INT | INT_lst INT
 module_lst: Module | module_lst Module
 port_lst: port | port_lst port
 stmt_lst: stmt | stmt info | stmt_lst stmt | stmt_lst stmt info
+ext_lst: ext | ext_lst ext
 ELSE_stmt_opt: | ELSE ':' stmt
-exp_opt: | exp
+field_clst_opt: | field_clst
 FLIP_opt: | FLIP
+with_opt: | WITH ':' '(' ID '=' '>' '(' exp ',' exp ')' ')'
+info_opt: | info
