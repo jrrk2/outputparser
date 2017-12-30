@@ -78,45 +78,48 @@
 
 %%
 
-Circuit:info_opt CIRCUIT ID ':' '(' module_lst ')'  // CIRCUIT
-Module : info_opt MODULE ID ':' '('  port_lst stmt  ')'  // Module
-| info_opt  EXTMODULE ID ':' '('  port_lst  ')'  // External Module
-port : info_opt  dir ID ':' Type // Port
+Circuit:CIRCUIT ID ':' module_lst  // CIRCUIT
+Module : MODULE ID ':' port_lst stmt_lst  // Module
+|  EXTMODULE ID ':' port_lst  // External Module
+port :  dir ID ':' Type // Port
 dir : INPUT | OUTPUT // Port Direction
 INT_opt : | '<' INT '>'
-Type : UINT INT_opt  // Unsigned INTeger
-| SINT INT_opt  // Signed INTeger
+Type : UINT INT_opt  // Unsigned Integer
+| SINT INT_opt  // Signed Integer
 | CLOCK // CLOCK
-| '{' field_lst '}'  // Bundle
+| '{' field_clst '}'  // Bundle
 | Type '[' INT ']'  // Vector
 field : FLIP_opt ID ':' Type // Bundle Field
-stmt : info_opt  WIRE ID ':' Type // WIRE
-| info_opt  REG ID ':' Type  ','  exp  '['  exp  ','  exp_opt  // REGISter
-| info_opt  MEM ID ':' '('  // MEMory
-DATA_TYPE '=' '>' Type DEPTH '=' '>' INT READ_LATENCY '=' '>' INT WRITE_LATENCY '=' '>' INT READ_UNDER_WRITE '=' '>' ruw READER '=' '>' ID_lst WRITER '=' '>' ID_lst READWRITER '=' '>' ID_lst  ')'  | info_opt  INST ID OF ID // INSTance
-| info_opt  NODE ID '=' exp // NODE
-| info_opt  exp '<' '=' exp // Connect
-| info_opt  exp '<' '-' exp // Partial Connect
-| info_opt  exp IS INVALID // InvalIDate
-| info_opt  WHEN exp ':' stmt ELSE_stmt_opt  // Conditional
-| info_opt  STOP'('  exp  ','  exp  ','  INT  ')'  // STOP
-| info_opt  PRINTF'('  exp  ','  exp  ','  STRING  ','  exp_lst  ')'  // PrINTf
-| info_opt  SKIP // Empty
-| info_opt  '('  stmt_lst  ')'  // Statement Group
+| FLIP_opt BITS ':' Type // Bundle Field
+| FLIP_opt INT ':' Type // Bundle Field
+stmt :  WIRE ID ':' Type // WIRE
+|  REG ID ':' Type  ','  exp  '['  exp  ','  exp_opt  // REGISter
+|  MEM ID ':' '('  // MEMory
+DATA_TYPE '=' '>' Type DEPTH '=' '>' INT READ_LATENCY '=' '>' INT WRITE_LATENCY '=' '>' INT READ_UNDER_WRITE '=' '>' ruw READER '=' '>' ID_lst WRITER '=' '>' ID_lst READWRITER '=' '>' ID_lst  ')'  |  INST ID OF ID // INSTance
+|  NODE ID '=' exp // NODE
+|  exp '<' '=' exp // Connect
+|  exp '<' '-' exp // Partial Connect
+|  exp IS INVALID // InvalIDate
+|  WHEN exp ':' stmt ELSE_stmt_opt  // Conditional
+|  STOP'('  exp  ','  exp  ','  INT  ')'  // STOP
+|  PRINTF'('  exp  ','  exp  ','  STRING  ','  exp_lst  ')'  // PrINTf
+|  SKIP // Empty
+|  '('  stmt_lst  ')'  // Statement Group
 ruw : OLD | NEW | UNDEFINED // Read Under Write Flag
-info : '@'  '['  STRING  ','  INT  ','  INT  ']'  // File Information Token
+info : '@'  '[' ID '.' ID INT ':'  INT  ']'  // File Information Token
 
-exp : UINT INT_opt '('  INT  ')'  // Literal Unsigned INTeger
-| UINT INT_opt  '('  STRING  ')'  // Literal Unsigned INTeger From BITS
-| SINT INT_opt  '('  INT  ')'  // Literal Signed INTeger
-| SINT INT_opt  '('  STRING  ')'  // Literal Signed INTeger From BITS
+exp : UINT INT_opt '('  INT  ')'  // Literal Unsigned Integer
+| UINT INT_opt  '('  STRING  ')'  // Literal Unsigned Integer From BITS
+| SINT INT_opt  '('  INT  ')'  // Literal Signed Integer
+| SINT INT_opt  '('  STRING  ')'  // Literal Signed Integer From BITS
 | ID // Reference
 | exp '.' ID // SUBfield
+| exp '.' INT // SUBfield
 | exp  '['  INT  ']'  // SUBindex
 | exp  '['  exp  ']'  // SUBaccess
-| MUX '('  exp  ','  exp  ','  exp  ')'  // MULTipleXOR
+| MUX exp  ','  exp  ','  exp  ')'  // MULTipleXOR (LPAREN grabbed by Lexer)
 | VALIDIF '('  exp  ','  exp  ')'  // Conditionally ValID
-| primop '('  exp_lst  ','  INT_lst  ')' 
+| primop exp_int_clst ')' // Lexer adds the '(' automatically
 
 primop : ADD // ADD
 | SUB // SUBtract
@@ -130,9 +133,9 @@ primop : ADD // ADD
 | EQ // Equal
 | NEQ // NOT Equal
 | PAD // PAD
-| ASUINT // INTerpret BITS as UINT
-| ASSINT // INTerpret BITS as SINT
-| ASCLOCK // INTerpret as CLOCK
+| ASUINT // Interpret BITS as UINT
+| ASSINT // Interpret BITS as SINT
+| ASCLOCK // Interpret as CLOCK
 | SHL // Shift Left
 | SHR // Shift Right
 | DSHL // Dynamic Shift Left
@@ -153,13 +156,12 @@ primop : ADD // ADD
 
 ID_lst: ID | ID_lst ID
 exp_lst: exp | exp_lst exp
-field_lst: field | field_lst field
+exp_int_clst: exp | INT | exp_int_clst ',' exp | exp_int_clst ',' INT
+field_clst: field | field_clst ',' field
 INT_lst: INT | INT_lst INT
 module_lst: Module | module_lst Module
 port_lst: port | port_lst port
-stmt_lst: stmt | stmt_lst stmt
-
-info_opt: | info
+stmt_lst: stmt | stmt info | stmt_lst stmt | stmt_lst stmt info
 ELSE_stmt_opt: | ELSE ':' stmt
 exp_opt: | exp
 FLIP_opt: | FLIP

@@ -29,83 +29,83 @@
       (fun (k,s) -> Hashtbl.add h s k)
       [
        ACCEPT, "ACCEPT"; 
-       ADD, "ADD"; 
+       ADD, "add("; 
        AMPERSAND, "AMPERSAND"; 
-       ANDR, "ANDR"; 
-       AND, "AND"; 
-       ASCLOCK, "ASCLOCK"; 
-       ASSINT, "ASSINT"; 
-       ASUINT, "ASUINT"; 
+       ANDR, "andr("; 
+       AND, "and("; 
+       ASCLOCK, "asClock("; 
+       ASSINT, "asSInt("; 
+       ASUINT, "asUInt("; 
        AT, "AT"; 
        BACKQUOTE, "BACKQUOTE"; 
        BACKSLASH, "BACKSLASH"; 
-       BITS, "BITS"; 
+       BITS, "bits("; 
        BREAK, "BREAK"; 
        CARET, "CARET"; 
        CASE, "CASE"; 
-       CAT, "CAT"; 
-       CIRCUIT, "CIRCUIT"; 
-       CLOCK, "CLOCK"; 
+       CAT, "cat("; 
+       CIRCUIT, "circuit"; 
+       CLOCK, "Clock"; 
        COLON, "COLON"; 
        COMMA, "COMMA"; 
        CONTINUE, "CONTINUE"; 
-       CVT, "CVT"; 
+       CVT, "cvt("; 
        DATA_TYPE, "DATA_TYPE"; 
        DEFAULT, "DEFAULT"; 
        DEPTH, "DEPTH"; 
-       DIV, "DIV"; 
+       DIV, "div("; 
        DOLLAR, "DOLLAR"; 
        DOT, "DOT"; 
        DOUBLEQUOTE, "DOUBLEQUOTE"; 
        DO, "DO"; 
-       DSHL, "DSHL"; 
-       DSHR, "DSHR"; 
+       DSHL, "dshl("; 
+       DSHR, "dshr("; 
        ELSE, "ELSE"; 
        EMPTY_TOKEN, "EMPTY_TOKEN"; 
        END, "END"; 
        EOF_TOKEN, "EOF_TOKEN"; 
        EQUALS, "EQUALS"; 
-       EQ, "EQ"; 
+       EQ, "eq("; 
        ERROR_TOKEN, "ERROR_TOKEN"; 
        ERROR, "ERROR"; 
        EXTMODULE, "EXTMODULE"; 
-       FLIP, "FLIP"; 
+       FLIP, "flip"; 
        FOR, "FOR"; 
-       GEQ, "GEQ"; 
+       GEQ, "geq("; 
        GOTO, "GOTO"; 
        GREATER, "GREATER"; 
-       GT, "GT"; 
+       GT, "gt("; 
        HASH, "HASH"; 
-       HEAD, "HEAD"; 
+       HEAD, "head("; 
        HYPHEN, "HYPHEN"; 
        IF, "IF"; 
-       INPUT, "INPUT"; 
+       INPUT, "input"; 
        INST, "INST"; 
-       INVALID, "INVALID"; 
-       IS, "IS"; 
+       INVALID, "invalid"; 
+       IS, "is"; 
        LBRACE, "LBRACE"; 
        LBRACK, "LBRACK"; 
-       LEQ, "LEQ"; 
+       LEQ, "leq("; 
        LESS, "LESS"; 
        LINEFEED, "LINEFEED"; 
        LPAREN, "LPAREN"; 
-       LT, "LT"; 
+       LT, "lt("; 
        MEM, "MEM"; 
-       MODULE, "MODULE"; 
-       MOD, "MOD"; 
-       MUL, "MUL"; 
-       MUX, "MUX"; 
-       NEG, "NEG"; 
-       NEQ, "NEQ"; 
+       MODULE, "module"; 
+       MOD, "mod("; 
+       MUL, "mul("; 
+       MUX, "mux("; 
+       NEG, "neg("; 
+       NEQ, "neq("; 
        NEW, "NEW"; 
-       NODE, "NODE"; 
-       NOT, "NOT"; 
+       NODE, "node"; 
+       NOT, "not("; 
        OF, "OF"; 
        OLD, "OLD"; 
-       ORR, "ORR"; 
-       OR, "OR"; 
-       OUTPUT, "OUTPUT"; 
-       PAD, "PAD"; 
+       ORR, "orr("; 
+       OR, "or("; 
+       OUTPUT, "output"; 
+       PAD, "pad("; 
        PERCENT, "PERCENT"; 
        PLING, "PLING"; 
        PRINTF, "PRINTF"; 
@@ -117,32 +117,32 @@
        READ_LATENCY, "READ_LATENCY"; 
        READ_UNDER_WRITE, "READ_UNDER_WRITE"; 
        READWRITER, "READWRITER"; 
-       REG, "REG"; 
+       REG, "reg"; 
        RETURN, "RETURN"; 
        RPAREN, "RPAREN"; 
-       SHL, "SHL"; 
-       SHR, "SHR"; 
-       SINT, "SINT"; 
+       SHL, "shl("; 
+       SHR, "shr("; 
+       SINT, "SInt"; 
        SKIP, "SKIP"; 
        STOP, "STOP"; 
-       SUB, "SUB"; 
+       SUB, "sub("; 
        SWITCH, "SWITCH"; 
-       TAIL, "TAIL"; 
+       TAIL, "tail("; 
        TILDE, "TILDE"; 
-       UINT, "UINT"; 
+       UINT, "UInt"; 
        UNDEFINED, "UNDEFINED"; 
        UNDERSCORE, "UNDERSCORE"; 
        VALIDIF, "VALIDIF"; 
        VBAR, "VBAR"; 
        WHEN, "WHEN"; 
        WHILE, "WHILE"; 
-       WIRE, "WIRE"; 
+       WIRE, "wire"; 
        WRITE_LATENCY, "WRITE_LATENCY"; 
        WRITER, "WRITER"; 
-       XORR, "XORR"; 
-       XOR, "XOR"; 
+       XORR, "xorr("; 
+       XOR, "xor("; 
       ];
-    fun s -> Hashtbl.find h (String.uppercase s)
+    fun s -> Hashtbl.find h s
 
 let tok arg = if !verbose then print_endline (
   match arg with
@@ -151,7 +151,8 @@ let tok arg = if !verbose then print_endline (
   arg
 }
 
-let ident = ['a'-'z' 'A'-'Z' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
+let identlpar = ['a'-'z' 'A'-'Z' '_' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*'('
+let ident = ['a'-'z' 'A'-'Z' '_' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
 let number = ['-' '+']*['0'-'9']+
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
@@ -169,6 +170,8 @@ rule token = parse
       { tok ( INT (int_of_string n) ) }
   | ident as s
       { tok ( try keyword s with Not_found -> ID s ) }
+  | identlpar as s
+      { tok ( try keyword s with Not_found -> STRING s ) }
   | qstring as s
       { tok ( STRING s ) }
   | eof

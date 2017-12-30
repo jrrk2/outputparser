@@ -140,7 +140,6 @@ let getstr = function
 | TUPLE35  _ -> "TUPLE35"
 | TUPLE36  _ -> "TUPLE36"
 | TUPLE37  _ -> "TUPLE37"
-| TUPLE38  _ -> "TUPLE38"
 | TUPLE4  _ -> "TUPLE4"
 | TUPLE5  _ -> "TUPLE5"
 | TUPLE6  _ -> "TUPLE6"
