@@ -17,8 +17,6 @@ let parse_output_ast_from_chan ch =
   output
 
 let parse arg =
-  Hashtbl.clear typehash;
-  Hashtbl.add typehash "__builtin_va" ();
   let ch = open_in arg in
   let rslt = parse_output_ast_from_chan ch in
   close_in ch;
@@ -26,12 +24,6 @@ let parse arg =
 
 let _ = if Array.length Sys.argv > 1 then
     begin
-      let main = try Sys.getenv "TRANS_MAIN" with _ -> "main" in 
-      let needed = dump parse stdout main Sys.argv in
-(*
-      let chan = open_out "mykernel.c" in
-      Circuit_foreign.dump parse chan needed;
-      close_out chan;
- *)
+      let needed = dump parse Sys.argv.(1) in
       ()
     end

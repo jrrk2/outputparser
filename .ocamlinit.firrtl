@@ -5,6 +5,5 @@ open Circuit_filt
 open Circuit_transform
 
 let main = "CoreplexTop";;
-let args = [| ""; "../lowrisc-chip-update-jrrk2/fpga/board/nexys4_ddr/generated-src/CoreplexTop.LoRCNexys4Config.fir" |];;
-let rslts = dump parse stdout main args;;
-let (hd::tl) = rslts;;
+let arg = "../lowrisc-chip-update-jrrk2/fpga/board/nexys4_ddr/generated-src/CoreplexTop.LoRCNexys4Config.fir";;
+let rslt = dump parse arg;;

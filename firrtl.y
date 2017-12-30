@@ -83,9 +83,9 @@
 
 %%
 
-Circuit:CIRCUIT ID ':' module_lst // CIRCUIT
-Module : MODULE ID ':' port_lst stmt_lst // Module
-| EXTMODULE ID ':' port_lst ext_lst // External Module
+Circuit:CIRCUIT ID ':' module_list // CIRCUIT
+Module : MODULE ID ':' port_list stmt_list // Module
+| EXTMODULE ID ':' port_list ext_list // External Module
 port : dir ID ':' Type // Port
 dir : INPUT | OUTPUT // Port Direction
 INT_opt : | '<' INT '>'
@@ -103,17 +103,17 @@ stmt : WIRE ID ':' Type // WIRE
 | CMEM ID ':' Type // Cmemory
 | SMEM ID ':' Type // Smemory
 | MEM ID ':' '(' // Memory
-DATA_TYPE '=' '>' Type DEPTH '=' '>' INT READ_LATENCY '=' '>' INT WRITE_LATENCY '=' '>' INT READ_UNDER_WRITE '=' '>' ruw READER '=' '>' ID_lst WRITER '=' '>' ID_lst READWRITER '=' '>' ID_lst ')' | INST ID OF ID // Instance
+DATA_TYPE '=' '>' Type DEPTH '=' '>' INT READ_LATENCY '=' '>' INT WRITE_LATENCY '=' '>' INT READ_UNDER_WRITE '=' '>' ruw READER '=' '>' ID_list WRITER '=' '>' ID_list READWRITER '=' '>' ID_list ')' | INST ID OF ID // Instance
 | NODE any '=' exp // Node
 | exp '<' '=' exp // Connect
 | exp '<' '-' exp // Partial Connect
 | exp IS ID // Invalidate
 | WHEN exp ':' info_opt stmt ELSE_stmt_opt // Conditional
 | STOP exp ',' exp ',' INT ')' // STOP
-| PRINTF exp ',' exp ',' STRING exp_lst ')' // Printf
+| PRINTF exp ',' exp ',' STRING exp_list ')' // Printf
 | SKIP // Empty
 | ID MPORT exp '=' ID '[' exp ']' ',' ID
-| '(' stmt_lst ')' // Statement Group
+| '(' stmt_list ')' // Statement Group
 ruw : OLD | NEW | UNDEFINED // Read Under Write Flag
 info : '@' '[' ID '.' ID INT ':' INT ']' // File Information Token
 
@@ -171,14 +171,14 @@ ext: DEFNAME '=' ID
 | PARAMETER ID '=' STRING
 | PARAMETER DEFAULT '=' INT
 
-ID_lst: ID | ID_lst ID
-exp_lst: | exp_lst ',' exp
+ID_list: ID | ID_list ID
+exp_list: | exp_list ',' exp
 exp_int_clst: exp | INT | exp_int_clst ',' exp | exp_int_clst ',' INT
 field_clst: field | field_clst ',' field
-module_lst: Module | module_lst Module
-port_lst: port | port_lst port
-stmt_lst: stmt | stmt info | stmt_lst stmt | stmt_lst stmt info
-ext_lst: ext | ext_lst ext
+module_list: Module | module_list Module
+port_list: port | port_list port
+stmt_list: stmt | stmt info | stmt_list stmt | stmt_list stmt info
+ext_list: ext | ext_list ext
 ELSE_stmt_opt: | ELSE ':' stmt
 field_clst_opt: | field_clst
 FLIP_opt: | FLIP
