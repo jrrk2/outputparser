@@ -7,3 +7,42 @@ open Circuit_transform
 let main = "CoreplexTop";;
 let arg = "../lowrisc-chip-update-jrrk2/fpga/board/nexys4_ddr/generated-src/CoreplexTop.LoRCNexys4Config.fir";;
 let rslt = dump parse arg;;
+
+let modules = match rslt with
+| TUPLE2 (TUPLE4 (CIRCUIT, ID top, COLON, TLIST lst), eof) -> lst
+| oth -> failwith "circuit";;
+
+let sel n = List.nth modules n;;
+let asyn modid = String.length modid > 5 && String.sub modid 0 5 = "Async";;
+let intmods = Hashtbl.create 17;;
+let extmods = Hashtbl.create 17;;
+let asyncmods = Hashtbl.create 17;;
+List.iter (function
+  | TUPLE5 (EXTMODULE, ID modid, COLON, ios, params) ->
+    	   Hashtbl.add extmods modid (ios,params)
+  | TUPLE5 (MODULE, ID modid, COLON, TLIST ios, stmts) when asyn modid ->
+    	   Hashtbl.add asyncmods modid (ios,stmts)
+  | TUPLE5 (MODULE, ID modid, COLON, TLIST ios, stmts) ->
+    	   Hashtbl.add intmods modid (ios,stmts)
+  | oth -> failwith "module") modules;;
+
+let sample = Hashtbl.find intmods "TLToAXI4";;
+let fieldlst = ref [];;
+let failios = ref None;;
+let rec scanios ios = List.iter (function
+| TUPLE4 (INPUT, ID clock, COLON, CLOCK) -> ()
+| TUPLE4 (INPUT, ID reset, COLON, TUPLE2 (UINT, TUPLE3 (LESS, INT 1, GREATER))) -> ()
+| TUPLE4 (OUTPUT, ID outfield, COLON, TUPLE3 (LBRACE, fields, RBRACE)) -> scanios' fields
+| TUPLE4 (FLIP, ID id, COLON, TUPLE3 (LBRACE, fields, RBRACE)) -> scanios' fields
+| TUPLE4 (FLIP, ID id, COLON, TUPLE2 (UINT, TUPLE3 (LESS, INT 1, GREATER))) -> ()
+| TUPLE4 (EMPTY_TOKEN, INT num, COLON, TUPLE3 (LBRACE, fields, RBRACE)) -> scanios' fields
+| TUPLE4 (EMPTY_TOKEN, ID id, COLON, TUPLE3 (LBRACE, fields, RBRACE)) -> scanios' fields
+| TUPLE4 (EMPTY_TOKEN, ID id, COLON, TUPLE2 (UINT, TUPLE3 (LESS, INT num, GREATER))) -> ()
+| oth -> failios := Some oth; failwith "ios") ios
+
+and scanios' = function
+| TLIST lst -> scanios lst
+| oth -> scanios [oth];;
+
+let _ = scanios (fst sample);;
+

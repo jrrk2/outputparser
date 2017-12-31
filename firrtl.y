@@ -92,7 +92,7 @@ INT_opt : | '<' INT '>'
 Type : UINT INT_opt // Unsigned Integer
 | SINT INT_opt // Signed Integer
 | CLOCK // CLOCK
-| '{' field_clst_opt '}' // Bundle
+| '{' fieldc_list_opt '}' // Bundle
 | Type '[' INT ']' // Vector
 field : FLIP_opt ID ':' Type // Bundle Field
 | FLIP_opt BITS ':' Type // Bundle Field
@@ -132,7 +132,7 @@ exp : UINT INT_opt '(' INT ')' // Literal Unsigned Integer
 | exp '[' exp ']' // SUBaccess
 | MUX exp ',' exp ',' exp ')' // MULTipleXOR (LPAREN grabbed by Lexer)
 | VALIDIF '(' exp ',' exp ')' // Conditionally ValID
-| primop exp_int_clst ')' // Lexer adds the '(' automatically
+| primop exp_intc_list ')' // Lexer adds the '(' automatically
 
 primop : ADD // ADD
 | SUB // SUBtract
@@ -173,14 +173,14 @@ ext: DEFNAME '=' ID
 
 ID_list: ID | ID_list ID
 exp_list: | exp_list ',' exp
-exp_int_clst: exp | INT | exp_int_clst ',' exp | exp_int_clst ',' INT
-field_clst: field | field_clst ',' field
+exp_intc_list: exp | INT | exp_intc_list ',' exp | exp_intc_list ',' INT
+fieldc_list: field | fieldc_list ',' field
 module_list: Module | module_list Module
 port_list: port | port_list port
 stmt_list: stmt | stmt info | stmt_list stmt | stmt_list stmt info
 ext_list: ext | ext_list ext
 ELSE_stmt_opt: | ELSE ':' stmt
-field_clst_opt: | field_clst
+fieldc_list_opt: | fieldc_list
 FLIP_opt: | FLIP
 with_opt: | WITH ':' '(' ID '=' '>' '(' exp ',' exp ')' ')'
 info_opt: | info
