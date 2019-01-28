@@ -44,6 +44,7 @@ let tok arg = if !verbose then print_endline ( match arg with
 }
 
 let ident = ['a'-'z' 'A'-'Z' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
+let quoted = '"' ['a'-'z' 'A'-'Z' ':' '/' '`' '+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '.' '$' '\'' '~' '_' '0'-'9' ' ' '-' ':' '*' '/' '=' '<' '>' '{' '}' '[' ']' '+' '&' '$' '&' '!' '?' '@' '#' ]* '"'
 let number = ['0'-'9']+
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
@@ -59,6 +60,8 @@ rule token = parse
       { tok ( NUMBER (int_of_string n) ) }
   | ident as s
       { tok ( try keyword s with Not_found -> ID s ) }
+  | quoted as s
+      { tok ( QUOTED (String.sub s 1 (String.length s - 2))) }
   | eof
       { tok ( EOF_TOKEN ) }
 | '!'

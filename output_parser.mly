@@ -22,11 +22,77 @@
   open Parsing
   open Output_types
 
+  let punctmap = function
+      | 'a' .. 'z' as ch -> String.make 1 (Char.uppercase ch)
+      | '0' .. '9' | 'A' .. 'Z' as ch -> String.make 1 ch
+      | ' ' -> "_BLANK_"
+      | '!' -> "_PLING_"
+      | '"' -> "_DOUBLEQUOTE_"
+      | '#' -> "_HASH_"
+      | '$' -> "_DOLLAR_"
+      | '%' -> "_PERCENT_"
+      | '&' -> "_AMPERSAND_"
+      | '\'' -> "_QUOTE_"
+      | '(' -> "_LPAREN_"
+      | '[' -> "_LBRACK_"
+      | '{' -> "_LBRACE_"
+      | '<' -> "_LESS_"
+      | ')' -> "_RPAREN_"
+      | ']' -> "_RBRACK_"
+      | '}' -> "_RBRACE_"
+      | '>' -> "_GREATER_"
+      | '*' -> "_STAR_"
+      | '+' -> "_PLUS_"
+      | ',' -> "_COMMA_"
+      | '-' -> "_HYPHEN_"
+      | '.' -> "_DOT_"
+      | '/' -> "_SLASH_"
+      | '\\' -> "_BACKSLASH_"
+      | ':' -> "_COLON_"
+      | ';' -> "_SEMICOLON_"
+      | '=' -> "_EQUALS_"
+      | '?' -> "_QUERY_"
+      | '@' -> "_AT_"
+      | '^' -> "_CARET_"
+      | '_' -> "_UNDERSCORE_"
+      | '`' -> "_BACKQUOTE_"
+      | '|' -> "_VBAR_"
+      | '~' -> "_TILDE_"
+      | _ -> "_PUNCT_"
+
+  let legalize s =
+    let arr = Array.init (String.length s) (fun ix -> s.[ix]) in
+    let maps = Array.map punctmap arr in
+    let concat = String.concat "" (Array.to_list maps) in
+    let mapped = (if concat.[0] = '_' then "Q" else "")^concat in
+    let uniq = if mapped = s then mapped else
+      if Hashtbl.mem legaltab mapped then
+        begin
+        if Hashtbl.find legaltab mapped = s then mapped 
+        else
+	   begin
+	   let cnt = ref 0 in
+	   let uniqnam n = n^string_of_int !cnt in
+           while Hashtbl.mem legaltab (uniqnam mapped) do
+       	       incr cnt;
+           done;
+	   let final = uniqnam mapped in
+           Hashtbl.add legaltab final s;
+           final
+	   end
+        end
+      else
+       begin
+       Hashtbl.add legaltab mapped s;
+       mapped
+       end in
+    uniq
+
   let dollar = function
-  | "accept" -> ACCEPT
-  | "default" -> DEFAULT
-  | "end" -> END
-  | oth -> ID oth
+  | "accept" -> DOLLAR_ACCEPT
+  | "default" -> DOLLAR_DEFAULT
+  | "end" -> DOLLAR_END
+  | oth -> ID (legalize oth)
 
 %}
 
@@ -38,9 +104,9 @@
 %token CARET 
 %token COLON 
 %token COMMA 
-%token ACCEPT
-%token DEFAULT 
-%token END
+%token DOLLAR_ACCEPT
+%token DOLLAR_DEFAULT 
+%token DOLLAR_END
 %token EMPTY
 %token DOLLAR 
 %token DOT 
@@ -70,6 +136,7 @@
 %token <char>   CHAR
 %token <int>   NUMBER
 %token <string>   ID;
+%token <string>   QUOTED;
 %token    EOF_TOKEN
 %token    STATE
 %token    GRAMMAR
@@ -127,6 +194,7 @@ silst:
 
 sitm:
     ID { ID $1 }
+    | QUOTED { ID (legalize $1) }
     | dolitm { $1 }
     | spunct { $1 }
     | quotitm { $1 }
@@ -190,6 +258,7 @@ termitm:
 	dolitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   quotitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   ID LPAREN NUMBER RPAREN numlst { TERMITM(ID (String.uppercase $1),$3) }
+    |   QUOTED LPAREN NUMBER RPAREN numlst { TERMITM(ID (legalize $1),$3) }
 
 quotitm:
 	QUOTE BACKSLASH ID QUOTE
@@ -227,9 +296,10 @@ rulst:
     
 ru:
     ID { ID $1 }
+    | QUOTED { ID (legalize $1) }
     | dolitm { $1 }
     | PERCENT ID { match $2 with "empty" -> EMPTY | oth -> ID oth }
-    | QUOTE punct QUOTE { $2 }
+//    | QUOTE punct QUOTE { $2 }
     | dolat { $1 }
     | quotitm { $1 }
     ;
@@ -267,3 +337,19 @@ punct:
 | TILDE { TILDE }
 | UNDERSCORE { UNDERSCORE }
 | VBAR { VBAR }
+
+not_needed:
+	DOLLAR_ACCEPT |
+	CHAR |
+	DOLLAR_DEFAULT |
+	DOLLAR_AT |
+	EMPTY |
+	DOLLAR_END |
+	GRAMITM |
+	LINEFEED |
+	NONTERMITM |
+	STATEITM |
+	TERMITM |
+	TERMS |
+	TLIST |
+	UNUSED { }

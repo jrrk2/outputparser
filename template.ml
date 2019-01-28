@@ -7,7 +7,7 @@ let othlst = ref []
 let capitalise start = String.uppercase (String.sub start 0 1) ^ String.sub start 1 (String.length start - 1)
 
 let primary gramlst = match List.hd gramlst with
-  | GRAMITM (ACCEPT, [ID start; END]) -> start
+  | GRAMITM (DOLLAR_ACCEPT, [ID start; DOLLAR_END]) -> start
   | oth -> failwith (Ord.getstr oth)
 
 let reserved = function
@@ -33,8 +33,9 @@ let items mlyfile oldlhs txt rulst =
               List.iter (function 
                   | EMPTY -> fprintf mlyfile "/* empty */ { EMPTY_TOKEN }\n"
                   | ID "error" -> incr used; fprintf mlyfile "ERROR_TOKEN "
-                  | END -> incr used; fprintf mlyfile "EOF_TOKEN "
+                  | DOLLAR_END -> incr used; fprintf mlyfile "EOF_TOKEN "
                   | ID id -> incr used; fprintf mlyfile "%s " (reserved id)
+                  | QUOTED id -> incr used; fprintf mlyfile "\"%s\" " (reserved id)
 		  | DOLLAR_AT n -> fprintf mlyfile "/* %d */ " n
                   | oth -> incr used; fprintf mlyfile "%s " (Ord.getstr oth)) rulst;
               if txt <> "" then fprintf mlyfile "{\n%s }\n" txt
@@ -44,7 +45,7 @@ let items mlyfile oldlhs txt rulst =
                   else if islist then fprintf mlyfile "{ CONS1 " else fprintf mlyfile "{ ";
 		  let delim = ref '(' and ix = ref 0 in List.iter (function 
 		      | EMPTY -> incr ix; fprintf mlyfile "%c ()" !delim; delim := ','
-		      | END -> incr ix; fprintf mlyfile "%cEOF_TOKEN" !delim; delim := ','
+		      | DOLLAR_END -> incr ix; fprintf mlyfile "%cEOF_TOKEN" !delim; delim := ','
 		      | ID "error" -> incr ix; fprintf mlyfile "%cERROR_TOKEN" !delim; delim := ','
 		      | ID id -> incr ix;
 			  let (is_term,typ') = typ false id in
@@ -52,6 +53,15 @@ let items mlyfile oldlhs txt rulst =
 			    fprintf mlyfile "%c%s $%d" !delim (reserved id) !ix
 			  else if is_term then
 			    fprintf mlyfile "%c%s" !delim (reserved id)
+			  else
+			    fprintf mlyfile "%c$%d" !delim !ix;
+			  delim := ','
+		      | QUOTED id -> incr ix;
+			  let (is_term,typ') = typ false id in
+			  if typ' <> "unit" then
+			    fprintf mlyfile "%c\"%s\" $%d" !delim (reserved id) !ix
+			  else if is_term then
+			    fprintf mlyfile "%c\"%s\"" !delim (reserved id)
 			  else
 			    fprintf mlyfile "%c$%d" !delim !ix;
 			  delim := ','
@@ -102,7 +112,6 @@ let template toklst gramlst =
     let stem = primary gramlst in
     let mlyfile = open_out (capitalise stem^".mly") in
     let typfile = open_out (capitalise stem^"_types.ml") in
-(*
     let auxh = open_out (capitalise stem^"_aux.mli") in
     let auxf = open_out (capitalise stem^"_aux.ml") in
     fprintf auxh "open %s\n" (capitalise stem);
@@ -110,8 +119,8 @@ let template toklst gramlst =
     close_out auxh;
     fprintf auxf "open %s\n" (capitalise stem);
     fprintf auxf "let (declst:token list ref) = ref []\n";
+    Hashtbl.iter (fun k x -> fprintf auxf "(%s,\"%s\");\n" k x) legaltab;
     close_out auxf;
-*)
     fprintf mlyfile "%%{\n";
     fprintf mlyfile "  open Parsing\n";
     fprintf mlyfile "  open %s_types\n" (capitalise stem);
@@ -153,7 +162,7 @@ let template toklst gramlst =
       let txt = if Sys.file_exists searchf then 
         begin
         let fd = open_in searchf in
-        let buf = String.create 4096 in
+        let buf = Bytes.create 4096 in
         let len = input fd buf 0 4096 in
 `       close_in fd;
         let txt = String.sub buf 0 len in
@@ -161,7 +170,7 @@ let template toklst gramlst =
         txt
         end
       else "" in function
-        | GRAMITM (ACCEPT, rulst) -> fprintf mlyfile "\nml_start: ";
+        | GRAMITM (DOLLAR_ACCEPT, rulst) -> fprintf mlyfile "\nml_start: ";
 	      items mlyfile oldlhs txt rulst
         | GRAMITM (ID lhs, rulst) ->
               if lhs <> !oldlhs then fprintf mlyfile "\n%s: " (reserved lhs) else fprintf mlyfile "\t|\t";

@@ -28,4 +28,14 @@
 #use ".ocamlinit.program"
 *)
 
+(*
 #use ".ocamlinit.ansic"
+*)
+
+open Vord
+open Source_text_edited
+open Source_text_lexer
+open Source_text_main
+
+let forstmt = parse "../sysver2ver/example/forstmt.v";;
+let nested = parse "../sysver2ver/example/nested.v";;

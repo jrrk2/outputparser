@@ -34,10 +34,15 @@ let parse_output_ast_from_chan ch =
   in
   output
 
+let rec uniq = function
+| [] -> []
+| hd :: [] -> hd :: []
+| hd :: scnd :: tl -> hd :: uniq (if hd == scnd then tl else scnd :: tl)
+
 let parse arg =
   let ch = open_in arg in
   let (u,g,t,n,s) = parse_output_ast_from_chan ch in
   close_in ch;
-  Template.template t g
+  Template.template (uniq t) (uniq g)
 
 let _ = if Array.length Sys.argv > 1 then parse Sys.argv.(1)

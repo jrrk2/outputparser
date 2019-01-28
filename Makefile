@@ -17,14 +17,16 @@
 #**************************************************************************)
 
 .PHONY: everything
-PARSER=ocamlyacc
+#PARSER=ocamlyacc
+MENHIRFLAGS=#--trace
+PARSER=menhir $(MENHIRFLAGS)
 SIMPLEDMC=../simpleDMC_verify
 DMCFILES=dSFMT.i main.i Orbital.i position.i support.i System.i Walker.i walkthewalk.i Wavefunction.i
 SED=sed -e 's=\^ _Nonnull=* =g' -e 's=\* _Nonnull=* =g'
 CPP=clang -E -D __extension__= -D __restrict= -D __const=const -D __attribute__\(x\)= -D __asm__\(x\)= -D __PRETTY_FUNCTION__=__FILE__ -I $(SIMPLEDMC)/dest -I $(SIMPLEDMC)/dest/gcc/debug_dump -D DSFMT_MEXP=19937 -D __inline__=inline -D _Nullable= -D__asm\(x\)=
 
-output_parser: output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
-	ocamlopt -g -o $@ output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
+output_parser: output_types.mli output_types.ml output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
+	ocamlopt -g -o $@ output_types.mli output_types.ml output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
 
 output_lexer.ml: output_lexer.mll
 	ocamllex output_lexer.mll
@@ -37,8 +39,6 @@ ord.ml: ord.sh output_parser.mli
 
 clean:
 	rm -f output_lexer.ml output_parser.mli output_parser.ml outputparser outputparser.top ord.ml *.cm? *.o
-
-MENHIRFLAGS=#--trace
 
 ############################################################################
 
@@ -80,6 +80,17 @@ parsetest: Translation_unit_list Translation_unit_list.top $(DMCFILES)
 
 parsemain: Translation_unit_list Translation_unit_list.top $(DMCFILES)
 	env OCAMLRUNPARAM=b TRANS_MAIN=main ./Translation_unit_list $(DMCFILES) >mykernel_main.c
+
+############################################################################
+
+vtop: Source_text_edited.cmi Source_text_edited.cmo vord.cmo Source_text_lexer.cmo Source_text_main.cmo
+	ocamlmktop Source_text_edited.cmo vord.cmo Source_text_lexer.cmo Source_text_main.cmo -o vtop
+
+Source_text_edited.mli Source_text_edited.ml: Source_text_edited.mly
+	menhir --trace Source_text_edited.mly
+
+Source_text_lexer.ml: Source_text_lexer.mll
+	ocamllex $<
 
 %.cmi: %.mli
 	ocamlc.opt -g -c $<
