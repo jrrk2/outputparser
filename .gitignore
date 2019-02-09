@@ -42,3 +42,7 @@ g.sh
 mykernel.c
 mykernel_main.c
 mykernel_test.c
+Source_text_edited.ml
+Source_text_edited.mli
+Source_text_lexer.ml
+vtop
