@@ -102,6 +102,7 @@ open Parsing
 %token  HYPHEN
 %token <string> IDENTIFIER
 %token <string> NUMBER
+%token <string> STRING
 %token  IDENTIFIER_HYPHEN_IN_HYPHEN_LEX
 %token  IF
 %token  IFF
@@ -341,7 +342,6 @@ open Parsing
 %token  SPECPARAM
 %token  STAR
 %token  STATIC
-%token  STRING
 %token  STRING0
 %token  STRING1
 %token  STRING2
@@ -358,6 +358,7 @@ open Parsing
 %token  STRING13
 %token  STRING14
 %token  STRING15
+%token  STRING16
 %token  STRING_HYPHEN_IGNORED
 %token  STRUCT
 %token  SUPPLY0
@@ -742,7 +743,7 @@ data_typeBasic: integer_vector_type signingE rangeListE { TUPLE3($1,$2,$3) }
 data_typeNoRef: data_typeBasic { ($1) }
 	|	struct_unionDecl packed_dimensionListE { TUPLE2($1,$2) }
 	|	enumDecl { ($1) }
-	|	STRING { (STRING) }
+	|	STRING16 { (STRING16) }
 	|	CHANDLE { (CHANDLE) }
 
 data_type_or_void: data_type { ($1) }
@@ -1121,6 +1122,7 @@ event_control: AT LPAREN event_expression RPAREN { TUPLE4(AT,LPAREN,$3,RPAREN) }
 	|	AT LPAREN STAR RPAREN { TUPLE4(AT,LPAREN,STAR,RPAREN) }
 	|	AT STAR { TUPLE2(AT,STAR) }
 	|	AT senitemVar { TUPLE2(AT,$2) }
+	|	HASH NUMBER { TUPLE2(HASH,NUMBER $2) }
 
 event_expression: senitem { ($1) }
 	|	event_expression OR senitem { TUPLE3($1,OR,$3) }
@@ -1341,7 +1343,7 @@ system_t_call: Q_DOLLAR__LBRACE_IGNORED_HYPHEN_BBOX_HYPHEN_SYS_RBRACE_ parenE { 
 	|	Q_DOLLAR_SFORMAT LPAREN expr COMMA str commaEListE RPAREN { TUPLE7(Q_DOLLAR_SFORMAT,LPAREN,$3,COMMA,$5,$6,RPAREN) }
 	|	Q_DOLLAR_SWRITE LPAREN expr COMMA str commaEListE RPAREN { TUPLE7(Q_DOLLAR_SWRITE,LPAREN,$3,COMMA,$5,$6,RPAREN) }
 	|	Q_DOLLAR_DISPLAY parenE { TUPLE2(Q_DOLLAR_DISPLAY,$2) }
-	|	Q_DOLLAR_DISPLAY LPAREN exprList RPAREN { TUPLE4(Q_DOLLAR_DISPLAY,LPAREN,$3,RPAREN) }
+	|	Q_DOLLAR_DISPLAY LPAREN str commaEListE RPAREN { TUPLE4(Q_DOLLAR_DISPLAY,LPAREN,$3,RPAREN) }
 	|	Q_DOLLAR_WRITE parenE { TUPLE2(Q_DOLLAR_WRITE,$2) }
 	|	Q_DOLLAR_WRITE LPAREN exprList RPAREN { TUPLE4(Q_DOLLAR_WRITE,LPAREN,$3,RPAREN) }
 	|	Q_DOLLAR_FDISPLAY LPAREN expr RPAREN { TUPLE4(Q_DOLLAR_FDISPLAY,LPAREN,$3,RPAREN) }
@@ -2207,7 +2209,7 @@ specifyJunk: PLING { (PLING) }
 	|	SIGNED { (SIGNED) }
 	|	SPECPARAM { (SPECPARAM) }
 	|	STATIC { (STATIC) }
-	|	STRING { (STRING) }
+	|	STRING16 { (STRING16) }
 	|	STRUCT { (STRUCT) }
 	|	SUPPLY0 { (SUPPLY0) }
 	|	SUPPLY1 { (SUPPLY1) }
@@ -2562,7 +2564,7 @@ junkToSemi: PLING { (PLING) }
 	|	SPECIFY { (SPECIFY) }
 	|	SPECPARAM { (SPECPARAM) }
 	|	STATIC { (STATIC) }
-	|	STRING { (STRING) }
+	|	STRING16 { (STRING16) }
 	|	STRUCT { (STRUCT) }
 	|	SUPPLY0 { (SUPPLY0) }
 	|	SUPPLY1 { (SUPPLY1) }
@@ -2677,13 +2679,14 @@ idForeach: varRefBase { ($1) }
 
 varRefBase: id { ($1) }
 
-str: STRING6 { (STRING6) }
+str: STRING { (STRING $1) }
 
 strAsInt: NUMBER { (NUMBER $1) }
+	| STRING { (STRING $1) }
 
 strAsIntIgnore: STRING_HYPHEN_IGNORED { (STRING_HYPHEN_IGNORED) }
 
-strAsText: STRING8 { (STRING8) }
+strAsText: STRING { (STRING $1) }
 
 endLabelE: /* empty */ { EMPTY_TOKEN }
 	|	COLON idAny { TUPLE2(COLON,$2) }

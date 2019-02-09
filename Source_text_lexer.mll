@@ -95,7 +95,6 @@
 (Q_LBRACK__STAR_,"[*");
 (REALTIME,"realtime");
 (EXTERN,"extern");
-(STRING,"string");
 (Q_STAR__STAR_,"**");
 (FOR,"for");
 (COVERAGE_UNDERSCORE_ON,"coverage_on");
@@ -359,16 +358,17 @@ let tok arg = if !verbose then print_endline ( match arg with
   arg
 }
 
-let ident = ['a'-'z' 'A'-'Z' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
-let compound = [':' '/' '`' '+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '.' '$' '\'' '~' '_' '-' ':' '*' '/' '=' '<' '>' '{' '}' '[' '+' '&' '$' '&' '!' '?' '@' '#' ] [':' '/' '`' '+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '.' '$' '\'' '~' '_' '-' ':' '*' '/' '=' '<' '>' '{' '}' '[' ']' '+' '&' '$' '&' '!' '?' '@' '#' ]+
+let ident = ['a'-'z' 'A'-'Z' '$' ] ['a'-'z' 'A'-'Z' '$' '_' '0'-'9']*
+let string = '"' [^ '"' ]* '"'
+let compound = [':' '/' '`' '+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '.' '$' '\'' '~' '_' '-' ':' '*' '/' '=' '<' '>' '{' '[' '+' '$' '!' '?' '#' '('] [':' '/' '`' '+' '-' '*' '/' '%' '|' '^' '<' '>' '.' '\'' '_' '-' ':' '*' '/' '=' '<' '>' '[' ']' '+' '?' '@' '#' ]+
 let number = ['0'-'9']+
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let linecomment = '/' '/' [^ '\n' ]* '\n'
-let vnum1 =  ['0'-'9']*'?'['\''] '?'['b' 'c' 'o' 'd' 'h' 'B' 'C' 'O' 'D' 'H'][' ' '\t' '\n']*['A'-'F' 'a'-'f' '0'-'9' 'x' 'X' 'z' 'Z' '_' '?']*
-let vnum2 =  ['0'-'9']*?['\'']?['0' '1' 'x' 'X' 'z' 'Z']
-let vnum3 =  ['0'-'9']['_' '0'-'9']*[' ' '\t' '\n']*['\'']?['b' 'c' 'o' 'd' 'h' 'B' 'C' 'O' 'D' 'H']?[' ' '\t' '\n']*['A'-'F' 'a'-'f' '0'-'9' 'x' 'X' 'z' 'Z' '_' '?']+
-let vnum4 =  ['0'-'9']['_' '0'-'9']*[' ' '\t' '\n']*['\'']?['b' 'c' 'o' 'd' 'h' 'B' 'C' 'O' 'D' 'H']
+let vnum1 =  ['0'-'9']*['\'']['b' 'c' 'o' 'd' 'h' 'B' 'C' 'O' 'D' 'H'][' ' '\t' '\n']*['A'-'F' 'a'-'f' '0'-'9' 'x' 'X' 'z' 'Z' '_' '?']*
+let vnum2 =  ['0'-'9']*['\'']['0' '1' 'x' 'X' 'z' 'Z']
+let vnum3 =  ['0'-'9']['_' '0'-'9']*[' ' '\t' '\n']*['\'']['b' 'c' 'o' 'd' 'h' 'B' 'C' 'O' 'D' 'H']?[' ' '\t' '\n']*['A'-'F' 'a'-'f' '0'-'9' 'x' 'X' 'z' 'Z' '_' '?']+
+let vnum4 =  ['0'-'9']['_' '0'-'9']*[' ' '\t' '\n']*['\'']['b' 'c' 'o' 'd' 'h' 'B' 'C' 'O' 'D' 'H']
 let vnum5 =  ['0'-'9']['_' '0'-'9']*[' ' '\t' '\n']*['\'']
 let vnum  =  number|vnum1|vnum2|vnum3|vnum4|vnum5
 
@@ -383,11 +383,14 @@ rule token = parse
       { tok ( NUMBER n) }
   | ident as s
       { tok ( try keyword s with Not_found -> IDENTIFIER s ) }
-
-  | linecomment
-      { token lexbuf }
+  | string as s
+      { tok ( STRING (String.sub s 1 (String.length s - 2))) }
   | compound as s
-      { tok ( try keyword s with Not_found -> failwith s ) }
+      { match String.sub s 0 2 with
+         | "/*" -> comment (Lexing.lexeme_start lexbuf) lexbuf; token lexbuf
+         | "(*" -> comment2 (Lexing.lexeme_start lexbuf) lexbuf; token lexbuf
+         | "//" -> comment3 (Lexing.lexeme_start lexbuf) lexbuf; token lexbuf
+         | _ -> tok ( try keyword s with Not_found -> failwith ("compound not matched: "^s )) }
       
   | eof
       { tok ( EOF_TOKEN ) }
@@ -489,3 +492,33 @@ rule token = parse
 
 | _ as c
       { tok ( failwith (String.make 1 c) ) }
+
+and comment start = parse
+  "/*"
+    { comment (Lexing.lexeme_start lexbuf) lexbuf; comment start lexbuf }
+| "*/"
+    { () }
+| eof
+    { failwith (Printf.sprintf "Unterminated /* comment */ at offset %d." start) }
+| _
+    { comment start lexbuf }
+
+and comment2 start = parse
+  "(*"
+    { comment2 (Lexing.lexeme_start lexbuf) lexbuf; comment2 start lexbuf }
+| "*)"
+    { () }
+| eof
+    { failwith (Printf.sprintf "Unterminated (* comment *) at offset %d." start) }
+| _
+    { comment2 start lexbuf }
+
+and comment3 start = parse
+  "//"
+    { comment3 (Lexing.lexeme_start lexbuf) lexbuf; comment3 start lexbuf }
+| '\n'
+    { () }
+| eof
+    { failwith (Printf.sprintf "Unterminated // comment at offset %d." start) }
+| _
+    { comment3 start lexbuf }

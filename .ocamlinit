@@ -37,5 +37,8 @@ open Source_text_edited
 open Source_text_lexer
 open Source_text_main
 
+(*
 let forstmt = parse "../sysver2ver/example/forstmt.v";;
 let nested = parse "../sysver2ver/example/nested.v";;
+*)
+let picorv32 = parse "../sysver2ver/example/picorv32_ref.v";;
