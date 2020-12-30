@@ -4,7 +4,7 @@ open Printf
 
 let othlst = ref []
 
-let capitalise start = String.uppercase (String.sub start 0 1) ^ String.sub start 1 (String.length start - 1)
+let capitalise start = String.uppercase_ascii (String.sub start 0 1) ^ String.sub start 1 (String.length start - 1)
 
 let primary gramlst = match List.hd gramlst with
   | GRAMITM (ACCEPT, [ID start; END]) -> start

@@ -20,7 +20,7 @@
   open Lexing
   open Output_parser
 
-  let verbose = ref false
+  let verbose = ref true
   let lincnt = ref 0
 
   let keyword =
@@ -31,7 +31,7 @@
     TERMINALS, "Terminals";
     NONTERMINALS, "Nonterminals";
     GRAMMAR, "Grammar";
-    STATE, "State";
+    STATE, "state";
       ];
     fun s -> Hashtbl.find h s
 

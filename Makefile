@@ -18,6 +18,8 @@
 
 .PHONY: everything
 PARSER=ocamlyacc
+MENHIRFLAGS=--trace
+PARSER=menhir $(MENHIRFLAGS)
 SIMPLEDMC=../simpleDMC_verify
 DMCFILES=dSFMT.i main.i Orbital.i position.i support.i System.i Walker.i walkthewalk.i Wavefunction.i
 SED=sed -e 's=\^ _Nonnull=* =g' -e 's=\* _Nonnull=* =g'
@@ -37,8 +39,6 @@ ord.ml: ord.sh output_parser.mli
 
 clean:
 	rm -f output_lexer.ml output_parser.mli output_parser.ml outputparser outputparser.top ord.ml *.cm? *.o
-
-MENHIRFLAGS=#--trace
 
 ############################################################################
 
@@ -69,8 +69,7 @@ Translation_unit_list_lex.ml: Translation_unit_list_lex.mll
 	ocamllex Translation_unit_list_lex.mll
 
 Translation_unit_list.mli Translation_unit_list.ml: Translation_unit_list.mly Translation_unit_list_types.ml
-#	ocamlyacc $<
-	menhir $(MENHIRFLAGS) $<
+	$(PARSER) $<
 	echo 'val declst : (token * token) list ref' >> Translation_unit_list.mli
 	ocamlc.opt -g -c Translation_unit_list.mli Translation_unit_list_types.ml Translation_unit_list.ml
 

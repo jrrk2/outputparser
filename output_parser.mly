@@ -92,7 +92,7 @@
 
 /* Parser rules */
 
-start: unused grammar terminals nonterminals statelst EOF_TOKEN { ($1, $2, $3, List.rev $4, List.rev $5); }
+start: unused grammar terminals nonterminals STATE { ($1, $2, $3, List.rev $4, []); }
 
 unused:
 	conflst { [] }
@@ -108,63 +108,11 @@ nonterminals:
 	NONTERMINALS COMMA ID ID ID ID ID nontermlst { $8 } 
 
 conflst:
-	/*empty*/ { [ ] }
+       /*empty*/ { [ ] }
     | conflst confitm { $2 :: $1 }
 
 confitm:
     |   STATE NUMBER ID COLON NUMBER ID SLASH ID { STATEITM(NUMBER $2,[]) }
-
-statelst:
-	stateitm { [ $1 ] }
-    | statelst stateitm { $2 :: $1 }
-
-stateitm:
-    |   STATE NUMBER silst { STATEITM(NUMBER $2,List.rev $3) }
-
-silst:
-	sitm { [ $1 ] }
-    | silst sitm { $2 :: $1 }
-
-sitm:
-    ID { ID $1 }
-    | dolitm { $1 }
-    | spunct { $1 }
-    | quotitm { $1 }
-    | NUMBER { NUMBER $1 }
-    ;
-
-spunct:
-| AMPERSAND { AMPERSAND }
-| AT { AT }
-| BACKQUOTE { BACKQUOTE }
-| BACKSLASH { BACKSLASH }
-| CARET { CARET }
-| COLON { COLON }
-| COMMA { COMMA }
-| DOLLAR { DOLLAR }
-| DOT { DOT }
-| DOUBLEQUOTE { DOUBLEQUOTE }
-| EQUALS { EQUALS }
-| GREATER { GREATER }
-| HASH { HASH }
-| HYPHEN { HYPHEN }
-| LBRACE { LBRACE }
-| LBRACK { LBRACK }
-| LESS { LESS }
-| LPAREN { LPAREN }
-| PERCENT { PERCENT }
-| PLING { PLING }
-| PLUS { PLUS }
-| QUERY { QUERY }
-| RBRACE { RBRACE }
-| RBRACK { RBRACK }
-| RPAREN { RPAREN }
-| SEMICOLON { SEMICOLON }
-| SLASH { SLASH }
-| STAR { STAR }
-| TILDE { TILDE }
-| UNDERSCORE { UNDERSCORE }
-| VBAR { VBAR }
 
 nontermlst:
 	nontermitm { [ $1 ] }
@@ -189,12 +137,18 @@ termlst:
 termitm:
 	dolitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   quotitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
+    |   dquotitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   ID LPAREN NUMBER RPAREN numlst { TERMITM(ID (String.uppercase $1),$3) }
 
 quotitm:
 	QUOTE BACKSLASH ID QUOTE
 	      { match $3 with "n" -> LINEFEED | _ -> CHAR ($3.[0]) }
     |   QUOTE punct QUOTE { $2 }
+
+dquotitm:
+	DOUBLEQUOTE dqlst DOUBLEQUOTE
+	      { TLIST $2 }
+    |   DOUBLEQUOTE punct QUOTE { $2 }
 
 numlst:
     | { [ ] }
@@ -230,9 +184,17 @@ ru:
     | dolitm { $1 }
     | PERCENT ID { match $2 with "empty" -> EMPTY | oth -> ID oth }
     | QUOTE punct QUOTE { $2 }
+    | DOUBLEQUOTE dqlst DOUBLEQUOTE { TLIST $2 }
     | dolat { $1 }
     | quotitm { $1 }
+    | SLASH STAR ID STAR SLASH { match $3 with "empty" -> EMPTY | oth -> ID oth }
     ;
+
+dqlst:
+    | ID { [ ID $1 ] }
+    | punct { [ $1 ] }
+    | dqlst ID { ID $2 :: $1 }
+    | dqlst punct { $2 :: $1 }
 
 punct:
 | AMPERSAND { AMPERSAND }
