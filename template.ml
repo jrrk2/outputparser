@@ -156,7 +156,7 @@ let template toklst gramlst =
         let buf = String.create 4096 in
         let len = input fd buf 0 4096 in
 `       close_in fd;
-        let txt = String.sub buf 0 len in
+        let txt = String.sub (Bytes.to_string buf) 0 len in
         if false then print_endline txt;
         txt
         end
