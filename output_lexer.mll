@@ -20,7 +20,7 @@
   open Lexing
   open Output_parser
 
-  let verbose = ref true
+  let verbose = ref false
   let lincnt = ref 0
 
   let keyword =

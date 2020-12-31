@@ -28,4 +28,28 @@
 #use ".ocamlinit.program"
 *)
 
+(*
 #use ".ocamlinit.ansic"
+*)
+
+(*
+open Output
+open Template
+open Output_parser
+let _ = parse "V3ParseBison.output";;
+let (t,g) = List.hd !tg';;
+let mungelst = ref [];;
+Hashtbl.iter (fun k x -> mungelst := (k,x) :: !mungelst) mungeh;;
+let fd = open_out "mungelst.ml" in
+List.iter ( fun (k,x) ->
+	  Printf.fprintf fd "    %s, \"%s\";\n" k x
+	  ) (List.sort compare !mungelst);
+close_out fd
+;;
+*)
+
+open Source_text_main
+open Source_text_lex
+open Source_text
+
+let p = parse "timer.v";;

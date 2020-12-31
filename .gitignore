@@ -42,3 +42,10 @@ g.sh
 mykernel.c
 mykernel_main.c
 mykernel_test.c
+Source_text.ml
+Source_text.mli
+Source_text.mly
+Source_text_lex.ml
+Source_text_top
+Source_text_types.ml
+mungelst.ml

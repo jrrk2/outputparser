@@ -28,6 +28,62 @@
   | "end" -> END
   | oth -> ID oth
 
+  let unquot = function
+  | ACCEPT -> ("ACCEPT") 
+  | AMPERSAND -> ("AMPERSAND") 
+  | AT -> ("AT") 
+  | BACKQUOTE -> ("BACKQUOTE") 
+  | BACKSLASH -> ("BACKSLASH") 
+  | CARET -> ("CARET") 
+  | CHAR ch -> String.make 1 ch
+  | COLON -> ("COLON") 
+  | COMMA -> ("COMMA") 
+  | DEFAULT -> ("DEFAULT") 
+  | DOLLAR -> ("DLR") 
+  | DOLLAR_AT _-> ("DOLLAR_AT") 
+  | DOT -> ("DOT") 
+  | DOUBLEQUOTE -> ("DOUBLEQUOTE") 
+  | EMPTY -> ("EMPTY") 
+  | END -> ("END") 
+  | EOF_TOKEN -> ("EOF_TOKEN") 
+  | EQUALS -> ("EQ") 
+  | GRAMITM _-> ("GRAMITM") 
+  | GRAMMAR -> ("GRAMMAR") 
+  | GREATER -> ("GT") 
+  | HASH -> ("HASH") 
+  | HYPHEN -> ("HYPHEN") 
+  | ID id -> id
+  | LBRACE -> ("LBRACE") 
+  | LBRACK -> ("LBRACK") 
+  | LESS -> ("LT") 
+  | LINEFEED -> ("LINEFEED") 
+  | LPAREN -> ("LPAREN") 
+  | NONTERMINALS -> ("NONTERMINALS") 
+  | NONTERMITM _-> ("NONTERMITM") 
+  | NUMBER _-> ("NUMBER") 
+  | PERCENT -> ("PERCENT") 
+  | PLING -> ("PLING") 
+  | PLUS -> ("PLUS") 
+  | QUERY -> ("QUERY") 
+  | QUOTE -> ("QUOTE") 
+  | RBRACE -> ("RBRACE") 
+  | RBRACK -> ("RBRACK") 
+  | RPAREN -> ("RPAREN") 
+  | SEMICOLON -> ("SEMICOLON") 
+  | SLASH -> ("SLASH") 
+  | STAR -> ("STAR") 
+  | STATE -> ("STATE") 
+  | STATEITM _-> ("STATEITM") 
+  | STRING_LITERAL _-> ("STRING_LITERAL") 
+  | TERMINALS -> ("TERMINALS") 
+  | TERMITM _-> ("TERMITM") 
+  | TERMS _-> ("TERMS") 
+  | TILDE -> ("TILDE") 
+  | TLIST _-> ("TLIST") 
+  | UNDERSCORE -> ("UNDERSCORE") 
+  | UNUSED _-> ("UNUSED") 
+  | VBAR -> ("VBAR") 
+
 %}
 
 %token LINEFEED
@@ -70,6 +126,7 @@
 %token <char>   CHAR
 %token <int>   NUMBER
 %token <string>   ID;
+%token <string>   STRING_LITERAL;
 %token    EOF_TOKEN
 %token    STATE
 %token    GRAMMAR
@@ -138,7 +195,7 @@ termitm:
 	dolitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   quotitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   dquotitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
-    |   ID LPAREN NUMBER RPAREN numlst { TERMITM(ID (String.uppercase $1),$3) }
+    |   ID LPAREN NUMBER RPAREN numlst { TERMITM(ID (String.uppercase_ascii $1),$3) }
 
 quotitm:
 	QUOTE BACKSLASH ID QUOTE
@@ -147,7 +204,7 @@ quotitm:
 
 dquotitm:
 	DOUBLEQUOTE dqlst DOUBLEQUOTE
-	      { TLIST $2 }
+	      { STRING_LITERAL (String.concat ";" (List.rev (List.map unquot $2))) }
     |   DOUBLEQUOTE punct QUOTE { $2 }
 
 numlst:
@@ -184,7 +241,7 @@ ru:
     | dolitm { $1 }
     | PERCENT ID { match $2 with "empty" -> EMPTY | oth -> ID oth }
     | QUOTE punct QUOTE { $2 }
-    | DOUBLEQUOTE dqlst DOUBLEQUOTE { TLIST $2 }
+    | dquotitm { $1 }
     | dolat { $1 }
     | quotitm { $1 }
     | SLASH STAR ID STAR SLASH { match $3 with "empty" -> EMPTY | oth -> ID oth }

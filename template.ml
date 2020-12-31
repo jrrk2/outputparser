@@ -26,6 +26,32 @@ let typ is_terminal str =
     Hashtbl.add termhash str (is_terminal, typ' str);
   Hashtbl.find termhash str
 
+let rec munge s = let s0 = String.sub s 0 1 in (match s.[0] with
+  | 'A' .. 'Z' -> s0
+  | 'a' .. 'z' -> s0
+  | '0' .. '9' -> s0
+  | _ -> "_")^(let l = String.length s in if l > 1 then munge (String.sub s 1 (l - 1)) else "")
+
+let rec munge0 s = let s0 = String.sub s 0 1 in (match s.[0] with
+  | 'A' .. 'Z' -> s0
+  | 'a' .. 'z' -> String.uppercase_ascii s0
+  | '0' .. '9' -> s0
+  | _ -> "_")^(let l = String.length s in if l > 1 then munge (String.sub s 1 (l - 1)) else "")
+
+let mungeh = Hashtbl.create 255
+
+let munge' s = match s.[0] with
+  | 'A' .. 'Z' -> munge s
+  | 'a' .. 'z' -> munge0 s
+  | _ -> "TOK_"^munge s
+
+let munge s = 
+  let m = munge' s in
+  if Hashtbl.mem mungeh m then
+    (if Hashtbl.find mungeh m <> s then m^"_"^string_of_int (Hashtbl.length mungeh) else m)
+  else
+    (Hashtbl.replace mungeh m s; m)
+
 let items mlyfile oldlhs txt rulst =
               let used = ref 0 in
 	      let len = String.length !oldlhs in let islist = len > 5 && String.sub !oldlhs (len-5) 5 = "_list" in
@@ -36,6 +62,8 @@ let items mlyfile oldlhs txt rulst =
                   | END -> incr used; fprintf mlyfile "EOF_TOKEN "
                   | ID id -> incr used; fprintf mlyfile "%s " (reserved id)
 		  | DOLLAR_AT n -> fprintf mlyfile "/* %d */ " n
+		  | STRING_LITERAL nam -> incr used;
+		    let m = munge nam in fprintf mlyfile "%s " m;
                   | oth -> incr used; fprintf mlyfile "%s " (Ord.getstr oth)) rulst;
               if txt <> "" then fprintf mlyfile "{\n%s }\n" txt
               else if !used <> 0 then
@@ -56,11 +84,23 @@ let items mlyfile oldlhs txt rulst =
 			    fprintf mlyfile "%c$%d" !delim !ix;
 			  delim := ','
 		      | DOLLAR_AT n -> ()
+		      | STRING_LITERAL nam -> incr ix; 
+			  let m = munge nam in
+			  let (is_term,typ') = typ false m in
+			  if false then print_endline (typ' ^ " " ^ m);
+			  if typ' <> "unit" then
+			    fprintf mlyfile "%c%s $%d" !delim m !ix
+			  else if is_term || true then
+			    fprintf mlyfile "%c%s" !delim m
+			  else
+			    fprintf mlyfile "%c$%d" !delim !ix;
+			  delim := ','
 		      | oth -> incr ix; fprintf mlyfile "%c%s" !delim (Ord.getstr oth); delim := ',') rulst;
 		  fprintf mlyfile ") }\n"
 	          end
 
 let tokens = List.map (function
+    | TERMITM(STRING_LITERAL nam, _) -> munge nam
     | TERMITM(ID nam, _) -> nam
     | TERMITM(oth, _) -> Ord.getstr oth
     | err -> failwith (Ord.getstr err))
@@ -153,9 +193,9 @@ let template toklst gramlst =
       let txt = if Sys.file_exists searchf then 
         begin
         let fd = open_in searchf in
-        let buf = String.create 4096 in
+        let buf = Bytes.create 4096 in
         let len = input fd buf 0 4096 in
-`       close_in fd;
+        close_in fd;
         let txt = String.sub (Bytes.to_string buf) 0 len in
         if false then print_endline txt;
         txt
