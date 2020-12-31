@@ -54,7 +54,7 @@ let munge s =
 
 let items mlyfile oldlhs txt rulst =
               let used = ref 0 in
-	      let len = String.length !oldlhs in let islist = len > 5 && String.sub !oldlhs (len-5) 5 = "_list" in
+	      let len = String.length !oldlhs in let islist = len > 8 && String.sub !oldlhs 0 8 = "list_of_" in
 	      let tuple = if islist then "CONS" else "TUPLE" in
               List.iter (function 
                   | EMPTY -> fprintf mlyfile "/* empty */ { EMPTY_TOKEN }\n"

@@ -20,7 +20,7 @@
   open Lexing
   open Source_text
 
-  let verbose = ref true
+  let verbose = try int_of_string(Sys.getenv "LEXER_VERBOSE") > 0 with _ -> false
   let lincnt = ref 0
 
   let keyword =
@@ -500,7 +500,7 @@
       ];
     fun s -> Hashtbl.find h s
 
-let tok arg = if !verbose then print_endline ("**" ^ (match arg with
+let tok arg = if verbose then print_endline ("**" ^ (match arg with
 (*
   | K_HISTORY id -> id
 *)
@@ -1046,12 +1046,12 @@ let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let qstring = '"'[^'"']*'"'
 let ampident = '&'[^' ']*
-let comment = '#'[^'\n']*
+let comment = '/''/'[^'\n']*
 let pattern = ['0'-'9' 'A'-'R' 'a'-'f']+'_'['0'-'9' 'A'-'R' 'a'-'f' '_']*
 
 rule token = parse
-| '-'
-{ tok ( HYPHEN ) }
+| '-' { tok ( HYPHEN ) }
+| "/*" { comment lexbuf }
 
   | comment
       { token lexbuf }
@@ -1171,3 +1171,7 @@ rule token = parse
 
 | _ as oth
 { tok ( failwith ("Source_text_lex: "^String.make 1 oth) ) }
+
+and comment = parse
+| [^'*']*'*''/' as com { if verbose then print_endline ("/*"^com); token lexbuf }
+

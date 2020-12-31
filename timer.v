@@ -1,3 +1,4 @@
+/* timer module */
 
 module timer(output wire rdy, input wire clk, input wire reset);
 
@@ -10,4 +11,4 @@ module timer(output wire rdy, input wire clk, input wire reset);
      else
        count <= count - 1;
 
-endmodule
+endmodule // timer

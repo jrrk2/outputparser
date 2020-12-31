@@ -53,3 +53,46 @@ open Source_text_lex
 open Source_text
 
 let p = parse "timer.v";;
+
+let lst' = ref []
+
+let rec rw = function
+| CONS1 oth -> TLIST (rw oth::[])
+| CONS3(lft,_,rght) -> (match rw lft with TLIST arg -> TLIST (rw rght :: arg) | _ -> failwith "CONS3")
+| CONS2(lft,rght) -> (match rw lft with TLIST arg -> TLIST (rw rght :: arg) | _ -> failwith "CONS2")
+| TLIST lst -> TLIST (List.map rw lst)
+| TUPLE2(arg1,arg2) -> TUPLE2 (rw arg1, rw arg2)
+| TUPLE3(arg1,arg2,arg3) -> TUPLE3 (rw arg1, rw arg2, rw arg3)
+| TUPLE4(arg1,arg2,arg3,arg4) -> TUPLE4 (rw arg1, rw arg2, rw arg3, rw arg4)
+| TUPLE5(arg1,arg2,arg3,arg4,arg5) -> TUPLE5 (rw arg1, rw arg2, rw arg3, rw arg4, rw arg5)
+| TUPLE6(arg1,arg2,arg3,arg4,arg5,arg6) -> TUPLE6 (rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6)
+| TUPLE7(arg1,arg2,arg3,arg4,arg5,arg6,arg7) -> TUPLE7 (rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6, rw arg7)
+| TUPLE8(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8) ->
+   TUPLE8(rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6, rw arg7, rw arg8)
+| ((IDENTIFIER _
+| INTEGER_NUMBER _
+| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|COLON|SEMICOLON|HYPHEN|EQUALS|LT_EQ
+| Module|Always|Assign|Reg|Wire|Output|Input|Posedge|Or|If|Else|Endmodule|EOF_TOKEN) as oth) -> oth
+| oth -> failwith (Source_text_types.getstr oth)
+
+(*
+let rec scan = function
+| CONS3(lft,COMMA,rght) -> lst' := (lft,rght) :: !lst'
+| CONS2(lft,rght) -> lst' := (lft,rght) :: !lst'
+| CONS1 oth -> scan oth
+| TLIST lst -> List.iter scan lst
+| TUPLE2(arg1,arg2) -> List.iter scan [arg1; arg2]
+| TUPLE3(arg1,arg2,arg3) -> List.iter scan [arg1; arg2; arg3]
+| TUPLE4(arg1,arg2,arg3,arg4) -> List.iter scan [arg1; arg2; arg3; arg4]
+| TUPLE5(arg1,arg2,arg3,arg4,arg5) -> List.iter scan [arg1; arg2; arg3; arg4; arg5]
+| TUPLE6(arg1,arg2,arg3,arg4,arg5,arg6) -> List.iter scan [arg1; arg2; arg3; arg4; arg5; arg6]
+| TUPLE7(arg1,arg2,arg3,arg4,arg5,arg6,arg7) -> List.iter scan [arg1; arg2; arg3; arg4; arg5; arg6; arg7]
+| TUPLE8(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8) ->
+   List.iter scan [arg1; arg2; arg3; arg4; arg5; arg6; arg7; arg8]
+| IDENTIFIER _ -> ()
+| INTEGER_NUMBER _ -> ()
+| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|COLON|SEMICOLON|HYPHEN|EQUALS|LT_EQ -> ()
+| Module|Always|Assign|Reg|Posedge|Or|If|Else|Endmodule|EOF_TOKEN -> ()
+| oth -> failwith (Source_text_types.getstr oth)
+let _ = scan p;;
+*)
