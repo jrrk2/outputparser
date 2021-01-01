@@ -74,13 +74,14 @@ let rec rw = function
    TUPLE8(rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6, rw arg7, rw arg8)
 | ((IDENTIFIER _
 | INTEGER_NUMBER _
-| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|COLON|SEMICOLON|PLUS|HYPHEN|EQUALS|LT_EQ
-| Module|Always|Assign|Reg|Wire|Output|Input|Posedge|Or|If|Else|Begin|End|Endmodule|EOF_TOKEN) as oth) -> oth
-| oth -> failwith (Source_text_types.getstr oth)
+| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|LBRACE|RBRACE|COLON|SEMICOLON|COMMA|CARET|PLUS|HYPHEN|HASH|AMPERSAND|EQUALS|LT_EQ
+| Module|Always|Assign|Reg|Wire|Logic|Bit|Int|Integer|Unsigned|Output|Input|Posedge|Or|If|Else|Begin|End|DOT|Endmodule|Interface|Endinterface|Modport|Parameter|EOF_TOKEN) as oth) -> oth
+| oth -> failwith ("rw fail: "^Source_text_types.getstr oth)
 
 let missing = ref None
 
 type rw =
+  | Unknown
   | In
   | Out
   | Itmlst of rw list
@@ -89,58 +90,120 @@ type rw =
   | Pos of string
   | Edge of rw * rw
   | Id of string
-  | Int of int
+  | Intgr of int
   | Number of string
   | Sel of string * rw
   | NonBlock of string * rw
+  | And of rw * rw
+  | Or of rw * rw
+  | Xor of rw * rw
   | Add of rw * rw
   | Sub of rw * rw
   | Ifelse of rw * rw * rw
   | Sentry of rw * rw
-  | Block of string * rw
+  | Block of rw * rw
   | Asgnlst of rw list
   | DeclReg of rw list * string list
+  | DeclInt of string list
   | Dim of rw * rw
   | BeginBlock of rw list
+  | Bitlst of rw list
+  | Dot of string * rw
+  | Concat of rw list
+  | DeclIntf1 of string *rw list
+  | DeclIntf2 of string *rw list
+  | Hash of string * rw list * rw list
+  | DeclIntf of string * rw list * rw list * rw list
+  | DeclModPort of rw list
+  | Repl of string * rw list
+  | Slice of string * rw * rw
+  | Field of string * string
+  | Dot3 of string * string *string
+  | Parenth of string * rw list
+  | Logic of rw list * rw list
+  | Param of string * rw
+  | DeclLogic of rw list
 
 let rec rw' = function
 | Input -> In
 | Output -> Out
-| TUPLE2 (TLIST lst, EOF_TOKEN) -> Itmlst(List.map rw' (List.rev lst))
+| TUPLE2 (TLIST lst, EOF_TOKEN) -> Itmlst(List.rev_map rw' lst)
+| TUPLE4 (Input as dir, IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> Port(rw' dir, port)
+| TUPLE5 (Output as dir, TUPLE2 (Integer, EMPTY_TOKEN), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
+   Port(rw' dir, port)
+| TUPLE5 (Input as dir, TUPLE3 (Logic, EMPTY_TOKEN, EMPTY_TOKEN), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
+   Port(rw' dir, port)
 | TUPLE4 (TUPLE2 ((Input|Output) as dir, Wire), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> 
 Port (rw' dir, port)
-| TUPLE7 (TUPLE3 (Module, EMPTY_TOKEN, IDENTIFIER modid), EMPTY_TOKEN,
+| TUPLE2 ((Input|Output) as dir, IDENTIFIER port) -> Port(rw' dir, port)
+| TUPLE7 (TUPLE3 (Module, EMPTY_TOKEN, IDENTIFIER modid), params,
    TUPLE3(LPAREN, TLIST portlst, RPAREN), SEMICOLON, TLIST itmlst, Endmodule, EMPTY_TOKEN) ->
-Modul (modid, List.map rw' (List.rev portlst), List.map rw' (List.rev itmlst))
-| TUPLE3 (TUPLE2 (Posedge, IDENTIFIER clk), Or, TUPLE2 (Posedge, IDENTIFIER reset)) ->
+Modul (modid, List.rev_map rw' (portlst), List.rev_map rw' (itmlst))
+| TUPLE3 (TUPLE2 (Posedge, IDENTIFIER clk), (Or|COMMA), TUPLE2 (Posedge, IDENTIFIER reset)) ->
   Edge(Pos clk, Pos reset)
 | TUPLE2 (Posedge, IDENTIFIER clk) -> Pos clk
-| INTEGER_NUMBER n -> (try Int (int_of_string n) with err -> Number n)
+| INTEGER_NUMBER n -> (try Intgr (int_of_string n) with err -> Number n)
 | IDENTIFIER id -> Id id
+| TUPLE3 (IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> Id id
+| TUPLE7 (EMPTY_TOKEN, IDENTIFIER id1, DOT, IDENTIFIER id2, IDENTIFIER id3, EMPTY_TOKEN, EMPTY_TOKEN) ->
+  Dot3(id1,id2,id3)
+| TUPLE3 (IDENTIFIER id, DOT, IDENTIFIER member) -> Field (id, member)
 | TUPLE4 (IDENTIFIER id, LBRACK, exp, RBRACK) -> Sel (id, rw' exp)
-| TUPLE5 (IDENTIFIER lhs, LT_EQ, EMPTY_TOKEN, exp, SEMICOLON) ->
-  NonBlock (lhs, rw' exp)
+| TUPLE6 (IDENTIFIER id, LBRACK, lft, COLON, rght, RBRACK) -> Slice (id, rw' lft, rw' rght)
+| TUPLE5 (IDENTIFIER lhs, LT_EQ, EMPTY_TOKEN, exp, SEMICOLON) -> NonBlock (lhs, rw' exp)
 | TUPLE3 (lhs, PLUS, rhs) -> Add(rw' lhs, rw' rhs)
 | TUPLE3 (lhs, HYPHEN, rhs) -> Sub(rw' lhs, rw' rhs)
+| TUPLE3 (lhs, AMPERSAND, rhs) -> And(rw' lhs, rw' rhs)
+| TUPLE3 (lhs, CARET, rhs) -> Xor(rw' lhs, rw' rhs)
+| TUPLE3 (LPAREN, exp, RPAREN) -> rw' exp
+| TUPLE6 (LBRACE, IDENTIFIER id, LBRACE, TLIST lst, RBRACE, RBRACE) -> Repl(id, List.rev_map rw' lst)
 | TUPLE8 (EMPTY_TOKEN, If, LPAREN, cond, RPAREN, if_clause, Else, else_clause) ->
  Ifelse(rw' cond, rw' if_clause, rw' else_clause)
 | TUPLE2 (Always, TUPLE2 (TUPLE4 (AT, LPAREN, sentry, RPAREN), stmts)) ->
  Sentry(rw' sentry, rw' stmts)
-| TUPLE3 (IDENTIFIER lhs, EQUALS, exp) -> Block (lhs, rw' exp)
+| TUPLE3 (lhs, EQUALS, exp) -> Block (rw' lhs, rw' exp)
 | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN,
       TLIST asgnlst,
-      SEMICOLON) -> Asgnlst (List.map rw' (List.rev asgnlst))
+      SEMICOLON) -> Asgnlst (List.rev_map rw' (asgnlst))
 | TUPLE5 (LBRACK, hi, COLON, lo, RBRACK) -> Dim(rw' hi, rw' lo)
 | TUPLE3 (TUPLE3 (Reg, EMPTY_TOKEN, TLIST dimlst),
       TLIST idlst,
-      SEMICOLON) -> DeclReg(List.map rw' (List.rev dimlst),List.map (function
+      SEMICOLON) -> DeclReg(List.rev_map rw' (dimlst),List.rev_map (function
        | TUPLE3 (IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> id
-       | oth -> missing := Some oth; failwith "rw'") (List.rev idlst))
+       | oth -> missing := Some oth; failwith "rw'") (idlst))
 | TUPLE5 (Output, TUPLE3 (Reg, EMPTY_TOKEN, TLIST dimlst),
-      IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> DeclReg (List.map rw' (List.rev dimlst), [id])
-| TUPLE4(Begin, TLIST stmts, End, EMPTY_TOKEN) ->
- BeginBlock (match List.map rw' (List.rev stmts) with Itmlst x :: [] -> x | oth -> oth)
-| TLIST lst -> Itmlst(List.map rw' (List.rev lst))
+      IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> DeclReg (List.rev_map rw' (dimlst), [id])
+| TUPLE4 (Begin, TLIST stmts, End, EMPTY_TOKEN) ->
+ BeginBlock (match List.rev_map rw' (stmts) with Itmlst x :: [] -> x | oth -> oth)
+| TLIST lst -> Itmlst(List.rev_map rw' lst)
+| TUPLE5 (lhs, EMPTY_TOKEN, EMPTY_TOKEN, EQUALS, exp) -> Block (rw' lhs, rw' exp)
+| TUPLE3 (TUPLE3 (Bit, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst, SEMICOLON) ->
+   Bitlst(List.rev_map rw' lst)
+| TUPLE3 (TUPLE2 (Int, EMPTY_TOKEN), TLIST lst, SEMICOLON) -> DeclInt (List.rev_map (function
+  | TUPLE3 (IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> id
+  | oth -> failwith "Int") lst)
+| TUPLE5 (DOT, IDENTIFIER port, LPAREN, conn, RPAREN) -> Dot(port,rw' conn)
+| TUPLE5 (IDENTIFIER id, EMPTY_TOKEN, LPAREN, TLIST [TLIST lst], RPAREN) ->
+  DeclIntf2 (id, List.rev_map rw' lst)
+| TUPLE4 (IDENTIFIER id, EMPTY_TOKEN, TLIST lst, SEMICOLON) -> DeclIntf1 (id, List.rev_map rw' lst)
+| TUPLE5 (IDENTIFIER id, EMPTY_TOKEN, LPAREN, TLIST lst, RPAREN) -> Parenth (id, List.rev_map rw' lst)
+| TUPLE4 (IDENTIFIER id, TUPLE4 (HASH, LPAREN, TLIST lst, RPAREN), TLIST lst', SEMICOLON) ->
+  Hash(id, List.rev_map rw' lst, List.rev_map rw' lst')
+| TUPLE2 (TUPLE2 (Parameter, TUPLE2 (Int, Unsigned)),
+            TUPLE4 (IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN,
+              TUPLE2 (EQUALS, exp))) -> Param(id, rw' exp)
+| TUPLE4 (IDENTIFIER id, LPAREN, TLIST lst, RPAREN) -> Parenth (id, List.rev_map rw' lst)
+| TUPLE3 (Modport, TLIST lst, SEMICOLON) -> DeclModPort(List.rev_map rw' lst)
+| TUPLE3 (TUPLE3 (Logic, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst, SEMICOLON) -> DeclLogic(List.rev_map rw' lst)
+| TUPLE3 (LBRACE, TLIST lst, RBRACE) -> Concat (List.rev_map rw' lst)
+| TUPLE7
+     (TUPLE3 (Interface, EMPTY_TOKEN, IDENTIFIER id),
+      TUPLE4 (HASH, LPAREN, TLIST lst, RPAREN),
+      TUPLE3 (LPAREN, TLIST lst', RPAREN),
+      SEMICOLON, TLIST lst'', Endinterface, EMPTY_TOKEN) ->
+  DeclIntf(id, List.rev_map rw' lst, List.rev_map rw' lst', List.rev_map rw' lst'')
+| TUPLE3 (TUPLE3 (Logic, EMPTY_TOKEN, TLIST lst), TLIST lst', SEMICOLON) ->
+  Logic(List.rev_map rw' lst, List.rev_map rw' lst')
 | oth -> missing := Some oth; failwith "rw'"
 
 let p' = rw p;;

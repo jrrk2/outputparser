@@ -500,7 +500,7 @@
       ];
     fun s -> Hashtbl.find h s
 
-let tok arg = if verbose then print_endline ("**" ^ (match arg with
+let tok arg = if verbose then print_endline (string_of_int !lincnt ^ " **" ^ (match arg with
 (*
   | K_HISTORY id -> id
 *)
@@ -1040,8 +1040,9 @@ let tok arg = if verbose then print_endline ("**" ^ (match arg with
 }
 
 let ident = ['a'-'z' 'A'-'Z' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
-let fltnum = ['0'-'9']*['.']*['0'-'9']*['E' '-' '+' '0'-'9']*
+let fltnum = ['0'-'9' '.']+['E' '-' '+' '0'-'9']*
 let number = ['0'-'9']+['\'' 'b' 'd' 'h' '0'-'9' 'a'-'f' 'A'-'F']*
+let dfltnum = '''['0'-'9']+
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let qstring = '"'[^'"']*'"'
@@ -1052,6 +1053,38 @@ let pattern = ['0'-'9' 'A'-'R' 'a'-'f']+'_'['0'-'9' 'A'-'R' 'a'-'f' '_']*
 rule token = parse
 | '-' { tok ( HYPHEN ) }
 | '+' { tok ( PLUS ) }
+| '!' { tok ( PLING ) }
+| '"' { tok ( DOUBLEQUOTE ) }
+| '#' { tok ( HASH ) }
+| '$' { tok ( DOLLAR ) }
+| '%' { tok ( PERCENT ) }
+| '&' { tok ( AMPERSAND ) }
+| ''' { tok ( QUOTE ) }
+| '(' { tok ( LPAREN ) }
+| '[' { tok ( LBRACK ) }
+| '{' { tok ( LBRACE ) }
+| "<=" { tok ( LT_EQ ) }
+| '<' { tok ( LESS ) }
+| ')' { tok ( RPAREN ) }
+| ']' { tok ( RBRACK ) }
+| '}' { tok ( RBRACE ) }
+| '>' { tok ( GREATER ) }
+| '*' { tok ( STAR ) }
+| ',' { tok ( COMMA ) }
+| '.' { tok ( DOT ) }
+| '/' { tok ( SLASH ) }
+| '\\' { tok ( BACKSLASH ) }
+| ':' { tok ( COLON ) }
+| ';' { tok ( SEMICOLON ) }
+| '=' { tok ( EQUALS ) }
+| '?' { tok ( QUERY ) }
+| '@' { tok ( AT ) }
+| '^' { tok ( CARET ) }
+| '_' { tok ( UNDERSCORE ) }
+| '`' { tok ( BACKQUOTE ) }
+| '|' { tok ( VBAR ) }
+| '~' { tok ( TILDE ) }
+
 | "/*" { comment lexbuf }
 
   | comment
@@ -1064,6 +1097,8 @@ rule token = parse
       { tok ( IDENTIFIER s ) }
   | number as n
       { tok ( INTEGER_NUMBER (n) ) }
+  | dfltnum as n
+      { tok ( INTEGER_NUMBER (n) ) }
   | fltnum as n
       { tok ( try let f = float_of_string n in FLOATING_HYPHEN_POINT_NUMBER f with _ -> IDENTIFIER n) }
   | ident as s
@@ -1074,99 +1109,6 @@ rule token = parse
       { tok ( IDENTIFIER s ) }
   | eof
       { tok ( EOF_TOKEN ) }
-| '!'
-{ tok ( PLING ) }
-
-| '"'
-{ tok ( DOUBLEQUOTE ) }
-
-| '#'
-{ tok ( HASH ) }
-
-| '$'
-{ tok ( DOLLAR ) }
-
-| '%'
-{ tok ( PERCENT ) }
-
-| '&'
-{ tok ( AMPERSAND ) }
-
-| '''
-{ tok ( QUOTE ) }
-
-| '('
-{ tok ( LPAREN ) }
-
-| '['
-{ tok ( LBRACK ) }
-
-| '{'
-{ tok ( LBRACE ) }
-
-| "<="
-{ tok ( LT_EQ ) }
-
-| '<'
-{ tok ( LESS ) }
-
-| ')'
-{ tok ( RPAREN ) }
-
-| ']'
-{ tok ( RBRACK ) }
-
-| '}'
-{ tok ( RBRACE ) }
-
-| '>'
-{ tok ( GREATER ) }
-
-| '*'
-{ tok ( STAR ) }
-
-
-| ','
-{ tok ( COMMA ) }
-
-| '.'
-{ tok ( DOT ) }
-
-| '/'
-{ tok ( SLASH ) }
-
-| '\\'
-{ tok ( BACKSLASH ) }
-
-| ':'
-{ tok ( COLON ) }
-
-| ';'
-{ tok ( SEMICOLON ) }
-
-| '='
-{ tok ( EQUALS ) }
-
-| '?'
-{ tok ( QUERY ) }
-
-| '@'
-{ tok ( AT ) }
-
-| '^'
-{ tok ( CARET ) }
-
-| '_'
-{ tok ( UNDERSCORE ) }
-
-| '`'
-{ tok ( BACKQUOTE ) }
-
-| '|'
-{ tok ( VBAR ) }
-
-| '~'
-{ tok ( TILDE ) }
 
 | _ as oth
 { tok ( failwith ("Source_text_lex: "^String.make 1 oth) ) }
