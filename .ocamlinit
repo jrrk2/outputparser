@@ -75,24 +75,37 @@ let rec rw = function
 | Module|Always|Assign|Reg|Wire|Output|Input|Posedge|Or|If|Else|Endmodule|EOF_TOKEN) as oth) -> oth
 | oth -> failwith (Source_text_types.getstr oth)
 
-(*
-let rec scan = function
-| CONS3(lft,COMMA,rght) -> lst' := (lft,rght) :: !lst'
-| CONS2(lft,rght) -> lst' := (lft,rght) :: !lst'
-| CONS1 oth -> scan oth
-| TLIST lst -> List.iter scan lst
-| TUPLE2(arg1,arg2) -> List.iter scan [arg1; arg2]
-| TUPLE3(arg1,arg2,arg3) -> List.iter scan [arg1; arg2; arg3]
-| TUPLE4(arg1,arg2,arg3,arg4) -> List.iter scan [arg1; arg2; arg3; arg4]
-| TUPLE5(arg1,arg2,arg3,arg4,arg5) -> List.iter scan [arg1; arg2; arg3; arg4; arg5]
-| TUPLE6(arg1,arg2,arg3,arg4,arg5,arg6) -> List.iter scan [arg1; arg2; arg3; arg4; arg5; arg6]
-| TUPLE7(arg1,arg2,arg3,arg4,arg5,arg6,arg7) -> List.iter scan [arg1; arg2; arg3; arg4; arg5; arg6; arg7]
-| TUPLE8(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8) ->
-   List.iter scan [arg1; arg2; arg3; arg4; arg5; arg6; arg7; arg8]
-| IDENTIFIER _ -> ()
-| INTEGER_NUMBER _ -> ()
-| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|COLON|SEMICOLON|HYPHEN|EQUALS|LT_EQ -> ()
-| Module|Always|Assign|Reg|Posedge|Or|If|Else|Endmodule|EOF_TOKEN -> ()
-| oth -> failwith (Source_text_types.getstr oth)
-let _ = scan p;;
-*)
+let missing = ref None
+
+let rec rw' = function
+| TUPLE2 (TLIST lst, EOF_TOKEN) -> TLIST (List.map rw' lst)
+| TUPLE4 (TUPLE2 ((Input|Output) as dir, Wire), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> 
+TLIST (dir :: IDENTIFIER port :: [])
+| TUPLE7 (TUPLE3 (Module, EMPTY_TOKEN, IDENTIFIER modid), EMPTY_TOKEN,
+   TUPLE3(LPAREN, TLIST portlst, RPAREN), SEMICOLON, TLIST itmlst, Endmodule, EMPTY_TOKEN) ->
+TLIST (Module :: IDENTIFIER modid :: TLIST (List.map rw' portlst) :: TLIST (List.map rw' itmlst) :: [])
+| TUPLE3 (TUPLE2 (Posedge, IDENTIFIER clk), Or, TUPLE2 (Posedge, IDENTIFIER reset)) -> Posedge
+| (INTEGER_NUMBER _ | IDENTIFIER _) as x -> x
+| TUPLE4 (IDENTIFIER id, LBRACK, exp, RBRACK) -> TLIST (IDENTIFIER id :: rw' exp :: [])
+| TUPLE5 (IDENTIFIER lhs, LT_EQ, EMPTY_TOKEN, exp, SEMICOLON) ->
+ TLIST (LT_EQ :: IDENTIFIER lhs :: rw' exp :: [])
+| TUPLE3 (lhs, HYPHEN, rhs) -> TLIST(HYPHEN :: rw' lhs :: rw' rhs :: [])
+| TUPLE8 (EMPTY_TOKEN, If, LPAREN, cond, RPAREN, if_clause, Else, else_clause) ->
+ TLIST (If :: rw' cond :: rw' if_clause :: rw' else_clause :: [])
+| TUPLE2 (Always, TUPLE2 (TUPLE4 (AT, LPAREN, sentry, RPAREN), stmts)) ->
+ TLIST (Always :: rw' sentry :: rw' stmts :: [])
+| TUPLE3 (IDENTIFIER lhs, EQUALS, exp) -> TLIST (EQUALS :: IDENTIFIER lhs :: rw' exp :: [])
+| TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN,
+      TLIST asgnlst,
+      SEMICOLON) -> TLIST (List.map (fun itm -> TLIST (Assign :: itm :: [])) asgnlst)
+| TUPLE3
+     (TUPLE3
+       (Reg, EMPTY_TOKEN,
+        TLIST
+         [TUPLE5
+           (LBRACK, INTEGER_NUMBER "4", COLON, INTEGER_NUMBER "0", RBRACK)]),
+      TLIST [TUPLE3 (IDENTIFIER "count", EMPTY_TOKEN, EMPTY_TOKEN)],
+      SEMICOLON) -> Reg
+| oth -> missing := Some oth; failwith "rw'"
+
+let x = rw' (rw p);;

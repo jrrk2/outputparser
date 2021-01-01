@@ -54,8 +54,10 @@ let munge s =
 
 let items mlyfile oldlhs txt rulst =
               let used = ref 0 in
-	      let len = String.length !oldlhs in let islist = len > 8 && String.sub !oldlhs 0 8 = "list_of_" in
-	      let tuple = if islist then "CONS" else "TUPLE" in
+	      let len = String.length !oldlhs in
+	      let islist1 = len > 8 && String.sub !oldlhs 0 8 = "list_of_" in
+	      let islist2 = len > 4 && String.sub !oldlhs (len-4) 4 = "List" in
+	      let tuple = if islist1 || islist2 then "CONS" else "TUPLE" in
               List.iter (function 
                   | EMPTY -> fprintf mlyfile "/* empty */ { EMPTY_TOKEN }\n"
                   | ID "error" -> incr used; fprintf mlyfile "ERROR_TOKEN "
@@ -69,7 +71,7 @@ let items mlyfile oldlhs txt rulst =
               else if !used <> 0 then
 	          begin
 		  if !used > 1 then fprintf mlyfile "{ %s%d" tuple !used
-                  else if islist then fprintf mlyfile "{ CONS1 " else fprintf mlyfile "{ ";
+                  else if islist1 || islist2 then fprintf mlyfile "{ CONS1 " else fprintf mlyfile "{ ";
 		  let delim = ref '(' and ix = ref 0 in List.iter (function 
 		      | EMPTY -> incr ix; fprintf mlyfile "%c ()" !delim; delim := ','
 		      | END -> incr ix; fprintf mlyfile "%cEOF_TOKEN" !delim; delim := ','
