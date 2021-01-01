@@ -52,8 +52,9 @@ open Source_text_main
 open Source_text_lex
 open Source_text
 
-let v = "process.v";;
 let v = "timer.v";;
+let v = "process.v";;
+let v = "interface_test.sv";;
 let p = parse v;;
 
 let lst' = ref []
@@ -73,8 +74,8 @@ let rec rw = function
    TUPLE8(rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6, rw arg7, rw arg8)
 | ((IDENTIFIER _
 | INTEGER_NUMBER _
-| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|COLON|SEMICOLON|HYPHEN|EQUALS|LT_EQ
-| Module|Always|Assign|Reg|Wire|Output|Input|Posedge|Or|If|Else|Endmodule|EOF_TOKEN) as oth) -> oth
+| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|COLON|SEMICOLON|PLUS|HYPHEN|EQUALS|LT_EQ
+| Module|Always|Assign|Reg|Wire|Output|Input|Posedge|Or|If|Else|Begin|End|Endmodule|EOF_TOKEN) as oth) -> oth
 | oth -> failwith (Source_text_types.getstr oth)
 
 let missing = ref None
@@ -89,8 +90,10 @@ type rw =
   | Edge of rw * rw
   | Id of string
   | Int of int
+  | Number of string
   | Sel of string * rw
   | NonBlock of string * rw
+  | Add of rw * rw
   | Sub of rw * rw
   | Ifelse of rw * rw * rw
   | Sentry of rw * rw
@@ -98,6 +101,7 @@ type rw =
   | Asgnlst of rw list
   | DeclReg of rw list * string list
   | Dim of rw * rw
+  | BeginBlock of rw list
 
 let rec rw' = function
 | Input -> In
@@ -110,11 +114,13 @@ Port (rw' dir, port)
 Modul (modid, List.map rw' (List.rev portlst), List.map rw' (List.rev itmlst))
 | TUPLE3 (TUPLE2 (Posedge, IDENTIFIER clk), Or, TUPLE2 (Posedge, IDENTIFIER reset)) ->
   Edge(Pos clk, Pos reset)
-| INTEGER_NUMBER n -> Int (int_of_string n)
+| TUPLE2 (Posedge, IDENTIFIER clk) -> Pos clk
+| INTEGER_NUMBER n -> (try Int (int_of_string n) with err -> Number n)
 | IDENTIFIER id -> Id id
 | TUPLE4 (IDENTIFIER id, LBRACK, exp, RBRACK) -> Sel (id, rw' exp)
 | TUPLE5 (IDENTIFIER lhs, LT_EQ, EMPTY_TOKEN, exp, SEMICOLON) ->
   NonBlock (lhs, rw' exp)
+| TUPLE3 (lhs, PLUS, rhs) -> Add(rw' lhs, rw' rhs)
 | TUPLE3 (lhs, HYPHEN, rhs) -> Sub(rw' lhs, rw' rhs)
 | TUPLE8 (EMPTY_TOKEN, If, LPAREN, cond, RPAREN, if_clause, Else, else_clause) ->
  Ifelse(rw' cond, rw' if_clause, rw' else_clause)
@@ -124,13 +130,18 @@ Modul (modid, List.map rw' (List.rev portlst), List.map rw' (List.rev itmlst))
 | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN,
       TLIST asgnlst,
       SEMICOLON) -> Asgnlst (List.map rw' (List.rev asgnlst))
-| TUPLE5(LBRACK, hi, COLON, lo, RBRACK) -> Dim(rw' hi, rw' lo)
-| TUPLE3
-     (TUPLE3 (Reg, EMPTY_TOKEN, TLIST dimlst),
+| TUPLE5 (LBRACK, hi, COLON, lo, RBRACK) -> Dim(rw' hi, rw' lo)
+| TUPLE3 (TUPLE3 (Reg, EMPTY_TOKEN, TLIST dimlst),
       TLIST idlst,
       SEMICOLON) -> DeclReg(List.map rw' (List.rev dimlst),List.map (function
        | TUPLE3 (IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> id
        | oth -> missing := Some oth; failwith "rw'") (List.rev idlst))
+| TUPLE5 (Output, TUPLE3 (Reg, EMPTY_TOKEN, TLIST dimlst),
+      IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> DeclReg (List.map rw' (List.rev dimlst), [id])
+| TUPLE4(Begin, TLIST stmts, End, EMPTY_TOKEN) ->
+ BeginBlock (match List.map rw' (List.rev stmts) with Itmlst x :: [] -> x | oth -> oth)
+| TLIST lst -> Itmlst(List.map rw' (List.rev lst))
 | oth -> missing := Some oth; failwith "rw'"
 
-let x = rw' (rw p);;
+let p' = rw p;;
+let x = rw' p';;

@@ -1041,7 +1041,7 @@ let tok arg = if verbose then print_endline ("**" ^ (match arg with
 
 let ident = ['a'-'z' 'A'-'Z' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
 let fltnum = ['0'-'9']*['.']*['0'-'9']*['E' '-' '+' '0'-'9']*
-let number = ['0'-'9']+
+let number = ['0'-'9']+['\'' 'b' 'd' 'h' '0'-'9' 'a'-'f' 'A'-'F']*
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let qstring = '"'[^'"']*'"'
@@ -1051,6 +1051,7 @@ let pattern = ['0'-'9' 'A'-'R' 'a'-'f']+'_'['0'-'9' 'A'-'R' 'a'-'f' '_']*
 
 rule token = parse
 | '-' { tok ( HYPHEN ) }
+| '+' { tok ( PLUS ) }
 | "/*" { comment lexbuf }
 
   | comment
@@ -1124,8 +1125,6 @@ rule token = parse
 | '*'
 { tok ( STAR ) }
 
-| '+'
-{ tok ( PLUS ) }
 
 | ','
 { tok ( COMMA ) }
