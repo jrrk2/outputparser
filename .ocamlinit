@@ -52,7 +52,9 @@ open Source_text_main
 open Source_text_lex
 open Source_text
 
-let p = parse "timer.v";;
+let v = "process.v";;
+let v = "timer.v";;
+let p = parse v;;
 
 let lst' = ref []
 
@@ -100,12 +102,12 @@ type rw =
 let rec rw' = function
 | Input -> In
 | Output -> Out
-| TUPLE2 (TLIST lst, EOF_TOKEN) -> Itmlst(List.map rw' lst)
+| TUPLE2 (TLIST lst, EOF_TOKEN) -> Itmlst(List.map rw' (List.rev lst))
 | TUPLE4 (TUPLE2 ((Input|Output) as dir, Wire), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> 
 Port (rw' dir, port)
 | TUPLE7 (TUPLE3 (Module, EMPTY_TOKEN, IDENTIFIER modid), EMPTY_TOKEN,
    TUPLE3(LPAREN, TLIST portlst, RPAREN), SEMICOLON, TLIST itmlst, Endmodule, EMPTY_TOKEN) ->
-Modul (modid, List.map rw' portlst, List.map rw' itmlst)
+Modul (modid, List.map rw' (List.rev portlst), List.map rw' (List.rev itmlst))
 | TUPLE3 (TUPLE2 (Posedge, IDENTIFIER clk), Or, TUPLE2 (Posedge, IDENTIFIER reset)) ->
   Edge(Pos clk, Pos reset)
 | INTEGER_NUMBER n -> Int (int_of_string n)
@@ -121,14 +123,14 @@ Modul (modid, List.map rw' portlst, List.map rw' itmlst)
 | TUPLE3 (IDENTIFIER lhs, EQUALS, exp) -> Block (lhs, rw' exp)
 | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN,
       TLIST asgnlst,
-      SEMICOLON) -> Asgnlst (List.map rw' asgnlst)
+      SEMICOLON) -> Asgnlst (List.map rw' (List.rev asgnlst))
 | TUPLE5(LBRACK, hi, COLON, lo, RBRACK) -> Dim(rw' hi, rw' lo)
 | TUPLE3
      (TUPLE3 (Reg, EMPTY_TOKEN, TLIST dimlst),
       TLIST idlst,
-      SEMICOLON) -> DeclReg(List.map rw' dimlst,List.map (function
+      SEMICOLON) -> DeclReg(List.map rw' (List.rev dimlst),List.map (function
        | TUPLE3 (IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> id
-       | oth -> missing := Some oth; failwith "rw'") idlst)
+       | oth -> missing := Some oth; failwith "rw'") (List.rev idlst))
 | oth -> missing := Some oth; failwith "rw'"
 
 let x = rw' (rw p);;
