@@ -77,35 +77,58 @@ let rec rw = function
 
 let missing = ref None
 
+type rw =
+  | In
+  | Out
+  | Itmlst of rw list
+  | Port of rw * string
+  | Modul of string * rw list * rw list
+  | Pos of string
+  | Edge of rw * rw
+  | Id of string
+  | Int of int
+  | Sel of string * rw
+  | NonBlock of string * rw
+  | Sub of rw * rw
+  | Ifelse of rw * rw * rw
+  | Sentry of rw * rw
+  | Block of string * rw
+  | Asgnlst of rw list
+  | DeclReg of rw list * string list
+  | Dim of rw * rw
+
 let rec rw' = function
-| TUPLE2 (TLIST lst, EOF_TOKEN) -> TLIST (List.map rw' lst)
+| Input -> In
+| Output -> Out
+| TUPLE2 (TLIST lst, EOF_TOKEN) -> Itmlst(List.map rw' lst)
 | TUPLE4 (TUPLE2 ((Input|Output) as dir, Wire), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> 
-TLIST (dir :: IDENTIFIER port :: [])
+Port (rw' dir, port)
 | TUPLE7 (TUPLE3 (Module, EMPTY_TOKEN, IDENTIFIER modid), EMPTY_TOKEN,
    TUPLE3(LPAREN, TLIST portlst, RPAREN), SEMICOLON, TLIST itmlst, Endmodule, EMPTY_TOKEN) ->
-TLIST (Module :: IDENTIFIER modid :: TLIST (List.map rw' portlst) :: TLIST (List.map rw' itmlst) :: [])
-| TUPLE3 (TUPLE2 (Posedge, IDENTIFIER clk), Or, TUPLE2 (Posedge, IDENTIFIER reset)) -> Posedge
-| (INTEGER_NUMBER _ | IDENTIFIER _) as x -> x
-| TUPLE4 (IDENTIFIER id, LBRACK, exp, RBRACK) -> TLIST (IDENTIFIER id :: rw' exp :: [])
+Modul (modid, List.map rw' portlst, List.map rw' itmlst)
+| TUPLE3 (TUPLE2 (Posedge, IDENTIFIER clk), Or, TUPLE2 (Posedge, IDENTIFIER reset)) ->
+  Edge(Pos clk, Pos reset)
+| INTEGER_NUMBER n -> Int (int_of_string n)
+| IDENTIFIER id -> Id id
+| TUPLE4 (IDENTIFIER id, LBRACK, exp, RBRACK) -> Sel (id, rw' exp)
 | TUPLE5 (IDENTIFIER lhs, LT_EQ, EMPTY_TOKEN, exp, SEMICOLON) ->
- TLIST (LT_EQ :: IDENTIFIER lhs :: rw' exp :: [])
-| TUPLE3 (lhs, HYPHEN, rhs) -> TLIST(HYPHEN :: rw' lhs :: rw' rhs :: [])
+  NonBlock (lhs, rw' exp)
+| TUPLE3 (lhs, HYPHEN, rhs) -> Sub(rw' lhs, rw' rhs)
 | TUPLE8 (EMPTY_TOKEN, If, LPAREN, cond, RPAREN, if_clause, Else, else_clause) ->
- TLIST (If :: rw' cond :: rw' if_clause :: rw' else_clause :: [])
+ Ifelse(rw' cond, rw' if_clause, rw' else_clause)
 | TUPLE2 (Always, TUPLE2 (TUPLE4 (AT, LPAREN, sentry, RPAREN), stmts)) ->
- TLIST (Always :: rw' sentry :: rw' stmts :: [])
-| TUPLE3 (IDENTIFIER lhs, EQUALS, exp) -> TLIST (EQUALS :: IDENTIFIER lhs :: rw' exp :: [])
+ Sentry(rw' sentry, rw' stmts)
+| TUPLE3 (IDENTIFIER lhs, EQUALS, exp) -> Block (lhs, rw' exp)
 | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN,
       TLIST asgnlst,
-      SEMICOLON) -> TLIST (List.map (fun itm -> TLIST (Assign :: itm :: [])) asgnlst)
+      SEMICOLON) -> Asgnlst (List.map rw' asgnlst)
+| TUPLE5(LBRACK, hi, COLON, lo, RBRACK) -> Dim(rw' hi, rw' lo)
 | TUPLE3
-     (TUPLE3
-       (Reg, EMPTY_TOKEN,
-        TLIST
-         [TUPLE5
-           (LBRACK, INTEGER_NUMBER "4", COLON, INTEGER_NUMBER "0", RBRACK)]),
-      TLIST [TUPLE3 (IDENTIFIER "count", EMPTY_TOKEN, EMPTY_TOKEN)],
-      SEMICOLON) -> Reg
+     (TUPLE3 (Reg, EMPTY_TOKEN, TLIST dimlst),
+      TLIST idlst,
+      SEMICOLON) -> DeclReg(List.map rw' dimlst,List.map (function
+       | TUPLE3 (IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> id
+       | oth -> missing := Some oth; failwith "rw'") idlst)
 | oth -> missing := Some oth; failwith "rw'"
 
 let x = rw' (rw p);;
