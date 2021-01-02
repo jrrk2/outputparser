@@ -87,148 +87,148 @@
     Coverage_block_off, "coverage_block_off";
     Coverage_off, "coverage_off";
     Coverage_on, "coverage_on";
-    DLR_LBRACE_pli_HYPHEN_system_RBRACE, "DLR;LBRACE;pli;HYPHEN;system;RBRACE";
-    DLR_acos, "DLR;acos";
-    DLR_acosh, "DLR;acosh";
-    DLR_asin, "DLR;asin";
-    DLR_asinh, "DLR;asinh";
-    DLR_atan, "DLR;atan";
-    DLR_atan2, "DLR;atan2";
-    DLR_atanh, "DLR;atanh";
-    DLR_bits, "DLR;bits";
-    DLR_bitstoreal, "DLR;bitstoreal";
-    DLR_bitstoshortreal, "DLR;bitstoshortreal";
-    DLR_c, "DLR;c";
-    DLR_cast, "DLR;cast";
-    DLR_ceil, "DLR;ceil";
-    DLR_changed, "DLR;changed";
-    DLR_clog2, "DLR;clog2";
-    DLR_cos, "DLR;cos";
-    DLR_cosh, "DLR;cosh";
-    DLR_countbits, "DLR;countbits";
-    DLR_countones, "DLR;countones";
-    DLR_dimensions, "DLR;dimensions";
-    DLR_display, "DLR;display";
-    DLR_displayb, "DLR;displayb";
-    DLR_displayh, "DLR;displayh";
-    DLR_displayo, "DLR;displayo";
-    DLR_dumpall, "DLR;dumpall";
-    DLR_dumpfile, "DLR;dumpfile";
-    DLR_dumpflush, "DLR;dumpflush";
-    DLR_dumplimit, "DLR;dumplimit";
-    DLR_dumpoff, "DLR;dumpoff";
-    DLR_dumpon, "DLR;dumpon";
-    DLR_dumpports, "DLR;dumpports";
-    DLR_dumpvars, "DLR;dumpvars";
-    DLR_error, "DLR;error";
-    DLR_exit, "DLR;exit";
-    DLR_exp, "DLR;exp";
-    DLR_fatal, "DLR;fatal";
-    DLR_fclose, "DLR;fclose";
-    DLR_fdisplay, "DLR;fdisplay";
-    DLR_fdisplayb, "DLR;fdisplayb";
-    DLR_fdisplayh, "DLR;fdisplayh";
-    DLR_fdisplayo, "DLR;fdisplayo";
-    DLR_fell, "DLR;fell";
-    DLR_feof, "DLR;feof";
-    DLR_ferror, "DLR;ferror";
-    DLR_fflush, "DLR;fflush";
-    DLR_fgetc, "DLR;fgetc";
-    DLR_fgets, "DLR;fgets";
-    DLR_finish, "DLR;finish";
-    DLR_floor, "DLR;floor";
-    DLR_fmonitor, "DLR;fmonitor";
-    DLR_fmonitorb, "DLR;fmonitorb";
-    DLR_fmonitorh, "DLR;fmonitorh";
-    DLR_fmonitoro, "DLR;fmonitoro";
-    DLR_fopen, "DLR;fopen";
-    DLR_fread, "DLR;fread";
-    DLR_frewind, "DLR;frewind";
-    DLR_fscanf, "DLR;fscanf";
-    DLR_fseek, "DLR;fseek";
-    DLR_fstrobe, "DLR;fstrobe";
-    DLR_fstrobeb, "DLR;fstrobeb";
-    DLR_fstrobeh, "DLR;fstrobeh";
-    DLR_fstrobeo, "DLR;fstrobeo";
-    DLR_ftell, "DLR;ftell";
-    DLR_fwrite, "DLR;fwrite";
-    DLR_fwriteb, "DLR;fwriteb";
-    DLR_fwriteh, "DLR;fwriteh";
-    DLR_fwriteo, "DLR;fwriteo";
-    DLR_high, "DLR;high";
-    DLR_hypot, "DLR;hypot";
-    DLR_increment, "DLR;increment";
-    DLR_info, "DLR;info";
-    DLR_isunbounded, "DLR;isunbounded";
-    DLR_isunknown, "DLR;isunknown";
-    DLR_itor, "DLR;itor";
-    DLR_left, "DLR;left";
-    DLR_ln, "DLR;ln";
-    DLR_log10, "DLR;log10";
-    DLR_low, "DLR;low";
-    DLR_monitor, "DLR;monitor";
-    DLR_monitorb, "DLR;monitorb";
-    DLR_monitorh, "DLR;monitorh";
-    DLR_monitoro, "DLR;monitoro";
-    DLR_monitoroff, "DLR;monitoroff";
-    DLR_monitoron, "DLR;monitoron";
-    DLR_onehot, "DLR;onehot";
-    DLR_onehot0, "DLR;onehot0";
-    DLR_past, "DLR;past";
-    DLR_pow, "DLR;pow";
-    DLR_printtimescale, "DLR;printtimescale";
-    DLR_random, "DLR;random";
-    DLR_readmemb, "DLR;readmemb";
-    DLR_readmemh, "DLR;readmemh";
-    DLR_realtime, "DLR;realtime";
-    DLR_realtobits, "DLR;realtobits";
-    DLR_rewind, "DLR;rewind";
-    DLR_right, "DLR;right";
-    DLR_root, "DLR;root";
-    DLR_rose, "DLR;rose";
-    DLR_rtoi, "DLR;rtoi";
-    DLR_sampled, "DLR;sampled";
-    DLR_sformat, "DLR;sformat";
-    DLR_sformatf, "DLR;sformatf";
-    DLR_shortrealtobits, "DLR;shortrealtobits";
-    DLR_signed, "DLR;signed";
-    DLR_sin, "DLR;sin";
-    DLR_sinh, "DLR;sinh";
-    DLR_size, "DLR;size";
-    DLR_sqrt, "DLR;sqrt";
-    DLR_sscanf, "DLR;sscanf";
-    DLR_stable, "DLR;stable";
-    DLR_stime, "DLR;stime";
-    DLR_stop, "DLR;stop";
-    DLR_strobe, "DLR;strobe";
-    DLR_strobeb, "DLR;strobeb";
-    DLR_strobeh, "DLR;strobeh";
-    DLR_strobeo, "DLR;strobeo";
-    DLR_swrite, "DLR;swrite";
-    DLR_swriteb, "DLR;swriteb";
-    DLR_swriteh, "DLR;swriteh";
-    DLR_swriteo, "DLR;swriteo";
-    DLR_system, "DLR;system";
-    DLR_tan, "DLR;tan";
-    DLR_tanh, "DLR;tanh";
-    DLR_test_DLR_plusargs, "DLR;test;DLR;plusargs";
-    DLR_time, "DLR;time";
-    DLR_timeformat, "DLR;timeformat";
-    DLR_typename, "DLR;typename";
-    DLR_ungetc, "DLR;ungetc";
-    DLR_unit, "DLR;unit";
-    DLR_unpacked_dimensions, "DLR;unpacked_dimensions";
-    DLR_unsigned, "DLR;unsigned";
-    DLR_urandom, "DLR;urandom";
-    DLR_urandom_range, "DLR;urandom_range";
-    DLR_value_DLR_plusargs, "DLR;value;DLR;plusargs";
-    DLR_warning, "DLR;warning";
-    DLR_write, "DLR;write";
-    DLR_writeb, "DLR;writeb";
-    DLR_writeh, "DLR;writeh";
-    DLR_writememb, "DLR;writememb";
-    DLR_writememh, "DLR;writememh";
-    DLR_writeo, "DLR;writeo";
+    DLR_LBRACE_pli_HYPHEN_system_RBRACE, "$LBRACE;pli;HYPHEN;system;RBRACE";
+    DLR_acos, "$acos";
+    DLR_acosh, "$acosh";
+    DLR_asin, "$asin";
+    DLR_asinh, "$asinh";
+    DLR_atan, "$atan";
+    DLR_atan2, "$atan2";
+    DLR_atanh, "$atanh";
+    DLR_bits, "$bits";
+    DLR_bitstoreal, "$bitstoreal";
+    DLR_bitstoshortreal, "$bitstoshortreal";
+    DLR_c, "$c";
+    DLR_cast, "$cast";
+    DLR_ceil, "$ceil";
+    DLR_changed, "$changed";
+    DLR_clog2, "$clog2";
+    DLR_cos, "$cos";
+    DLR_cosh, "$cosh";
+    DLR_countbits, "$countbits";
+    DLR_countones, "$countones";
+    DLR_dimensions, "$dimensions";
+    DLR_display, "$display";
+    DLR_displayb, "$displayb";
+    DLR_displayh, "$displayh";
+    DLR_displayo, "$displayo";
+    DLR_dumpall, "$dumpall";
+    DLR_dumpfile, "$dumpfile";
+    DLR_dumpflush, "$dumpflush";
+    DLR_dumplimit, "$dumplimit";
+    DLR_dumpoff, "$dumpoff";
+    DLR_dumpon, "$dumpon";
+    DLR_dumpports, "$dumpports";
+    DLR_dumpvars, "$dumpvars";
+    DLR_error, "$error";
+    DLR_exit, "$exit";
+    DLR_exp, "$exp";
+    DLR_fatal, "$fatal";
+    DLR_fclose, "$fclose";
+    DLR_fdisplay, "$fdisplay";
+    DLR_fdisplayb, "$fdisplayb";
+    DLR_fdisplayh, "$fdisplayh";
+    DLR_fdisplayo, "$fdisplayo";
+    DLR_fell, "$fell";
+    DLR_feof, "$feof";
+    DLR_ferror, "$ferror";
+    DLR_fflush, "$fflush";
+    DLR_fgetc, "$fgetc";
+    DLR_fgets, "$fgets";
+    DLR_finish, "$finish";
+    DLR_floor, "$floor";
+    DLR_fmonitor, "$fmonitor";
+    DLR_fmonitorb, "$fmonitorb";
+    DLR_fmonitorh, "$fmonitorh";
+    DLR_fmonitoro, "$fmonitoro";
+    DLR_fopen, "$fopen";
+    DLR_fread, "$fread";
+    DLR_frewind, "$frewind";
+    DLR_fscanf, "$fscanf";
+    DLR_fseek, "$fseek";
+    DLR_fstrobe, "$fstrobe";
+    DLR_fstrobeb, "$fstrobeb";
+    DLR_fstrobeh, "$fstrobeh";
+    DLR_fstrobeo, "$fstrobeo";
+    DLR_ftell, "$ftell";
+    DLR_fwrite, "$fwrite";
+    DLR_fwriteb, "$fwriteb";
+    DLR_fwriteh, "$fwriteh";
+    DLR_fwriteo, "$fwriteo";
+    DLR_high, "$high";
+    DLR_hypot, "$hypot";
+    DLR_increment, "$increment";
+    DLR_info, "$info";
+    DLR_isunbounded, "$isunbounded";
+    DLR_isunknown, "$isunknown";
+    DLR_itor, "$itor";
+    DLR_left, "$left";
+    DLR_ln, "$ln";
+    DLR_log10, "$log10";
+    DLR_low, "$low";
+    DLR_monitor, "$monitor";
+    DLR_monitorb, "$monitorb";
+    DLR_monitorh, "$monitorh";
+    DLR_monitoro, "$monitoro";
+    DLR_monitoroff, "$monitoroff";
+    DLR_monitoron, "$monitoron";
+    DLR_onehot, "$onehot";
+    DLR_onehot0, "$onehot0";
+    DLR_past, "$past";
+    DLR_pow, "$pow";
+    DLR_printtimescale, "$printtimescale";
+    DLR_random, "$random";
+    DLR_readmemb, "$readmemb";
+    DLR_readmemh, "$readmemh";
+    DLR_realtime, "$realtime";
+    DLR_realtobits, "$realtobits";
+    DLR_rewind, "$rewind";
+    DLR_right, "$right";
+    DLR_root, "$root";
+    DLR_rose, "$rose";
+    DLR_rtoi, "$rtoi";
+    DLR_sampled, "$sampled";
+    DLR_sformat, "$sformat";
+    DLR_sformatf, "$sformatf";
+    DLR_shortrealtobits, "$shortrealtobits";
+    DLR_signed, "$signed";
+    DLR_sin, "$sin";
+    DLR_sinh, "$sinh";
+    DLR_size, "$size";
+    DLR_sqrt, "$sqrt";
+    DLR_sscanf, "$sscanf";
+    DLR_stable, "$stable";
+    DLR_stime, "$stime";
+    DLR_stop, "$stop";
+    DLR_strobe, "$strobe";
+    DLR_strobeb, "$strobeb";
+    DLR_strobeh, "$strobeh";
+    DLR_strobeo, "$strobeo";
+    DLR_swrite, "$swrite";
+    DLR_swriteb, "$swriteb";
+    DLR_swriteh, "$swriteh";
+    DLR_swriteo, "$swriteo";
+    DLR_system, "$system";
+    DLR_tan, "$tan";
+    DLR_tanh, "$tanh";
+    DLR_test_DLR_plusargs, "$test;DLR;plusargs";
+    DLR_time, "$time";
+    DLR_timeformat, "$timeformat";
+    DLR_typename, "$typename";
+    DLR_ungetc, "$ungetc";
+    DLR_unit, "$unit";
+    DLR_unpacked_dimensions, "$unpacked_dimensions";
+    DLR_unsigned, "$unsigned";
+    DLR_urandom, "$urandom";
+    DLR_urandom_range, "$urandom_range";
+    DLR_value_DLR_plusargs, "$value;DLR;plusargs";
+    DLR_warning, "$warning";
+    DLR_write, "$write";
+    DLR_writeb, "$writeb";
+    DLR_writeh, "$writeh";
+    DLR_writememb, "$writememb";
+    DLR_writememh, "$writememh";
+    DLR_writeo, "$writeo";
     DOT_STAR, "DOT;STAR";
     Deassign, "deassign";
     Default, "default";
@@ -1039,18 +1039,28 @@ let tok arg = if verbose then print_endline (string_of_int !lincnt ^ " **" ^ (ma
   arg
 }
 
-let ident = ['a'-'z' 'A'-'Z' ] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
-let fltnum = ['0'-'9' '.']+['E' '-' '+' '0'-'9']*
-let number = ['0'-'9']+['\'' 'b' 'd' 'h' '0'-'9' 'a'-'f' 'A'-'F']*
-let dfltnum = '''['0'-'9']+
+let ident = ['a'-'z' 'A'-'Z' '$'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$']*
+let fltnum = ['0'-'9']+'.'['E' '-' '+' '0'-'9']*
+let number = ['0'-'9']+['\'' 'b' 'd' 'h' '0'-'9' 'a'-'f' 'x' 'A'-'F' 'X' '_' ' ']*
+let dfltnum = '''['0'-'9' 'b' 'x']+
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let qstring = '"'[^'"']*'"'
-let ampident = '&'[^' ']*
 let comment = '/''/'[^'\n']*
 let pattern = ['0'-'9' 'A'-'R' 'a'-'f']+'_'['0'-'9' 'A'-'R' 'a'-'f' '_']*
 
 rule token = parse
+| ">>>" { tok ( GT_GT_GT ) }
+| "<<=" { tok ( LT_LT_EQ ) }
+| "||" { tok ( VBAR_VBAR ) }
+| "==" { tok ( EQ_EQ ) }
+| "<=" { tok ( LT_EQ ) }
+| "!=" { tok ( PLING_EQ ) }
+| "<<" { tok ( LT_LT ) }
+| ">>" { tok ( GT_GT ) }
+| ">=" { tok ( GT_EQ ) }
+| "+:" { tok ( PLUS_COLON ) }
+| "&&" { tok ( AMPERSAND_AMPERSAND ) }
 | '-' { tok ( HYPHEN ) }
 | '+' { tok ( PLUS ) }
 | '!' { tok ( PLING ) }
@@ -1063,7 +1073,6 @@ rule token = parse
 | '(' { tok ( LPAREN ) }
 | '[' { tok ( LBRACK ) }
 | '{' { tok ( LBRACE ) }
-| "<=" { tok ( LT_EQ ) }
 | '<' { tok ( LESS ) }
 | ')' { tok ( RPAREN ) }
 | ']' { tok ( RBRACK ) }
@@ -1086,6 +1095,7 @@ rule token = parse
 | '~' { tok ( TILDE ) }
 
 | "/*" { comment lexbuf }
+| "(* " { comment lexbuf }
 
   | comment
       { token lexbuf }
@@ -1103,8 +1113,6 @@ rule token = parse
       { tok ( try let f = float_of_string n in FLOATING_HYPHEN_POINT_NUMBER f with _ -> IDENTIFIER n) }
   | ident as s
       { tok ( try keyword s with Not_found -> IDENTIFIER s ) }
-  | ampident as s
-      { tok ( try keyword s with Not_found -> IDENTIFIER s ) }
   | qstring as s
       { tok ( IDENTIFIER s ) }
   | eof
@@ -1115,4 +1123,5 @@ rule token = parse
 
 and comment = parse
 | [^'*']*'*''/' as com { if verbose then print_endline ("/*"^com); token lexbuf }
+| [^'*']*'*'')' as com { if verbose then print_endline ("/*"^com); token lexbuf }
 

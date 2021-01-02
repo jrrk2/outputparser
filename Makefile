@@ -18,7 +18,7 @@
 
 .PHONY: everything
 PARSER=ocamlyacc
-MENHIRFLAGS=#--trace
+MENHIRFLAGS=--trace
 PARSER=menhir $(MENHIRFLAGS)
 SIMPLEDMC=../simpleDMC_verify
 DMCFILES=dSFMT.i main.i Orbital.i position.i support.i System.i Walker.i walkthewalk.i Wavefunction.i
