@@ -56,6 +56,7 @@ let v = "timer.v";;
 let v = "process.v";;
 let v = "interface_test.sv";;
 let v = "picorv32_ref.v";;
+let v = "loop.v";;
 let p = parse v;;
 
 let lst' = ref []
@@ -77,7 +78,7 @@ let rec rw = function
 | ((IDENTIFIER _
 | INTEGER_NUMBER _
 | AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|LBRACE|RBRACE|COLON|SEMICOLON|COMMA|CARET|TILDE|QUERY
-| PLUS|HYPHEN|STAR|SLASH|HASH|AMPERSAND|AMPERSAND_AMPERSAND|PLING|GT_GT_GT|PLUS_COLON
+| PLUS|HYPHEN|STAR|SLASH|HASH|AMPERSAND|AMPERSAND_AMPERSAND|PLING|GT_GT_GT|PLUS_COLON|PLUS_PLUS
 | EQUALS|LT_EQ|VBAR_VBAR|LT_LT|GT_GT|GT_EQ|EQ_EQ|LESS|VBAR|PLING_EQ
 | DLR_display|DLR_stop|DLR_finish|DLR_write|DLR_signed|DLR_unsigned|DLR_time|DLR_readmemh
 | Module|Always|Assign|Reg|Wire|Logic|Bit|Int|Integer|Unsigned
@@ -109,6 +110,8 @@ type rw =
   | RedAnd of rw
   | RedOr of rw
   | UMinus of rw
+  | Inc of rw
+  | Dec of rw
   | Pling of rw
   | Tilde of rw
   | Equals of rw * rw
@@ -208,6 +211,8 @@ m
 | TUPLE2 (TILDE, rhs) -> Tilde(rw' rhs)
 | TUPLE2 (AMPERSAND, rhs) -> RedAnd(rw' rhs)
 | TUPLE2 (VBAR, rhs) -> RedOr(rw' rhs)
+| TUPLE2 (lhs, PLUS_PLUS) -> Inc(rw' lhs)
+| TUPLE2 (lhs, HYPHEN_HYPHEN) -> Dec(rw' lhs)
 | TUPLE4 (DLR_signed, LPAREN, rhs, RPAREN) -> Signed(rw' rhs)
 | TUPLE4 (DLR_unsigned, LPAREN, rhs, RPAREN) -> Unsigned(rw' rhs)
 | TUPLE3 (lhs, PLUS, rhs) -> Add(rw' lhs, rw' rhs)
@@ -318,10 +323,7 @@ DeclReg(dims,lft,rght)
       TLIST lst, SEMICOLON) -> DeclWire ([], List.rev_map wire_map lst)
 | TUPLE2 (Initial, TUPLE2(stmts, SEMICOLON)) -> Unknown "initial"
 | TUPLE2 (Initial, TUPLE4(Begin, TLIST lst, End, EMPTY_TOKEN)) -> Unknown "initial"
-| TUPLE8 (For, LPAREN, TUPLE2 (TLIST strtlst, SEMICOLON),
-      stop, SEMICOLON,
-      TUPLE3 (IDENTIFIER ix', EQUALS, inc),
-      RPAREN, stmts) -> 
+| TUPLE8 (For, LPAREN, TUPLE2 (TLIST strtlst, SEMICOLON), stop, SEMICOLON, inc, RPAREN, stmts) -> 
 ForLoop (List.rev_map rw' strtlst, rw' stop, rw' inc, rw' stmts)
 | TUPLE4 (EMPTY_TOKEN, IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> Id id
 | TUPLE6 (IDENTIFIER id, LBRACK, lhs, PLUS_COLON, rhs, RBRACK) ->
@@ -375,75 +377,88 @@ let rec dump fd = function
   | DeclReg ([], [id], [[init]]) -> fprintf fd "reg %s = " id; dump fd init
   | DeclReg ([], idlst, initlst) -> List.iter (fun id -> fprintf fd "reg %s;\n" id) idlst
   | DeclReg(rw_lst, str1_lst, rw_lst_lst) as x -> unhand := Some x; fprintf fd "DeclReg\n"
-  | Port(rw, str1, rw_lst) -> fprintf fd "Port(rw, str1, rw_lst)\n"
-  | Pos(str1) -> fprintf fd "Pos(str1)\n"
-  | Neg(str1) -> fprintf fd "Neg(str1)\n"
-  | Edge(rw, rw2) -> fprintf fd "Edge(rw, rw2)\n"
-  | Intgr(int1) -> fprintf fd "%d" int1
-  | Number(str1) -> fprintf fd "Number(str1)\n"
-  | Sel(str1, rw2) -> fprintf fd "Sel(str1, rw2)\n"
   | NonBlocking(rw, rw2) -> dump fd rw; fprintf fd " <= "; dump fd rw2; fprintf fd ";\n"
   | Query(rw, rw2, rw3) -> dump fd rw; fprintf fd " ? "; dump fd rw2; fprintf fd ": "; dump fd rw3; fprintf fd "; "
-  | RedAnd(rw) -> fprintf fd "RedAnd(rw)\n"
-  | RedOr(rw) -> fprintf fd "RedOr(rw)\n"
-  | UMinus(rw) -> fprintf fd "UMinus(rw)\n"
-  | Pling(rw) -> fprintf fd "Pling(rw)\n"
-  | Tilde(rw) -> fprintf fd "Tilde(rw)\n"
-  | Equals(rw, rw2) -> fprintf fd "Equals(rw, rw2)\n"
-  | NotEq(rw, rw2) -> fprintf fd "NotEq(rw, rw2)\n"
-  | LtEq(rw, rw2) -> fprintf fd "LtEq(rw, rw2)\n"
-  | GtEq(rw, rw2) -> fprintf fd "GtEq(rw, rw2)\n"
-  | Less(rw, rw2) -> fprintf fd "Less(rw, rw2)\n"
-  | And(rw, rw2) -> fprintf fd "And(rw, rw2)\n"
-  | And2(rw, rw2) -> dump fd rw; fprintf fd " && "; dump fd rw2; fprintf fd " "
-  | Or(rw, rw2) -> fprintf fd "Or(rw, rw2)\n"
-  | Or2(rw, rw2) -> fprintf fd "Or2(rw, rw2)\n"
-  | Xor(rw, rw2) -> fprintf fd "Xor(rw, rw2)\n"
-  | Shiftl(rw, rw2) -> fprintf fd "Shiftl(rw, rw2)\n"
-  | Shiftr(rw, rw2) -> fprintf fd "Shiftr(rw, rw2)\n"
-  | Shiftr3(rw, rw2) -> fprintf fd "Shiftr3(rw, rw2)\n"
-  | Add(rw, rw2) -> fprintf fd "Add(rw, rw2)\n"
-  | Sub(rw, rw2) -> fprintf fd "Sub(rw, rw2)\n"
-  | Mult(rw, rw2) -> fprintf fd "Mult(rw, rw2)\n"
-  | Div(rw, rw2) -> fprintf fd "Div(rw, rw2)\n"
-  | Ifelse(rw, rw2, rw3) -> fprintf fd "Ifelse(rw, rw2, rw3)\n"
-  | Iff(rw, rw2) -> fprintf fd "Iff(rw, rw2)\n"
-  | ForLoop(rw_lst, rw2, rw3, rw4) -> fprintf fd "ForLoop(rw_lst, rw2, rw3, rw4)\n"
-  | CaseStmt(rw, rw_lst) -> fprintf fd "CaseStmt(rw, rw_lst)\n"
-  | CaseItm(rw_lst) -> fprintf fd "CaseItm(rw_lst)\n"
-  | AlwaysComb(rw_lst) -> fprintf fd "AlwaysComb(rw_lst)\n"
-  | Sentry(rw, rw2) -> fprintf fd "Sentry(rw, rw2)\n"
-  | Blocking(rw, rw2) -> fprintf fd "Blocking(rw, rw2)\n"
-  | Asgnlst(rw_lst) -> fprintf fd "Asgnlst(rw_lst)\n"
-  | DeclInt(str1_lst) -> fprintf fd "DeclInt(str1_lst)\n"
-  | Dim(rw, rw2) -> fprintf fd "Dim(rw, rw2)\n"
-  | BeginBlock(rw_lst) -> fprintf fd "BeginBlock(rw_lst)\n"
-  | Bitlst(rw_lst) -> fprintf fd "Bitlst(rw_lst)\n"
-  | Dot(str1, rw2) -> fprintf fd "Dot(str1, rw2)\n"
-  | Unsigned(rw) -> fprintf fd "Unsigned(rw)\n"
-  | Signed(rw) -> fprintf fd "Signed(rw)\n"
-  | Concat(rw_lst) -> fprintf fd "Concat(rw_lst)\n"
-  | DeclWire(rw_lst, rw_lst2) -> fprintf fd "DeclWire(rw_lst, rw_lst2)\n"
-  | WireExpr(str1, rw2) -> fprintf fd "WireExpr(str1, rw2)\n"
-  | DeclIntf1(str1, rw_lst) -> fprintf fd "DeclIntf1(str1, rw_lst)\n"
-  | DeclIntf2(str1, rw_lst) -> fprintf fd "DeclIntf2(str1, rw_lst)\n"
-  | Hash(str1, rw_lst, rw_lst2) -> fprintf fd "Hash(str1, rw_lst, rw_lst2)\n"
-  | DeclIntf(str1, rw_lst, rw_lst2, rw_lst3) -> fprintf fd "DeclIntf(str1, rw_lst, rw_lst2, rw_lst3)\n"
-  | DeclModPort(rw_lst) -> fprintf fd "DeclModPort(rw_lst)\n"
-  | Repl(rw, rw_lst) -> fprintf fd "Repl(rw, rw_lst)\n"
-  | Slice(str1, rw2, rw3) -> fprintf fd "Slice(str1, rw2, rw3)\n"
-  | Field(rw, rw2) -> fprintf fd "Field(rw, rw2)\n"
-  | Dot3(str1, str2, str3) -> fprintf fd "Dot3(str1, str2, str3)\n"
-  | Parenth(str1, rw_lst) -> fprintf fd "Parenth(str1, rw_lst)\n"
-  | Logic(rw_lst, rw_lst2) -> fprintf fd "Logic(rw_lst, rw_lst2)\n"
-  | Param(str1, rw2) -> fprintf fd "Param(str1, rw2)\n"
-  | LocalP(rw_lst, rw_lst2) -> fprintf fd "LocalP(rw_lst, rw_lst2)\n"
-  | DeclLogic(rw_lst) -> fprintf fd "DeclLogic(rw_lst)\n"
-  | DeclTask(str1, rw_lst2, rw3, rw4) -> fprintf fd "DeclTask(str1, rw_lst2, rw3, rw4)\n"
-  | Mem1(str1, rw_lst) -> fprintf fd "Mem1(str1, rw_lst)\n"
-  | Mem3(str1, rw2, rw3, rw4) -> fprintf fd "Mem3(str1, rw2, rw3, rw4)\n"
-  | PartSel(str1, rw2, rw3) -> fprintf fd "PartSel(str1, rw2, rw3)\n"
-  | GenBlock(rw_lst) -> fprintf fd "GenBlock(rw_lst)\n"
+  | Port(rw, str1, rw_lst) -> fprintf fd "Port %s\n" str1; dump fd (rw); dump_lst fd ";" (rw_lst)
+  | Pos(str1) -> fprintf fd "posedge %s" (str1)
+  | Neg(str1) -> fprintf fd "negedge %s" (str1)
+  | Edge(rw, rw2) -> fprintf fd "Edge\n"; dump fd (rw); dump fd (rw2)
+  | Intgr(int1) -> fprintf fd "%d" int1
+  | Number(str1) -> fprintf fd "%s" (str1)
+  | Sel(str1, rw2) -> fprintf fd "%s[" (str1); dump fd (rw2); fprintf fd "]"
+  | Inc(rw) -> fprintf fd "("; dump fd (rw); fprintf fd ")++"
+  | Dec(rw) -> fprintf fd "("; dump fd (rw); fprintf fd ")--"
+  | RedAnd(rw) -> fprintf fd "&("; dump fd (rw); fprintf fd ")"
+  | RedOr(rw) -> fprintf fd "|("; dump fd (rw); fprintf fd ")"
+  | UMinus(rw) -> fprintf fd "-("; dump fd (rw); fprintf fd ")"
+  | Pling(rw) -> fprintf fd "!("; dump fd (rw); fprintf fd ")"
+  | Tilde(rw) -> fprintf fd "~("; dump fd (rw); fprintf fd ")"
+  | Equals(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " == "; dump fd (rw2); fprintf fd ")";
+  | NotEq(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " != "; dump fd (rw2); fprintf fd ")"
+  | LtEq(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " <= "; dump fd (rw2); fprintf fd ")"
+  | GtEq(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " >= "; dump fd (rw2); fprintf fd ")"
+  | Less(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " < "; dump fd (rw2); fprintf fd ")"
+  | And(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " & "; dump fd (rw2); fprintf fd ")"
+  | And2(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " && "; dump fd (rw2); fprintf fd ")"
+  | Or(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " | "; dump fd (rw2); fprintf fd ")"
+  | Or2(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " || "; dump fd (rw2); fprintf fd ")"
+  | Xor(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " ^ "; dump fd (rw2); fprintf fd ")"
+  | Shiftl(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " << "; dump fd (rw2); fprintf fd ")"
+  | Shiftr(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " >> "; dump fd (rw2); fprintf fd ")"
+  | Shiftr3(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " >>> "; dump fd (rw2); fprintf fd ")"
+  | Add(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " + "; dump fd (rw2); fprintf fd ")"
+  | Sub(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " - "; dump fd (rw2); fprintf fd ")"
+  | Mult(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " * "; dump fd (rw2); fprintf fd ")"
+  | Div(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " / "; dump fd (rw2); fprintf fd ")"
+  | Ifelse(rw, rw2, rw3) -> fprintf fd "if ("; dump fd (rw); fprintf fd ") begin\n"; dump fd (rw2); fprintf fd "\nend else begin\n"; dump fd (rw3); fprintf fd "\nend\n"
+  | Iff(rw, rw2) -> fprintf fd "if ("; dump fd (rw); fprintf fd ") begin\n"; dump fd (rw2); fprintf fd "\nend\n"
+  | ForLoop(rw_lst, rw2, rw3, rw4) -> fprintf fd "for (";
+  dump_lst fd ";" (rw_lst); 
+  fprintf fd "; ";
+  dump fd (rw2);
+  fprintf fd "; ";
+  dump fd (rw3);
+  fprintf fd ")";
+  dump fd (rw4)
+  | CaseStmt(rw, rw_lst) -> fprintf fd "case("; dump fd (rw); fprintf fd ")"; dump_lst fd ";" (rw_lst)
+  | CaseItm(rw_lst) -> fprintf fd "CaseItm\n"; dump_lst fd ";" (rw_lst)
+  | AlwaysComb(rw_lst) -> fprintf fd "always @*\n"; dump_lst fd ";" (rw_lst)
+  | Sentry(rw, rw2) -> fprintf fd "Sentry\n"; dump fd (rw); dump fd (rw2)
+  | Blocking(rw, rw2) -> dump fd (rw); fprintf fd " = "; dump fd (rw2)
+  | Asgnlst(rw_lst) -> fprintf fd "Asgnlst\n"; dump_lst fd ";" (rw_lst)
+  | DeclInt(str1_lst) -> fprintf fd "DeclInt\n"; dump_str_lst fd ";" (str1_lst)
+  | Dim(rw, rw2) -> fprintf fd "Dim\n"; dump fd (rw); dump fd (rw2)
+  | BeginBlock(rw_lst) -> fprintf fd "\nbegin\n"; dump_lst fd ";" (rw_lst); fprintf fd "\nend\n"
+  | Bitlst(rw_lst) -> fprintf fd "Bitlst\n"; dump_lst fd ";" (rw_lst)
+  | Dot(str1, rw2) -> fprintf fd "Dot %s\n" (str1); dump fd (rw2)
+  | Unsigned(rw) -> fprintf fd "Unsigned\n"; dump fd (rw)
+  | Signed(rw) -> fprintf fd "Signed\n"; dump fd (rw)
+  | Concat(rw_lst) -> fprintf fd "{"; dump_lst fd "," (rw_lst); fprintf fd "}"
+  | DeclWire(rw_lst, rw_lst2) -> fprintf fd "DeclWire\n"; dump_lst fd ";" (rw_lst); dump_lst fd ";" (rw_lst2)
+  | WireExpr(str1, rw2) -> fprintf fd "WireExpr %s\n" (str1); dump fd (rw2)
+  | DeclIntf1(str1, rw_lst) -> fprintf fd "DeclIntf1 %s\n" (str1); dump_lst fd ";" (rw_lst)
+  | DeclIntf2(str1, rw_lst) -> fprintf fd "DeclIntf2 %s\n" (str1); dump_lst fd ";" (rw_lst)
+  | Hash(str1, rw_lst, rw_lst2) -> fprintf fd "Hash %s\n" (str1); dump_lst fd ";" (rw_lst); dump_lst fd ";" (rw_lst2)
+  | DeclIntf(str1, rw_lst, rw_lst2, rw_lst3) -> fprintf fd "DeclIntf %s\n" (str1); dump_lst fd ";" (rw_lst); dump_lst fd ";" (rw_lst2); dump_lst fd ";" (rw_lst3)
+  | DeclModPort(rw_lst) -> fprintf fd "DeclModPort\n"; dump_lst fd ";" (rw_lst)
+  | Repl(rw, rw_lst) -> fprintf fd "Repl\n"; dump fd (rw); dump_lst fd ";" (rw_lst)
+  | Slice(str1, rw2, rw3) -> fprintf fd "%s[" (str1); dump fd (rw2); fprintf fd ":"; dump fd (rw3); fprintf fd "]"
+  | Field(rw, rw2) -> fprintf fd "Field\n"; dump fd (rw); dump fd (rw2)
+  | Dot3(str1, str2, str3) -> fprintf fd "Dot3 %s,%s,%s\n" (str1) (str2) (str3)
+  | Parenth(str1, rw_lst) -> fprintf fd "Parenth %s\n" (str1); dump_lst fd ";" (rw_lst)
+  | Logic(rw_lst, rw_lst2) -> fprintf fd "Logic\n"; dump_lst fd ";" (rw_lst); dump_lst fd ";" (rw_lst2)
+  | Param(str1, rw2) -> fprintf fd "Param %s\n" (str1); dump fd (rw2)
+  | LocalP(rw_lst, rw_lst2) -> fprintf fd "LocalP\n"; dump_lst fd ";" (rw_lst); dump_lst fd ";" (rw_lst2)
+  | DeclLogic(rw_lst) -> fprintf fd "DeclLogic\n"; dump_lst fd ";" (rw_lst)
+  | DeclTask(str1, rw_lst2, rw3, rw4) -> fprintf fd "DeclTask %s\n" (str1); dump_lst fd ";" (rw_lst2); dump fd (rw3); dump fd (rw4)
+  | Mem1(str1, rw_lst) -> fprintf fd "Mem1 %s\n" (str1); dump_lst fd ";" (rw_lst)
+  | Mem3(str1, rw2, rw3, rw4) -> fprintf fd "Mem3 %s\n" (str1); dump fd (rw2); dump fd (rw3); dump fd (rw4)
+  | PartSel(str1, rw2, rw3) -> fprintf fd "PartSel %s\n" (str1); dump fd (rw2); dump fd (rw3)
+  | GenBlock(rw_lst) -> fprintf fd "GenBlock\n"; dump_lst fd ";" (rw_lst)
+
+and dump_lst fd sep rw = let delim = ref "" in
+    List.iter (fun itm -> fprintf fd "%s" !delim; dump fd itm; delim := sep) rw
+and dump_str_lst fd sep lst = fprintf fd "%s" (String.concat sep lst)
 
 let p' = rw p;;
 let x = rw' p';;
