@@ -47,8 +47,8 @@ clean:
 
 ############################################################################
 
-Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_main.ml
-	ocamlmktop -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_main.ml
+Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli Source_text_rewrite.ml Source_text_main.ml
+	ocamlmktop -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli Source_text_rewrite.ml Source_text_main.ml
 
 Source_text.mly Source_text_types.ml: V3ParseBison.output
 	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string INTEGER_NUMBER=string FLOATING_HYPHEN_POINT_NUMBER=float TYPE_NAME=string ./output_parser $<
