@@ -19,6 +19,7 @@
 {
   open Lexing
   open Source_text
+  open Source_text_types
 
   let verbose = try int_of_string(Sys.getenv "LEXER_VERBOSE") > 0 with _ -> false
   let lincnt = ref 0
@@ -298,8 +299,6 @@
     HYPHEN_HYPHEN_task, "HYPHEN;HYPHEN;task";
     HYPHEN_HYPHEN_var, "HYPHEN;HYPHEN;var";
     Hier_block, "hier_block";
-    IDENTIFIER_HYPHEN_COLON_COLON, "IDENTIFIER;HYPHEN;COLON;COLON";
-    IDENTIFIER_HYPHEN_in_HYPHEN_lex, "IDENTIFIER;HYPHEN;in;HYPHEN;lex";
     If, "if";
     Iff, "iff";
     Implements, "implements";
@@ -421,7 +420,6 @@
     STAR_GT, "STAR;GT";
     STAR_STAR, "STAR;STAR";
     STRENGTH_keyword_LPAREN_strong1_SLASH_etc_RPAREN, "STRENGTH;keyword;LPAREN;strong1;SLASH;etc;RPAREN";
-    STRING, "STRING";
     STRING_HYPHEN_ignored, "STRING;HYPHEN;ignored";
     Sc_bv, "sc_bv";
     Scalared, "scalared";
@@ -446,7 +444,6 @@
     TILDE_VBAR, "TILDE;VBAR";
     TIME_NUMBER, "TIME;NUMBER";
     TIMING_SPEC_ELEMENT, "TIMING;SPEC;ELEMENT";
-    TYPE_HYPHEN_IDENTIFIER, "TYPE;HYPHEN;IDENTIFIER";
     Table, "table";
     Task, "task";
     This, "this";
@@ -501,23 +498,23 @@
 
 let tok' = function
 | ACCEPT  -> "\"ACCEPT\""
-| AMPERSAND  -> "\"AMPERSAND\""
-| AMPERSAND_AMPERSAND  -> "\"AMPERSAND_AMPERSAND\""
-| AMPERSAND_AMPERSAND_AMPERSAND  -> "\"AMPERSAND_AMPERSAND_AMPERSAND\""
-| AMPERSAND_EQ  -> "\"AMPERSAND_EQ\""
+| AMPERSAND  -> "&"
+| AMPERSAND_AMPERSAND  -> "\"&&\""
+| AMPERSAND_AMPERSAND_AMPERSAND  -> "\"&&&\""
+| AMPERSAND_EQ  -> "\"&=\""
 | AT  -> "@"
-| AT_AT  -> "@@"
+| AT_AT  -> "\"@@\""
 | Alias  -> "\"Alias\""
 | Always  -> "\"always\""
 | Always_comb  -> "\"always_comb\""
 | Always_ff  -> "\"always_ff\""
 | Always_latch  -> "\"always_latch\""
 | And  -> "\"And\""
-| Assert  -> "\"Assert\""
-| Assign  -> "\"Assign\""
-| Assume  -> "\"Assume\""
-| Automatic  -> "\"Automatic\""
-| BACKQUOTE  -> "\"BACKQUOTE\""
+| Assert  -> "\"assert\""
+| Assign  -> "\"assign\""
+| Assume  -> "\"assume\""
+| Automatic  -> "\"automatic\""
+| BACKQUOTE  -> "`"
 | BACKQUOTE_nounconnecteddrive  -> "\"BACKQUOTE_nounconnecteddrive\""
 | BACKQUOTE_resetall  -> "\"BACKQUOTE_resetall\""
 | BACKQUOTE_systemc_ctor_BLOCK  -> "\"BACKQUOTE_systemc_ctor_BLOCK\""
@@ -538,23 +535,23 @@ let tok' = function
 | Bufif0  -> "\"bufif0\""
 | Bufif1  -> "\"bufif1\""
 | Byte  -> "\"byte\""
-| CARET  -> "\"^\""
+| CARET  -> "^"
 | CARET_EQ  -> "^="
-| CARET_TILDE  -> "^~"
+| CARET_TILDE  -> "\"^~\""
 | COLON  -> ":"
-| COLON_COLON  -> "::"
-| COLON_EQ  -> ":="
-| COLON_HYPHEN_begin  -> "\"COLON_HYPHEN_begin\""
-| COLON_HYPHEN_fork  -> "\"COLON_HYPHEN_fork\""
+| COLON_COLON  -> "\"::\""
+| COLON_EQ  -> "\":=\""
+| COLON_HYPHEN_begin  -> "\":-begin\""
+| COLON_HYPHEN_fork  -> "\":-fork\""
 | COLON_SLASH  -> "\":/\""
 | COMMA  -> ","
 | CONS1  _ -> "\"CONS1\""
 | CONS2  _ -> "\"CONS2\""
 | CONS3  _ -> "\"CONS3\""
 | CONS4  _ -> "\"CONS4\""
-| Case  -> "\"Case\""
-| Casex  -> "\"Casex\""
-| Casez  -> "\"Casez\""
+| Case  -> "\"case\""
+| Casex  -> "\"casex\""
+| Casez  -> "\"casez\""
 | Chandle  -> "\"Chandle\""
 | Class  -> "\"Class\""
 | Clock_enable  -> "\"Clock_enable\""
@@ -572,151 +569,151 @@ let tok' = function
 | Coverage_off  -> "\"Coverage_off\""
 | Coverage_on  -> "\"Coverage_on\""
 | DEFAULT  -> "\"DEFAULT\""
-| DLR_LBRACE_pli_HYPHEN_system_RBRACE  -> "\"DLR_LBRACE_pli_HYPHEN_system_RBRACE\""
-| DLR_acos  -> "\"DLR_acos\""
-| DLR_acosh  -> "\"DLR_acosh\""
-| DLR_asin  -> "\"DLR_asin\""
-| DLR_asinh  -> "\"DLR_asinh\""
-| DLR_atan  -> "\"DLR_atan\""
-| DLR_atan2  -> "\"DLR_atan2\""
-| DLR_atanh  -> "\"DLR_atanh\""
-| DLR_bits  -> "\"DLR_bits\""
-| DLR_bitstoreal  -> "\"DLR_bitstoreal\""
-| DLR_bitstoshortreal  -> "\"DLR_bitstoshortreal\""
-| DLR_c  -> "\"DLR_c\""
-| DLR_cast  -> "\"DLR_cast\""
-| DLR_ceil  -> "\"DLR_ceil\""
-| DLR_changed  -> "\"DLR_changed\""
-| DLR_clog2  -> "\"DLR_clog2\""
-| DLR_cos  -> "\"DLR_cos\""
-| DLR_cosh  -> "\"DLR_cosh\""
-| DLR_countbits  -> "\"DLR_countbits\""
-| DLR_countones  -> "\"DLR_countones\""
-| DLR_dimensions  -> "\"DLR_dimensions\""
-| DLR_display  -> "\"DLR_display\""
-| DLR_displayb  -> "\"DLR_displayb\""
-| DLR_displayh  -> "\"DLR_displayh\""
-| DLR_displayo  -> "\"DLR_displayo\""
-| DLR_dumpall  -> "\"DLR_dumpall\""
-| DLR_dumpfile  -> "\"DLR_dumpfile\""
-| DLR_dumpflush  -> "\"DLR_dumpflush\""
-| DLR_dumplimit  -> "\"DLR_dumplimit\""
-| DLR_dumpoff  -> "\"DLR_dumpoff\""
-| DLR_dumpon  -> "\"DLR_dumpon\""
-| DLR_dumpports  -> "\"DLR_dumpports\""
-| DLR_dumpvars  -> "\"DLR_dumpvars\""
-| DLR_error  -> "\"DLR_error\""
-| DLR_exit  -> "\"DLR_exit\""
-| DLR_exp  -> "\"DLR_exp\""
-| DLR_fatal  -> "\"DLR_fatal\""
-| DLR_fclose  -> "\"DLR_fclose\""
-| DLR_fdisplay  -> "\"DLR_fdisplay\""
-| DLR_fdisplayb  -> "\"DLR_fdisplayb\""
-| DLR_fdisplayh  -> "\"DLR_fdisplayh\""
-| DLR_fdisplayo  -> "\"DLR_fdisplayo\""
-| DLR_fell  -> "\"DLR_fell\""
-| DLR_feof  -> "\"DLR_feof\""
-| DLR_ferror  -> "\"DLR_ferror\""
-| DLR_fflush  -> "\"DLR_fflush\""
-| DLR_fgetc  -> "\"DLR_fgetc\""
-| DLR_fgets  -> "\"DLR_fgets\""
-| DLR_finish  -> "\"DLR_finish\""
-| DLR_floor  -> "\"DLR_floor\""
-| DLR_fmonitor  -> "\"DLR_fmonitor\""
-| DLR_fmonitorb  -> "\"DLR_fmonitorb\""
-| DLR_fmonitorh  -> "\"DLR_fmonitorh\""
-| DLR_fmonitoro  -> "\"DLR_fmonitoro\""
-| DLR_fopen  -> "\"DLR_fopen\""
-| DLR_fread  -> "\"DLR_fread\""
-| DLR_frewind  -> "\"DLR_frewind\""
-| DLR_fscanf  -> "\"DLR_fscanf\""
-| DLR_fseek  -> "\"DLR_fseek\""
-| DLR_fstrobe  -> "\"DLR_fstrobe\""
-| DLR_fstrobeb  -> "\"DLR_fstrobeb\""
-| DLR_fstrobeh  -> "\"DLR_fstrobeh\""
-| DLR_fstrobeo  -> "\"DLR_fstrobeo\""
-| DLR_ftell  -> "\"DLR_ftell\""
-| DLR_fwrite  -> "\"DLR_fwrite\""
-| DLR_fwriteb  -> "\"DLR_fwriteb\""
-| DLR_fwriteh  -> "\"DLR_fwriteh\""
-| DLR_fwriteo  -> "\"DLR_fwriteo\""
-| DLR_high  -> "\"DLR_high\""
-| DLR_hypot  -> "\"DLR_hypot\""
-| DLR_increment  -> "\"DLR_increment\""
-| DLR_info  -> "\"DLR_info\""
-| DLR_isunbounded  -> "\"DLR_isunbounded\""
-| DLR_isunknown  -> "\"DLR_isunknown\""
-| DLR_itor  -> "\"DLR_itor\""
-| DLR_left  -> "\"DLR_left\""
-| DLR_ln  -> "\"DLR_ln\""
-| DLR_log10  -> "\"DLR_log10\""
-| DLR_low  -> "\"DLR_low\""
-| DLR_monitor  -> "\"DLR_monitor\""
-| DLR_monitorb  -> "\"DLR_monitorb\""
-| DLR_monitorh  -> "\"DLR_monitorh\""
-| DLR_monitoro  -> "\"DLR_monitoro\""
-| DLR_monitoroff  -> "\"DLR_monitoroff\""
-| DLR_monitoron  -> "\"DLR_monitoron\""
-| DLR_onehot  -> "\"DLR_onehot\""
-| DLR_onehot0  -> "\"DLR_onehot0\""
-| DLR_past  -> "\"DLR_past\""
-| DLR_pow  -> "\"DLR_pow\""
-| DLR_printtimescale  -> "\"DLR_printtimescale\""
-| DLR_random  -> "\"DLR_random\""
-| DLR_readmemb  -> "\"DLR_readmemb\""
-| DLR_readmemh  -> "\"DLR_readmemh\""
-| DLR_realtime  -> "\"DLR_realtime\""
-| DLR_realtobits  -> "\"DLR_realtobits\""
-| DLR_rewind  -> "\"DLR_rewind\""
-| DLR_right  -> "\"DLR_right\""
-| DLR_root  -> "\"DLR_root\""
-| DLR_rose  -> "\"DLR_rose\""
-| DLR_rtoi  -> "\"DLR_rtoi\""
-| DLR_sampled  -> "\"DLR_sampled\""
-| DLR_sformat  -> "\"DLR_sformat\""
-| DLR_sformatf  -> "\"DLR_sformatf\""
-| DLR_shortrealtobits  -> "\"DLR_shortrealtobits\""
-| DLR_signed  -> "\"DLR_signed\""
-| DLR_sin  -> "\"DLR_sin\""
-| DLR_sinh  -> "\"DLR_sinh\""
-| DLR_size  -> "\"DLR_size\""
-| DLR_sqrt  -> "\"DLR_sqrt\""
-| DLR_sscanf  -> "\"DLR_sscanf\""
-| DLR_stable  -> "\"DLR_stable\""
-| DLR_stime  -> "\"DLR_stime\""
-| DLR_stop  -> "\"DLR_stop\""
-| DLR_strobe  -> "\"DLR_strobe\""
-| DLR_strobeb  -> "\"DLR_strobeb\""
-| DLR_strobeh  -> "\"DLR_strobeh\""
-| DLR_strobeo  -> "\"DLR_strobeo\""
-| DLR_swrite  -> "\"DLR_swrite\""
-| DLR_swriteb  -> "\"DLR_swriteb\""
-| DLR_swriteh  -> "\"DLR_swriteh\""
-| DLR_swriteo  -> "\"DLR_swriteo\""
-| DLR_system  -> "\"DLR_system\""
-| DLR_tan  -> "\"DLR_tan\""
-| DLR_tanh  -> "\"DLR_tanh\""
-| DLR_test_DLR_plusargs  -> "\"DLR_test_DLR_plusargs\""
-| DLR_time  -> "\"DLR_time\""
-| DLR_timeformat  -> "\"DLR_timeformat\""
-| DLR_typename  -> "\"DLR_typename\""
-| DLR_ungetc  -> "\"DLR_ungetc\""
-| DLR_unit  -> "\"DLR_unit\""
-| DLR_unpacked_dimensions  -> "\"DLR_unpacked_dimensions\""
-| DLR_unsigned  -> "\"DLR_unsigned\""
-| DLR_urandom  -> "\"DLR_urandom\""
-| DLR_urandom_range  -> "\"DLR_urandom_range\""
-| DLR_value_DLR_plusargs  -> "\"DLR_value_DLR_plusargs\""
-| DLR_warning  -> "\"DLR_warning\""
-| DLR_write  -> "\"DLR_write\""
-| DLR_writeb  -> "\"DLR_writeb\""
-| DLR_writeh  -> "\"DLR_writeh\""
-| DLR_writememb  -> "\"DLR_writememb\""
-| DLR_writememh  -> "\"DLR_writememh\""
-| DLR_writeo  -> "\"DLR_writeo\""
+| DLR_LBRACE_pli_HYPHEN_system_RBRACE  -> "\"$LBRACE_pli_HYPHEN_system_RBRACE\""
+| DLR_acos  -> "\"$acos\""
+| DLR_acosh  -> "\"$acosh\""
+| DLR_asin  -> "\"$asin\""
+| DLR_asinh  -> "\"$asinh\""
+| DLR_atan  -> "\"$atan\""
+| DLR_atan2  -> "\"$atan2\""
+| DLR_atanh  -> "\"$atanh\""
+| DLR_bits  -> "\"$bits\""
+| DLR_bitstoreal  -> "\"$bitstoreal\""
+| DLR_bitstoshortreal  -> "\"$bitstoshortreal\""
+| DLR_c  -> "\"$c\""
+| DLR_cast  -> "\"$cast\""
+| DLR_ceil  -> "\"$ceil\""
+| DLR_changed  -> "\"$changed\""
+| DLR_clog2  -> "\"$clog2\""
+| DLR_cos  -> "\"$cos\""
+| DLR_cosh  -> "\"$cosh\""
+| DLR_countbits  -> "\"$countbits\""
+| DLR_countones  -> "\"$countones\""
+| DLR_dimensions  -> "\"$dimensions\""
+| DLR_display  -> "\"$display\""
+| DLR_displayb  -> "\"$displayb\""
+| DLR_displayh  -> "\"$displayh\""
+| DLR_displayo  -> "\"$displayo\""
+| DLR_dumpall  -> "\"$dumpall\""
+| DLR_dumpfile  -> "\"$dumpfile\""
+| DLR_dumpflush  -> "\"$dumpflush\""
+| DLR_dumplimit  -> "\"$dumplimit\""
+| DLR_dumpoff  -> "\"$dumpoff\""
+| DLR_dumpon  -> "\"$dumpon\""
+| DLR_dumpports  -> "\"$dumpports\""
+| DLR_dumpvars  -> "\"$dumpvars\""
+| DLR_error  -> "\"$error\""
+| DLR_exit  -> "\"$exit\""
+| DLR_exp  -> "\"$exp\""
+| DLR_fatal  -> "\"$fatal\""
+| DLR_fclose  -> "\"$fclose\""
+| DLR_fdisplay  -> "\"$fdisplay\""
+| DLR_fdisplayb  -> "\"$fdisplayb\""
+| DLR_fdisplayh  -> "\"$fdisplayh\""
+| DLR_fdisplayo  -> "\"$fdisplayo\""
+| DLR_fell  -> "\"$fell\""
+| DLR_feof  -> "\"$feof\""
+| DLR_ferror  -> "\"$ferror\""
+| DLR_fflush  -> "\"$fflush\""
+| DLR_fgetc  -> "\"$fgetc\""
+| DLR_fgets  -> "\"$fgets\""
+| DLR_finish  -> "\"$finish\""
+| DLR_floor  -> "\"$floor\""
+| DLR_fmonitor  -> "\"$fmonitor\""
+| DLR_fmonitorb  -> "\"$fmonitorb\""
+| DLR_fmonitorh  -> "\"$fmonitorh\""
+| DLR_fmonitoro  -> "\"$fmonitoro\""
+| DLR_fopen  -> "\"$fopen\""
+| DLR_fread  -> "\"$fread\""
+| DLR_frewind  -> "\"$frewind\""
+| DLR_fscanf  -> "\"$fscanf\""
+| DLR_fseek  -> "\"$fseek\""
+| DLR_fstrobe  -> "\"$fstrobe\""
+| DLR_fstrobeb  -> "\"$fstrobeb\""
+| DLR_fstrobeh  -> "\"$fstrobeh\""
+| DLR_fstrobeo  -> "\"$fstrobeo\""
+| DLR_ftell  -> "\"$ftell\""
+| DLR_fwrite  -> "\"$fwrite\""
+| DLR_fwriteb  -> "\"$fwriteb\""
+| DLR_fwriteh  -> "\"$fwriteh\""
+| DLR_fwriteo  -> "\"$fwriteo\""
+| DLR_high  -> "\"$high\""
+| DLR_hypot  -> "\"$hypot\""
+| DLR_increment  -> "\"$increment\""
+| DLR_info  -> "\"$info\""
+| DLR_isunbounded  -> "\"$isunbounded\""
+| DLR_isunknown  -> "\"$isunknown\""
+| DLR_itor  -> "\"$itor\""
+| DLR_left  -> "\"$left\""
+| DLR_ln  -> "\"$ln\""
+| DLR_log10  -> "\"$log10\""
+| DLR_low  -> "\"$low\""
+| DLR_monitor  -> "\"$monitor\""
+| DLR_monitorb  -> "\"$monitorb\""
+| DLR_monitorh  -> "\"$monitorh\""
+| DLR_monitoro  -> "\"$monitoro\""
+| DLR_monitoroff  -> "\"$monitoroff\""
+| DLR_monitoron  -> "\"$monitoron\""
+| DLR_onehot  -> "\"$onehot\""
+| DLR_onehot0  -> "\"$onehot0\""
+| DLR_past  -> "\"$past\""
+| DLR_pow  -> "\"$pow\""
+| DLR_printtimescale  -> "\"$printtimescale\""
+| DLR_random  -> "\"$random\""
+| DLR_readmemb  -> "\"$readmemb\""
+| DLR_readmemh  -> "\"$readmemh\""
+| DLR_realtime  -> "\"$realtime\""
+| DLR_realtobits  -> "\"$realtobits\""
+| DLR_rewind  -> "\"$rewind\""
+| DLR_right  -> "\"$right\""
+| DLR_root  -> "\"$root\""
+| DLR_rose  -> "\"$rose\""
+| DLR_rtoi  -> "\"$rtoi\""
+| DLR_sampled  -> "\"$sampled\""
+| DLR_sformat  -> "\"$sformat\""
+| DLR_sformatf  -> "\"$sformatf\""
+| DLR_shortrealtobits  -> "\"$shortrealtobits\""
+| DLR_signed  -> "\"$signed\""
+| DLR_sin  -> "\"$sin\""
+| DLR_sinh  -> "\"$sinh\""
+| DLR_size  -> "\"$size\""
+| DLR_sqrt  -> "\"$sqrt\""
+| DLR_sscanf  -> "\"$sscanf\""
+| DLR_stable  -> "\"$stable\""
+| DLR_stime  -> "\"$stime\""
+| DLR_stop  -> "\"$stop\""
+| DLR_strobe  -> "\"$strobe\""
+| DLR_strobeb  -> "\"$strobeb\""
+| DLR_strobeh  -> "\"$strobeh\""
+| DLR_strobeo  -> "\"$strobeo\""
+| DLR_swrite  -> "\"$swrite\""
+| DLR_swriteb  -> "\"$swriteb\""
+| DLR_swriteh  -> "\"$swriteh\""
+| DLR_swriteo  -> "\"$swriteo\""
+| DLR_system  -> "\"$system\""
+| DLR_tan  -> "\"$tan\""
+| DLR_tanh  -> "\"$tanh\""
+| DLR_test_DLR_plusargs  -> "\"$test$plusargs\""
+| DLR_time  -> "\"$time\""
+| DLR_timeformat  -> "\"$timeformat\""
+| DLR_typename  -> "\"$typename\""
+| DLR_ungetc  -> "\"$ungetc\""
+| DLR_unit  -> "\"$unit\""
+| DLR_unpacked_dimensions  -> "\"$unpacked_dimensions\""
+| DLR_unsigned  -> "\"$unsigned\""
+| DLR_urandom  -> "\"$urandom\""
+| DLR_urandom_range  -> "\"$urandom_range\""
+| DLR_value_DLR_plusargs  -> "\"$value$plusargs\""
+| DLR_warning  -> "\"$warning\""
+| DLR_write  -> "\"$write\""
+| DLR_writeb  -> "\"$writeb\""
+| DLR_writeh  -> "\"$writeh\""
+| DLR_writememb  -> "\"$writememb\""
+| DLR_writememh  -> "\"$writememh\""
+| DLR_writeo  -> "\"$writeo\""
 | DOLLAR  -> "$"
 | DOT  -> "."
-| DOT_STAR  -> ".*"
+| DOT_STAR  -> "\".*\""
 | DOUBLEQUOTE  -> "\""
 | Deassign  -> "\"deassign\""
 | Default  -> "\"default\""
@@ -728,10 +725,10 @@ let tok' = function
 | END  -> "\"END\""
 | EOF_TOKEN  -> ""
 | EQUALS  -> "="
-| EQ_EQ  -> "=="
-| EQ_EQ_EQ  -> "==="
-| EQ_EQ_QUERY  -> "==?"
-| EQ_GT  -> "=>"
+| EQ_EQ  -> "\"==\""
+| EQ_EQ_EQ  -> "\"===\""
+| EQ_EQ_QUERY  -> "\"==?\""
+| EQ_GT  -> "\"=>\""
 | ERROR  -> "\"ERROR\""
 | ERROR_TOKEN  -> "\"ERROR_TOKEN\""
 | Edge  -> "\"Edge\""
@@ -767,69 +764,69 @@ let tok' = function
 | Full_case  -> "\"Full_case\""
 | Function  -> "\"function\""
 | GREATER  -> ">"
-| GT_EQ  -> ">="
-| GT_GT  -> ">>"
-| GT_GT_EQ  -> ">>="
-| GT_GT_GT  -> ">>>"
-| GT_GT_GT_EQ  -> ">>>="
+| GT_EQ  -> "\">=\""
+| GT_GT  -> "\">>\""
+| GT_GT_EQ  -> "\">>=\""
+| GT_GT_GT  -> "\">>>\""
+| GT_GT_GT_EQ  -> "\">>>=\""
 | Generate  -> "\"generate\""
-| Genvar  -> "\"Genvar\""
+| Genvar  -> "\"genvar\""
 | Global  -> "\"Global\""
 | Global_HYPHEN_in_HYPHEN_lex  -> "\"Global_HYPHEN_in_HYPHEN_lex\""
 | Global_HYPHEN_then_HYPHEN_clocking  -> "\"Global_HYPHEN_then_HYPHEN_clocking\""
 | HASH  -> "#"
-| HASH_HASH  -> "##"
+| HASH_HASH  -> "\"##\""
 | HYPHEN  -> "-"
-| HYPHEN_COLON  -> "-:"
-| HYPHEN_EQ  -> "->"
-| HYPHEN_GT  -> "->"
-| HYPHEN_GT_GT  -> "->>"
-| HYPHEN_HYPHEN  -> "\"HYPHEN_HYPHEN\""
-| HYPHEN_HYPHEN_block  -> "\"HYPHEN_HYPHEN_block\""
-| HYPHEN_HYPHEN_file  -> "\"HYPHEN_HYPHEN_file\""
-| HYPHEN_HYPHEN_function  -> "\"HYPHEN_HYPHEN_function\""
-| HYPHEN_HYPHEN_lines  -> "\"HYPHEN_HYPHEN_lines\""
-| HYPHEN_HYPHEN_match  -> "\"HYPHEN_HYPHEN_match\""
-| HYPHEN_HYPHEN_module  -> "\"HYPHEN_HYPHEN_module\""
-| HYPHEN_HYPHEN_msg  -> "\"HYPHEN_HYPHEN_msg\""
-| HYPHEN_HYPHEN_rule  -> "\"HYPHEN_HYPHEN_rule\""
-| HYPHEN_HYPHEN_task  -> "\"HYPHEN_HYPHEN_task\""
-| HYPHEN_HYPHEN_var  -> "\"HYPHEN_HYPHEN_var\""
+| HYPHEN_COLON  -> "\"-:\""
+| HYPHEN_EQ  -> "\"->\""
+| HYPHEN_GT  -> "\"->\""
+| HYPHEN_GT_GT  -> "\"->>\""
+| HYPHEN_HYPHEN  -> "\"--\""
+| HYPHEN_HYPHEN_block  -> "\"--block\""
+| HYPHEN_HYPHEN_file  -> "\"--file\""
+| HYPHEN_HYPHEN_function  -> "\"--function\""
+| HYPHEN_HYPHEN_lines  -> "\"--lines\""
+| HYPHEN_HYPHEN_match  -> "\"--match\""
+| HYPHEN_HYPHEN_module  -> "\"--module\""
+| HYPHEN_HYPHEN_msg  -> "\"--msg\""
+| HYPHEN_HYPHEN_rule  -> "\"--rule\""
+| HYPHEN_HYPHEN_task  -> "\"--task\""
+| HYPHEN_HYPHEN_var  -> "\"--var\""
 | Hier_block  -> "\"Hier_block\""
 | IDENTIFIER id -> "\"IDENTIFIER\" strp='"^id^"'"
-| IDENTIFIER_HYPHEN_COLON_COLON  -> "\"IDENTIFIER_HYPHEN_COLON_COLON\""
-| IDENTIFIER_HYPHEN_in_HYPHEN_lex  -> "\"IDENTIFIER_HYPHEN_in_HYPHEN_lex\""
+| IDENTIFIER_HYPHEN_COLON_COLON id -> "\"IDENTIFIER-::\" strp='"^id^"'"
+| IDENTIFIER_HYPHEN_in_HYPHEN_lex  -> "\"IDENTIFIER-in-lex\""
 | INTEGER_NUMBER _ -> "\"INTEGER NUMBER\""
 | If  -> "\"if\""
 | Iff  -> "\"if\""
-| Implements  -> "\"Implements\""
-| Import  -> "\"Import\""
-| Initial  -> "\"Initial\""
-| Inline  -> "\"Inline\""
-| Inout  -> "\"Inout\""
+| Implements  -> "\"implements\""
+| Import  -> "\"import\""
+| Initial  -> "\"initial\""
+| Inline  -> "\"inline\""
+| Inout  -> "\"inout\""
 | Input  -> "\"input\""
-| Inside  -> "\"Inside\""
-| Int  -> "\"Int\""
-| Integer  -> "\"Integer\""
-| Interface  -> "\"Interface\""
+| Inside  -> "\"inside\""
+| Int  -> "\"int\""
+| Integer  -> "\"integer\""
+| Interface  -> "\"interface\""
 | Isolate_assignments  -> "\"Isolate_assignments\""
 | Join  -> "\"Join\""
 | Join_any  -> "\"Join_any\""
 | Join_none  -> "\"Join_none\""
 | LBRACE  -> "{"
 | LBRACK  -> "["
-| LBRACK_EQ  -> "[="
+| LBRACK_EQ  -> "\"[=\""
 | LBRACK_HYPHEN_GT  -> "[->"
-| LBRACK_STAR  -> "\"LBRACK_STAR\""
+| LBRACK_STAR  -> "\"[*\""
 | LESS  -> "<"
 | LINEFEED  -> "\n"
 | LPAREN  -> "("
 | LPAREN_HYPHEN_for_HYPHEN_strength  -> "\"LPAREN_HYPHEN_for_HYPHEN_strength\""
 | LT_EQ  -> "\"<=\""
 | LT_EQ_HYPHEN_ignored  -> "\"LT_EQ_HYPHEN_ignored\""
-| LT_HYPHEN_GT  -> "<->"
-| LT_LT  -> "<<"
-| LT_LT_EQ  -> "<<="
+| LT_HYPHEN_GT  -> "\"<->\""
+| LT_LT  -> "\"<<\""
+| LT_LT_EQ  -> "\"<<=\""
 | Lint_off  -> "\"Lint_off\""
 | Lint_on  -> "\"Lint_on\""
 | Local  -> "\"Local\""
@@ -858,19 +855,19 @@ let tok' = function
 | PERCENT  -> "%"
 | PERCENT_EQ  -> "%="
 | PLING  -> "!"
-| PLING_EQ  -> "!="
-| PLING_EQ_EQ  -> "!=="
-| PLING_EQ_QUERY  -> "!=?"
+| PLING_EQ  -> "\"!=\""
+| PLING_EQ_EQ  -> "\"!==\""
+| PLING_EQ_QUERY  -> "\"!=?\""
 | PLUS  -> "+"
-| PLUS_COLON  -> "+:"
-| PLUS_EQ  -> "+="
+| PLUS_COLON  -> "\"+:\""
+| PLUS_EQ  -> "\"+=\""
 | PLUS_PLUS  -> "\"++\""
 | PRLOWER_THAN_ELSE  -> "\"PRLOWER_THAN_ELSE\""
 | PRNEGATION  -> "\"PRNEGATION\""
 | PRREDUCTION  -> "\"PRREDUCTION\""
 | PRUNARYARITH  -> "\"PRUNARYARITH\""
-| Package  -> "\"Package\""
-| Packed  -> "\"Packed\""
+| Package  -> "\"package\""
+| Packed  -> "\"packed\""
 | Parallel_case  -> "\"Parallel_case\""
 | Parameter  -> "\"parameter\""
 | Pmos  -> "\"pmos\""
@@ -889,8 +886,8 @@ let tok' = function
 | Pullup  -> "\"pullup\""
 | Pure  -> "\"Pure\""
 | QUERY  -> "?"
-| QUOTE  -> "\"QUOTE\""
-| QUOTE_LBRACE  -> "\"QUOTE_LBRACE\""
+| QUOTE  -> "\"'\""
+| QUOTE_LBRACE  -> "\"'{\""
 | RBRACE  -> "}"
 | RBRACK  -> "]"
 | RPAREN  -> ")"
@@ -936,36 +933,36 @@ let tok' = function
 | SLASH_STAR_verilator_split_var_STAR_SLASH  -> "\"SLASH_STAR_verilator_split_var_STAR_SLASH\""
 | SLASH_STAR_verilator_tag_STAR_SLASH  -> "\"SLASH_STAR_verilator_tag_STAR_SLASH\""
 | SLIST  _ -> "\"SLIST\""
-| STAR  -> "\"STAR\""
-| STAR_EQ  -> "\"STAR_EQ\""
-| STAR_GT  -> "\"STAR_GT\""
-| STAR_STAR  -> "\"STAR_STAR\""
+| STAR  -> "*"
+| STAR_EQ  -> "\"*=\""
+| STAR_GT  -> "\"*>\""
+| STAR_STAR  -> "\"**\""
 | STRENGTH_keyword_LPAREN_strong1_SLASH_etc_RPAREN  -> "\"STRENGTH_keyword_LPAREN_strong1_SLASH_etc_RPAREN\""
-| STRING  -> "\"STRING\""
+| STRING s -> "\"STRING\""
 | STRING_HYPHEN_ignored  -> "\"STRING_HYPHEN_ignored\""
 | Sc_bv  -> "\"Sc_bv\""
-| Scalared  -> "\"Scalared\""
-| Sformat  -> "\"Sformat\""
-| Shortint  -> "\"Shortint\""
-| Shortreal  -> "\"Shortreal\""
-| Signed  -> "\"Signed\""
+| Scalared  -> "\"scalared\""
+| Sformat  -> "\"sformat\""
+| Shortint  -> "\"shortint\""
+| Shortreal  -> "\"shortreal\""
+| Signed  -> "\"signed\""
 | Soft  -> "\"Soft\""
 | Solve  -> "\"Solve\""
-| Specify  -> "\"Specify\""
+| Specify  -> "\"specify\""
 | Specparam  -> "\"Specparam\""
 | Split_var  -> "\"Split_var\""
 | Static  -> "\"Static\""
 | Static_HYPHEN_in_HYPHEN_lex  -> "\"Static_HYPHEN_in_HYPHEN_lex\""
 | Static_HYPHEN_then_HYPHEN_constraint  -> "\"Static_HYPHEN_then_HYPHEN_constraint\""
-| Struct  -> "\"Struct\""
-| String  -> "\"String\""
+| Struct  -> "\"struct\""
+| String  -> "\"string\""
 | Super  -> "\"Super\""
-| Supply0  -> "\"Supply0\""
-| Supply1  -> "\"Supply1\""
+| Supply0  -> "\"supply0\""
+| Supply1  -> "\"supply1\""
 | TABLE_LINE  -> "\"TABLE_LINE\""
-| TILDE  -> "\"TILDE\""
-| TILDE_AMPERSAND  -> "\"TILDE_AMPERSAND\""
-| TILDE_VBAR  -> "\"TILDE_VBAR\""
+| TILDE  -> "~"
+| TILDE_AMPERSAND  -> "\"~&\""
+| TILDE_VBAR  -> "\"~|\""
 | TIME_NUMBER  -> "\"TIME_NUMBER\""
 | TIMING_SPEC_ELEMENT  -> "\"TIMING_SPEC_ELEMENT\""
 | TLIST  _ -> "\"TLIST\""
@@ -980,7 +977,7 @@ let tok' = function
 | TUPLE7  _ -> "\"TUPLE7\""
 | TUPLE8  _ -> "\"TUPLE8\""
 | TUPLE9  _ -> "\"TUPLE9\""
-| TYPE_HYPHEN_IDENTIFIER  -> "\"TYPE_HYPHEN_IDENTIFIER\""
+| TYPE_HYPHEN_IDENTIFIER id -> "\"TYPE-IDENTIFIER\" strp='"^id^"'"
 | Table  -> "\"Table\""
 | Task  -> "\"Task\""
 | This  -> "\"This\""
@@ -999,19 +996,19 @@ let tok' = function
 | Trior  -> "\"Trior\""
 | Trireg  -> "\"Trireg\""
 | True  -> "\"True\""
-| Type  -> "\"Type\""
-| Typedef  -> "\"Typedef\""
-| UNDERSCORE  -> "\"UNDERSCORE\""
-| Union  -> "\"Union\""
-| Unique  -> "\"Unique\""
-| Unique0  -> "\"Unique0\""
-| Unsigned  -> "\"Unsigned\""
-| VBAR  -> "\"VBAR\""
-| VBAR_EQ  -> "\"VBAR_EQ\""
-| VBAR_EQ_GT  -> "\"VBAR_EQ_GT\""
-| VBAR_HYPHEN_GT  -> "\"VBAR_HYPHEN_GT\""
-| VBAR_VBAR  -> "\"VBAR_VBAR\""
-| Var  -> "\"Var\""
+| Type  -> "\"type\""
+| Typedef  -> "\"typedef\""
+| UNDERSCORE  -> "_"
+| Union  -> "\"union\""
+| Unique  -> "\"unique\""
+| Unique0  -> "\"unique0\""
+| Unsigned  -> "\"unsigned\""
+| VBAR  -> "|"
+| VBAR_EQ  -> "\"|=\""
+| VBAR_EQ_GT  -> "\"|=>\""
+| VBAR_HYPHEN_GT  -> "\"|->\""
+| VBAR_VBAR  -> "\"||\""
+| Var  -> "\"var\""
 | Vectored  -> "\"Vectored\""
 | Virtual  -> "\"Virtual\""
 | Virtual_HYPHEN_in_HYPHEN_lex  -> "\"Virtual_HYPHEN_in_HYPHEN_lex\""
@@ -1034,8 +1031,10 @@ let tok' = function
 | Xor  -> "\"Xor\""
 
 let ord = function
-| IDENTIFIER strp -> 259 
-| INTEGER_NUMBER n -> 263 
+| IDENTIFIER _ -> 259 
+| INTEGER_NUMBER _ -> 263 
+| TYPE_HYPHEN_IDENTIFIER _ -> 262
+| IDENTIFIER_HYPHEN_COLON_COLON _ -> 260
 | Endmodule -> 363 
 | Input -> 395 
 | Localparam -> 403 
@@ -1053,17 +1052,70 @@ let ord = function
 | PLUS_PLUS -> 717
 | Else -> 355   
 | End -> 356
+| DOT_STAR -> 707
+| Package -> 424
+| Endpackage -> 364
+| Typedef -> 488
+| Struct -> 467
+| Packed -> 425
+| Enum -> 371
+| Import -> 392
+| COLON_COLON -> 709
+| EQ_EQ -> 682
+| Assign -> 322
+| DLR_clog2 -> 528
+| Int -> 397
+| QUOTE_LBRACE -> 676
+| Default -> 349
+| STAR_STAR -> 694
+| Genvar -> 385
+| Always_comb -> 317
+| VBAR_EQ -> 725
+| Case -> 334
+| Casez -> 336
+| Endcase -> 357
+| Parameter -> 426
+| PLUS_COLON -> 699
+| PLUS_EQ -> 719
+| PLING_EQ -> 683
+| LT_LT -> 691
+| GT_GT -> 692
+| GT_EQ -> 688
+| COLON_HYPHEN_begin -> 695
+| Function -> 383
+| Endfunction -> 360
+| QUOTE -> 675
+| DLR_bits -> 521
+| TILDE_VBAR -> 679
+| TILDE_AMPERSAND -> 681
+| HYPHEN_HYPHEN -> 718
+| Automatic -> 324
+| Return -> 449
+| CARET_TILDE -> 680
+| Always_ff -> 318
+| Or -> 422
+| Negedge -> 412
+| VBAR_VBAR -> 677
+| DLR_error -> 546
+| AMPERSAND_EQ -> 724
+| STRING _ -> 265
+| Signed -> 458
+| GT_GT_GT -> 693
 | EOF_TOKEN -> 0
 | oth -> let tok'' = tok' oth in Char.code (tok''.[0])
-      
+
+let import_seen = ref false
+
 let tok arg = if verbose then Printf.printf "tokenToBison  TOKEN {c%d-%d:}=%d %s\n" (!lincnt+1) (!lincnt+1) (ord arg) (tok' arg);
+  import_seen := (match arg with Import -> true | IDENTIFIER_HYPHEN_COLON_COLON _ -> false | _ -> !import_seen);
   arg
 }
 
 let ident = ['a'-'z' 'A'-'Z' '$'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$']*
 let fltnum = ['0'-'9']+'.'['E' '-' '+' '0'-'9']*
-let number = ['0'-'9']+['\'' 'b' 'd' 'h' '0'-'9' 'a'-'f' 'x' 'A'-'F' 'X' '_' ' ']*
-let dfltnum = '''['0'-'9' 'b' 'x']+
+let sizednumber = ['0'-'9']+'\''['b' 'd' 'h'][ '0'-'9' 'a'-'f' 'x' 'A'-'F' 'X' '_' ' ']+
+let number = ['0'-'9' '_']+
+let dfltnum = '''['0'-'9' 'b' 'h' 'x']['0'-'9' 'a'-'f' 'A'-'F' 'x']*
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let qstring = '"'[^'"']*'"'
@@ -1071,22 +1123,35 @@ let comment = '/''/'[^'\n']*
 let definition = '`'['a'-'z' 'A'-'Z' '$'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$']*
 let define = "`define"[^'\n']*
 let include = "`include"[^'\n']*
-
+let colon_begin = ':'[' ']*"begin"
+   
 rule token = parse
+(*
+| colon_begin { tok ( COLON_HYPHEN_begin ) }
+*)
 | ">>>" { tok ( GT_GT_GT ) }
 | "<<=" { tok ( LT_LT_EQ ) }
 | "||" { tok ( VBAR_VBAR ) }
+| "~|" { tok ( TILDE_VBAR ) }
+| "^~" { tok ( CARET_TILDE ) }
+| "~&" { tok ( TILDE_AMPERSAND ) }
 | "==" { tok ( EQ_EQ ) }
+| "+=" { tok ( PLUS_EQ ) }
 | "<=" { tok ( LT_EQ ) }
 | "!=" { tok ( PLING_EQ ) }
+| "|=" { tok ( VBAR_EQ ) }
 | "<<" { tok ( LT_LT ) }
 | ">>" { tok ( GT_GT ) }
 | ">=" { tok ( GT_EQ ) }
+| ".*" { tok ( DOT_STAR ) }
 | "+:" { tok ( PLUS_COLON ) }
 | "::" { tok ( COLON_COLON ) }
 | "++" { tok ( PLUS_PLUS ) }
 | "--" { tok ( HYPHEN_HYPHEN ) }
+| "**" { tok ( STAR_STAR ) }
 | "&&" { tok ( AMPERSAND_AMPERSAND ) }
+| "&=" { tok ( AMPERSAND_EQ ) }
+| "'{" { tok ( QUOTE_LBRACE ) }
 | '-' { tok ( HYPHEN ) }
 | '+' { tok ( PLUS ) }
 | '!' { tok ( PLING ) }
@@ -1133,6 +1198,8 @@ rule token = parse
       { token lexbuf }
   | newline
       { incr lincnt; token lexbuf }
+  | sizednumber as n
+      { tok ( INTEGER_NUMBER (n) ) }
   | number as n
       { tok ( INTEGER_NUMBER (n) ) }
   | dfltnum as n
@@ -1140,9 +1207,9 @@ rule token = parse
   | fltnum as n
       { tok ( try let f = float_of_string n in FLOATING_HYPHEN_POINT_NUMBER f with _ -> IDENTIFIER n) }
   | ident as s
-      { tok ( try keyword s with Not_found -> IDENTIFIER s ) }
+      { tok ( try keyword s with Not_found -> if Hashtbl.mem typehash s then TYPE_HYPHEN_IDENTIFIER s else if !import_seen then IDENTIFIER_HYPHEN_COLON_COLON s else IDENTIFIER s ) }
   | qstring as s
-      { tok ( IDENTIFIER s ) }
+      { tok ( STRING s ) }
   | eof
       { tok ( EOF_TOKEN ) }
 

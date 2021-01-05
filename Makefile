@@ -18,7 +18,7 @@
 
 .PHONY: everything
 PARSER=ocamlyacc
-MENHIRFLAGS=--trace
+MENHIRFLAGS=#--trace
 PARSER=menhir $(MENHIRFLAGS)
 SIMPLEDMC=../simpleDMC_verify
 DMCFILES=dSFMT.i main.i Orbital.i position.i support.i System.i Walker.i walkthewalk.i Wavefunction.i
@@ -50,10 +50,11 @@ clean:
 Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli Source_text_rewrite.ml Source_text_main.ml
 	ocamlmktop -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli Source_text_rewrite.ml Source_text_main.ml
 
-Source_text.mly Source_text_types.ml: V3ParseBison.output
-	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string INTEGER_NUMBER=string FLOATING_HYPHEN_POINT_NUMBER=float TYPE_NAME=string ./output_parser $<
+Source_text.mly Source_text_types.ml: V3ParseBison.output Source_text.patch
+	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string INTEGER_NUMBER=string FLOATING_HYPHEN_POINT_NUMBER=float TYPE_HYPHEN_IDENTIFIER=string IDENTIFIER_HYPHEN_COLON_COLON=string STRING=string ./output_parser $<
+	patch Source_text.mly < Source_text.patch
 
-Source_text.cmo: Source_text.mli Source_text_types.ml Source_text.ml
+Source_text.cmo: Source_text_types.ml Source_text.ml Source_text.mli
 	ocamlc.opt -g -c Source_text.mli Source_text_types.ml Source_text.ml
 
 Source_text_lex.ml: Source_text_lex.mll

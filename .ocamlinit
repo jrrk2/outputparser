@@ -58,5 +58,8 @@ let v = "process.v";;
 let v = "interface_test.sv";;
 let v = "picorv32_ref.v";;
 let v = "loop.v";;
+let v = "wrapper.sv";;
+let v = "preprocess.sv";;
+   
 let modlst,x = rewrite v;;
 

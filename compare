@@ -1,6 +1,6 @@
 make Source_text.ml
 make Source_text_top
-../verilator/bin/verilator --lint-only --Wno-width --debugi-flex 6 loop.v | grep tokenToBison|sed -e 's=[0-9-]*\[ct1+[0-9]*\]==' > token.filt
+../verilator/bin/verilator --lint-only --Wno-width -Wno-unoptflat --debugi-flex 6 --top-module swerv_wrapper preprocess.sv | grep tokenToBison|sed -e 's=[0-9-]*\[ct1+[0-9]*\]==' > token.filt
 make Source_text_top
-echo | env LEXER_VERBOSE=1 ./Source_text_top 2>&1 | grep tokenToBison > logfile
+echo | env LEXER_VERBOSE=1 ./Source_text_top 2>&1 | tee source_text.log | grep tokenToBison > logfile
 diff token.filt logfile
