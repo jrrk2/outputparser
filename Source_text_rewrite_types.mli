@@ -23,17 +23,23 @@ type rw =
   | Pling of rw
   | Tilde of rw
   | Caret of rw
+  | Bits of rw
+  | Typ of string * rw list
+  | TypEnum of string
+  | Comma of rw * rw * rw
   | Clog2 of rw
   | Equals of rw * rw
   | NotEq of rw * rw
   | LtEq of rw * rw
   | GtEq of rw * rw
   | Less of rw * rw
+  | Greater of rw * rw
   | And of rw * rw
   | And2 of rw * rw
   | Or of rw * rw
   | Or2 of rw * rw
   | Xor of rw * rw
+  | Xnor of rw * rw
   | Shiftl of rw * rw
   | Shiftr of rw * rw
   | Shiftr3 of rw * rw
@@ -79,5 +85,6 @@ type rw =
   | DeclTask of string * rw list * rw * rw
   | Mem1 of string * rw list
   | Mem3 of string * rw * rw * rw
-  | PartSel of string * rw * rw
+  | PartSel of rw * rw * rw
   | GenBlock of rw list
+  | Cast of rw * rw

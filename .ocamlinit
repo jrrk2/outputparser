@@ -154,3 +154,5 @@ and descend_lst attr x = List.map (descend attr) x
 let h=Hashtbl.create 255;;
 Hashtbl.add h "i" (Intgr 0);;
 let y = descend {subst=h} x;;
+
+let (a,b,c,d,e,f,g) = match !missing with Some (TUPLE7(a,b,c,d,e,f,g)) -> (a,b,c,d,e,f,g);;
