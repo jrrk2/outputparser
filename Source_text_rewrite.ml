@@ -16,17 +16,45 @@ let rec rw = function
 | TUPLE7(arg1,arg2,arg3,arg4,arg5,arg6,arg7) -> TUPLE7 (rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6, rw arg7)
 | TUPLE8(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8) ->
    TUPLE8(rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6, rw arg7, rw arg8)
+| TUPLE9(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9) ->
+   TUPLE9(rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6, rw arg7, rw arg8, rw arg9)
 | ((IDENTIFIER _
-| INTEGER_NUMBER _
-| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|LBRACE|RBRACE|COLON|SEMICOLON|COMMA|CARET|TILDE|QUERY
-| PLUS|HYPHEN|STAR|SLASH|HASH|AMPERSAND|AMPERSAND_AMPERSAND|PLING|GT_GT_GT|PLUS_COLON|PLUS_PLUS
-| EQUALS|LT_EQ|VBAR_VBAR|LT_LT|GT_GT|GT_EQ|EQ_EQ|LESS|VBAR|PLING_EQ
-| DLR_display|DLR_stop|DLR_finish|DLR_write|DLR_signed|DLR_unsigned|DLR_time|DLR_readmemh
-| Module|Always|Assign|Reg|Wire|Logic|Bit|Int|Integer|Unsigned
+| INTEGER_NUMBER _| STRING _
+| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|LBRACE|RBRACE
+| COLON|SEMICOLON|COMMA|CARET|TILDE|QUERY|QUOTE
+| PLUS|HYPHEN|STAR|SLASH|HASH|PLING
+| AMPERSAND|AMPERSAND_AMPERSAND|AMPERSAND_EQ
+| GT_GT_GT|PLUS_COLON|PLUS_PLUS|COLON_COLON
+| EQUALS|LT_EQ|VBAR_VBAR|LT_LT|GT_GT|GT_EQ|EQ_EQ|LESS|GREATER|VBAR
+| TILDE_VBAR|TILDE_AMPERSAND
+| CARET_TILDE
+| HYPHEN_HYPHEN
+| VBAR_EQ|PLUS_EQ
+| PLING_EQ|DOT_STAR|STAR_STAR
+| TYPE_HYPHEN_IDENTIFIER _|IDENTIFIER_HYPHEN_COLON_COLON _|QUOTE_LBRACE
+| DLR_display|DLR_stop|DLR_finish|DLR_write
+| DLR_signed|DLR_unsigned|DLR_time|DLR_readmemh|DLR_clog2|DLR_bits|DLR_error
+| Module|Always|Assign|Reg|Wire|Logic|Bit|Int|Integer
+| Unsigned|Signed
 | Output|Input|Posedge|Negedge|Or|DOT
 | Parameter|Localparam|Initial
 | If|Else|Modport|For
-| Begin|End|Endmodule|Interface|Endinterface|Task|Endtask|Generate|Endgenerate|Case|Default|Endcase
+| Begin|End|Endmodule
+| Interface|Endinterface
+| Task|Endtask
+| Package|Endpackage
+| Generate|Endgenerate
+| Function|Endfunction
+| Struct
+| Typedef
+| Enum
+| Case|Casez|Casex|Default|Endcase
+| Packed
+| Import
+| Genvar
+| Always_comb|Always_ff
+| Return
+| Automatic
 | EOF_TOKEN) as oth) -> oth
 | oth -> failwith ("rw fail: "^Source_text_types.getstr oth)
 
@@ -41,8 +69,8 @@ let rec rw' = function
 | TUPLE4 ((Input|Output) as dir, IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> Port(rw' dir, port, [])
 | TUPLE5 ((Input|Output) as dir, TUPLE2 (Integer, EMPTY_TOKEN), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
    Port(rw' dir, port, [])
-| TUPLE5 ((Input|Output) as dir, TUPLE3 (Logic, EMPTY_TOKEN, EMPTY_TOKEN), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
-   Port(rw' dir, port, [])
+| TUPLE5 ((Input|Output) as dir, TUPLE3 (Logic, EMPTY_TOKEN, lst), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
+   Port(rw' dir, port, match lst with EMPTY_TOKEN -> [] | TLIST lst -> List.rev_map rw' lst | _ -> failwith "port")
 | TUPLE6 ((Input|Output) as dir, EMPTY_TOKEN, TLIST lst, IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
    Port(rw' dir, port, List.rev_map rw' lst)
 | TUPLE4 (TUPLE2 ((Input|Output) as dir, Wire), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> 
@@ -70,10 +98,12 @@ m
 | TUPLE2 (HYPHEN, rhs) -> UMinus(rw' rhs)
 | TUPLE2 (PLING, rhs) -> Pling(rw' rhs)
 | TUPLE2 (TILDE, rhs) -> Tilde(rw' rhs)
+| TUPLE2 (CARET, rhs) -> Caret(rw' rhs)
 | TUPLE2 (AMPERSAND, rhs) -> RedAnd(rw' rhs)
 | TUPLE2 (VBAR, rhs) -> RedOr(rw' rhs)
 | TUPLE2 (lhs, PLUS_PLUS) -> Inc(rw' lhs)
 | TUPLE2 (lhs, HYPHEN_HYPHEN) -> Dec(rw' lhs)
+| TUPLE4 (DLR_clog2, LPAREN, rhs, RPAREN) -> Clog2(rw' rhs)
 | TUPLE4 (DLR_signed, LPAREN, rhs, RPAREN) -> Signed(rw' rhs)
 | TUPLE4 (DLR_unsigned, LPAREN, rhs, RPAREN) -> Unsigned(rw' rhs)
 | TUPLE3 (lhs, PLUS, rhs) -> Add(rw' lhs, rw' rhs)
@@ -120,6 +150,8 @@ let dimlst = match dimlst' with
  DeclReg (dimlst, [id], [])
 | TUPLE4 (Begin, EMPTY_TOKEN, End, EMPTY_TOKEN) -> BeginBlock []
 | TUPLE4 (Begin, TLIST stmts, End, EMPTY_TOKEN) ->
+ BeginBlock (match List.rev_map rw' (stmts) with Itmlst x :: [] -> x | oth -> oth)
+| TUPLE6 (Begin, COLON, IDENTIFIER lbl, TLIST stmts, End, elbl) ->
  BeginBlock (match List.rev_map rw' (stmts) with Itmlst x :: [] -> x | oth -> oth)
 | TUPLE3 (Begin, TLIST stmts, End) ->
  BeginBlock (match List.rev_map rw' (stmts) with Itmlst x :: [] -> x | oth -> oth)
@@ -169,6 +201,8 @@ let dimlst = match dimlst' with
 | TUPLE2 (TUPLE2 (DLR_finish, EMPTY_TOKEN), SEMICOLON) -> Unknown "$finish"
 | TUPLE2 (TUPLE4 (DLR_display, LPAREN, TLIST lst, RPAREN), SEMICOLON) -> Unknown "$display"
 | TUPLE2 (TUPLE4 (DLR_write, LPAREN, TLIST lst, RPAREN), SEMICOLON) -> Unknown "$write"
+| TUPLE3 (Genvar, TLIST lst, SEMICOLON) ->
+  DeclGenvar (List.map (function TUPLE2 (IDENTIFIER ix, EMPTY_TOKEN) -> ix | oth -> failwith "genvar") lst)
 | TUPLE3 (TUPLE3 (Reg, EMPTY_TOKEN, dimlst'), TLIST idlst, SEMICOLON) ->
 let dims = match dimlst' with TLIST dimlst -> List.rev_map rw' dimlst | EMPTY_TOKEN -> [] | _ -> [] in
 let lft, rght = List.split (List.rev_map (function
@@ -186,6 +220,12 @@ DeclReg(dims,lft,rght)
 | TUPLE2 (Initial, TUPLE4(Begin, TLIST lst, End, EMPTY_TOKEN)) -> Unknown "initial"
 | TUPLE8 (For, LPAREN, TUPLE2 (TLIST strtlst, SEMICOLON), stop, SEMICOLON, inc, RPAREN, stmts) -> 
 ForLoop (List.rev_map rw' strtlst, rw' stop, rw' inc, rw' stmts)
+| TUPLE9 (For, LPAREN, TUPLE4 (Genvar, TUPLE2 (IDENTIFIER ix, EMPTY_TOKEN), EQUALS,
+        INTEGER_NUMBER strt), SEMICOLON, stop, SEMICOLON, inc, RPAREN, stmts) -> 
+ForLoop (rw' (TUPLE3(IDENTIFIER ix, EQUALS, INTEGER_NUMBER strt)) :: [], rw' stop, rw' inc, rw' stmts)
+| TUPLE9 (For, LPAREN, TUPLE3 (IDENTIFIER ix, EQUALS, INTEGER_NUMBER strt),
+	  SEMICOLON, stop, SEMICOLON, inc, RPAREN, stmts) -> 
+ForLoop (rw' (TUPLE3(IDENTIFIER ix, EQUALS, INTEGER_NUMBER strt)) :: [], rw' stop, rw' inc, rw' stmts)
 | TUPLE4 (EMPTY_TOKEN, IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> Id id
 | TUPLE6 (IDENTIFIER id, LBRACK, lhs, PLUS_COLON, rhs, RBRACK) ->
   PartSel(id, rw' lhs, rw' rhs)
@@ -254,6 +294,8 @@ let rec dump fd = function
   | UMinus(rw) -> fprintf fd "-("; dump fd (rw); fprintf fd ")"
   | Pling(rw) -> fprintf fd "!("; dump fd (rw); fprintf fd ")"
   | Tilde(rw) -> fprintf fd "~("; dump fd (rw); fprintf fd ")"
+  | Caret(rw) -> fprintf fd "^("; dump fd (rw); fprintf fd ")"
+  | Clog2(rw) -> fprintf fd "$clog2("; dump fd (rw); fprintf fd ")"
   | Equals(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " == "; dump fd (rw2); fprintf fd ")";
   | NotEq(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " != "; dump fd (rw2); fprintf fd ")"
   | LtEq(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " <= "; dump fd (rw2); fprintf fd ")"
@@ -288,6 +330,7 @@ let rec dump fd = function
   | Blocking(rw, rw2) -> dump fd (rw); fprintf fd " = "; dump fd (rw2)
   | Asgnlst(rw_lst) -> fprintf fd "Asgnlst\n"; dump_lst fd ";" (rw_lst)
   | DeclInt(str1_lst) -> fprintf fd "DeclInt\n"; dump_str_lst fd ";" (str1_lst)
+  | DeclGenvar(str1_lst) -> fprintf fd "DeclGenvar\n"; dump_str_lst fd ";" (str1_lst)
   | Dim(rw, rw2) -> fprintf fd "Dim\n"; dump fd (rw); dump fd (rw2)
   | BeginBlock(rw_lst) -> fprintf fd "\nbegin\n"; dump_lst fd ";" (rw_lst); fprintf fd "\nend\n"
   | Bitlst(rw_lst) -> fprintf fd "Bitlst\n"; dump_lst fd ";" (rw_lst)

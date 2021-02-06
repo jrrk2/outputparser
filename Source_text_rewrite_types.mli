@@ -22,6 +22,8 @@ type rw =
   | Dec of rw
   | Pling of rw
   | Tilde of rw
+  | Caret of rw
+  | Clog2 of rw
   | Equals of rw * rw
   | NotEq of rw * rw
   | LtEq of rw * rw
@@ -50,6 +52,7 @@ type rw =
   | Asgnlst of rw list
   | DeclReg of rw list * string list * rw list list
   | DeclInt of string list
+  | DeclGenvar of string list
   | Dim of rw * rw
   | BeginBlock of rw list
   | Bitlst of rw list
