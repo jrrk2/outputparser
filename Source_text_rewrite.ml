@@ -445,6 +445,139 @@ let rec dump fd = function
 and dump_lst fd sep rw = let delim = ref "" in
     List.iter (fun itm -> fprintf fd "%s" !delim; dump fd itm; delim := sep) rw
 and dump_str_lst fd sep lst = fprintf fd "%s" (String.concat sep lst)
+type attr = {subst: (string,rw)Hashtbl.t; fn: attr -> rw -> rw}
+
+let rec descend' (attr:attr) = function
+  | Id id -> Id id
+  | Itmlst(rw_lst) -> Itmlst(descend_lst attr (rw_lst:rw list))
+  | Sentry (Pos clk, lst) -> Sentry(Pos clk, descend_itm attr lst)
+  | Unknown str -> Unknown str
+  | In -> In
+  | Out -> Out
+  | Modul(str1, rw_lst2, rw_lst3) -> Modul(str1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
+  | DeclReg(rw_lst, str1_lst, rw_lst_lst) -> DeclReg(descend_lst attr rw_lst, str1_lst,
+    List.map (fun itm -> descend_lst attr itm) rw_lst_lst)
+  | NonBlocking(rw, rw2) -> NonBlocking(descend_itm attr rw, descend_itm attr rw2)
+  | Query(rw, rw2, rw3) -> Query(descend_itm attr rw, descend_itm attr rw2, descend_itm attr rw3)
+  | Port(rw, str1, rw_lst) -> Port(descend_itm attr rw, str1, descend_lst attr rw_lst)
+  | Pos(str1) -> Pos (str1)
+  | Neg(str1) -> Neg (str1)
+  | Edge(rw, rw2) -> Edge(descend_itm attr (rw), descend_itm attr (rw2))
+  | Intgr(int1) -> Intgr int1
+  | Number(str1) -> Number (str1)
+  | Sel(str1, rw2) -> Sel(str1, descend_itm attr rw2)
+  | Inc(rw) -> Inc(descend_itm attr rw)
+  | Dec(rw) -> Dec(descend_itm attr rw)
+  | RedAnd(rw) -> RedAnd(descend_itm attr (rw))
+  | RedOr(rw) -> RedOr(descend_itm attr (rw))
+  | UMinus(rw) -> UMinus(descend_itm attr (rw))
+  | Pling(rw) -> Pling(descend_itm attr (rw))
+  | Tilde(rw) -> Tilde(descend_itm attr (rw))
+  | TildeAnd(rw) -> TildeAnd(descend_itm attr (rw))
+  | TildeOr(rw) -> TildeOr(descend_itm attr (rw))
+  | Equals(rw, rw2) -> Equals(descend_itm attr (rw), descend_itm attr (rw2))
+  | NotEq(rw, rw2) -> NotEq(descend_itm attr (rw), descend_itm attr (rw2))
+  | LtEq(rw, rw2) -> LtEq(descend_itm attr (rw), descend_itm attr (rw2))
+  | GtEq(rw, rw2) -> GtEq(descend_itm attr (rw), descend_itm attr (rw2))
+  | Less(rw, rw2) -> Less(descend_itm attr (rw), descend_itm attr (rw2))
+  | Greater(rw, rw2) -> Greater(descend_itm attr (rw), descend_itm attr (rw2))
+  | And(rw, rw2) -> And(descend_itm attr (rw), descend_itm attr (rw2))
+  | And2(rw, rw2) -> And2(descend_itm attr (rw), descend_itm attr (rw2))
+  | Or(rw, rw2) -> Or(descend_itm attr (rw), descend_itm attr (rw2))
+  | Or2(rw, rw2) -> Or2(descend_itm attr (rw), descend_itm attr (rw2))
+  | Xor(rw, rw2) -> Xor(descend_itm attr (rw), descend_itm attr (rw2))
+  | Xnor(rw, rw2) -> Xnor(descend_itm attr (rw), descend_itm attr (rw2))
+  | Shiftl(rw, rw2) -> Shiftl(descend_itm attr (rw), descend_itm attr (rw2))
+  | Shiftr(rw, rw2) -> Shiftr(descend_itm attr (rw), descend_itm attr (rw2))
+  | Shiftr3(rw, rw2) -> Shiftr3(descend_itm attr (rw), descend_itm attr (rw2))
+  | Add(rw, rw2) -> Add(descend_itm attr (rw), descend_itm attr (rw2))
+  | Sub(rw, rw2) -> Sub(descend_itm attr (rw), descend_itm attr (rw2))
+  | Mult(rw, rw2) -> Mult(descend_itm attr (rw), descend_itm attr (rw2))
+  | Div(rw, rw2) -> Div(descend_itm attr (rw), descend_itm attr (rw2))
+  | StarStar(rw, rw2) -> StarStar(descend_itm attr (rw), descend_itm attr (rw2))
+  | Ifelse(rw, rw2, rw3) -> Ifelse(descend_itm attr (rw), descend_itm attr (rw2), descend_itm attr (rw3))
+  | Iff(rw, rw2) -> Iff(descend_itm attr (rw), descend_itm attr (rw2))
+  | ForLoop(rw_lst, rw2, rw3, rw4) ->
+    ForLoop(descend_lst attr (rw_lst), descend_itm attr (rw2), descend_itm attr (rw3), descend_itm attr (rw4))
+  | CaseStmt(rw, rw_lst) -> CaseStmt(descend_itm attr (rw), descend_lst attr (rw_lst))
+  | CaseItm(rw_lst) -> CaseItm(descend_lst attr (rw_lst))
+  | AlwaysComb(rw_lst) -> AlwaysComb(descend_lst attr (rw_lst))
+  | Sentry(rw, rw2) -> Sentry(descend_itm attr (rw), descend_itm attr (rw2))
+  | Blocking(rw, rw2) -> Blocking(descend_itm attr (rw), descend_itm attr (rw2))
+  | Asgnlst(rw_lst) -> Asgnlst(descend_lst attr (rw_lst))
+  | DeclInt(str1_lst) -> DeclInt((str1_lst))
+  | Dim(rw, rw2) -> Dim(descend_itm attr (rw), descend_itm attr (rw2))
+  | BeginBlock(rw_lst) -> BeginBlock(descend_lst attr (rw_lst))
+  | Bitlst(rw_lst) -> Bitlst(descend_lst attr (rw_lst))
+  | Dot(str1, rw2) -> Dot(str1, descend_itm attr (rw2))
+  | Unsigned(rw) -> Unsigned(descend_itm attr (rw))
+  | Signed(rw) -> Signed(descend_itm attr (rw))
+  | Concat(rw_lst) -> Concat(descend_lst attr (rw_lst))
+  | DeclWire(rw_lst, rw_lst2) -> DeclWire(descend_lst attr (rw_lst), descend_lst attr (rw_lst2))
+  | WireExpr(str1, rw2) -> WireExpr(str1, descend_itm attr (rw2))
+  | DeclIntf1(str1, rw_lst) -> DeclIntf1(str1, descend_lst attr (rw_lst))
+  | DeclIntf2(str1, rw_lst) -> DeclIntf2(str1, descend_lst attr (rw_lst))
+  | Hash(str1, rw_lst, rw_lst2) -> Hash(str1, descend_lst attr (rw_lst), descend_lst attr (rw_lst2))
+  | DeclIntf(str1, rw_lst, rw_lst2, rw_lst3) -> DeclIntf(str1, descend_lst attr (rw_lst), descend_lst attr (rw_lst2), descend_lst attr (rw_lst3))
+  | DeclModPort(rw_lst) -> DeclModPort(descend_lst attr (rw_lst))
+  | Repl(rw, rw_lst) -> Repl(descend_itm attr (rw), descend_lst attr (rw_lst))
+  | Slice(str1, rw2, rw3) -> Slice(str1, descend_itm attr (rw2), descend_itm attr (rw3))
+  | Field(rw, rw2) -> Field(descend_itm attr (rw), descend_itm attr (rw2))
+  | Dot3(str1, str2, str3) -> Dot3(str1, str2, str3)
+  | Parenth(str1, rw_lst) -> Parenth(str1, descend_lst attr (rw_lst))
+  | Logic(rw_lst, rw_lst2) -> Logic(descend_lst attr (rw_lst), descend_lst attr (rw_lst2))
+  | Param(str1, rw2) -> Param(str1, descend_itm attr (rw2))
+  | LocalP(rw_lst, rw_lst2) -> LocalP(descend_lst attr (rw_lst), descend_lst attr (rw_lst2))
+  | DeclLogic(rw_lst) -> DeclLogic(descend_lst attr (rw_lst))
+  | DeclTask(str1, rw_lst2, rw3, rw4) -> DeclTask(str1, descend_lst attr (rw_lst2), descend_itm attr (rw3), descend_itm attr (rw4))
+  | Mem1(str1, rw_lst) -> Mem1(str1, descend_lst attr (rw_lst))
+  | Mem3(str1, rw2, rw3, rw4) -> Mem3(str1, descend_itm attr (rw2), descend_itm attr (rw3), descend_itm attr (rw4))
+  | PartSel(str1, rw2, rw3) -> PartSel(str1, descend_itm attr (rw2), descend_itm attr (rw3))
+  | GenBlock(rw_lst) -> GenBlock(descend_lst attr (rw_lst))
+  | Package (id, rw_lst) -> Package(id, descend_lst attr rw_lst)
+  | Caret _ as x -> x
+  | Bits _ as x -> x
+  | Typ (_, _, _) as x -> x
+  | Struct (_, _) as x -> x
+  | TypEnum _ as x -> x
+  | Comma (_, _, _) as x -> x
+  | Clog2 _ as x -> x
+  | DeclGenvar _ as x -> x
+  | Cast (_, _) as x -> x
+
+and descend_lst attr x = List.map (attr.fn attr) x
+
+and descend_itm attr x = attr.fn attr x
+
+let rec descend (attr:attr) = function
+  | Id id -> (match Hashtbl.find_opt attr.subst id with None -> Id id | Some exp -> exp)
+  | oth -> descend' {attr with fn=descend} oth
+
+let iter attr ix strt stop inc stmts = 
+    let loopvar = ref strt in
+    let block = ref [] in
+    while (!loopvar <= stop) do
+      begin
+	Hashtbl.replace attr.subst ix (Intgr !loopvar);
+	block := descend_itm attr stmts :: !block;
+	loopvar := !loopvar + inc;
+      end
+    done;
+    BeginBlock (List.rev !block)
+
+let rec unroll (attr:attr) = function
+  | Id id -> (match Hashtbl.find_opt attr.subst id with None -> Id id | Some exp -> exp)
+  | ForLoop(rw_lst, rw2, rw3, rw4) ->
+    begin 
+    match rw_lst, rw2, rw3 with
+      | Blocking (Id ix, Intgr strt) :: [], LtEq (Id ix', Intgr stop), Inc (Id ix'') ->
+	iter attr ix strt stop 1 rw4
+      | _ -> ForLoop(descend_lst attr (rw_lst),
+	    descend_itm attr (rw2),
+	    descend_itm attr (rw3),
+	    descend_itm attr (rw4))
+    end
+  | oth -> descend' {attr with fn=unroll} oth
 
 let parse_output_ast_from_chan ch =
   let lb = Lexing.from_channel ch in
