@@ -225,6 +225,8 @@ let dimlst = match dimlst' with
   DeclIntf(id, List.rev_map rw' lst, List.rev_map rw' lst', List.rev_map rw' lst'')
 | TUPLE3 (TUPLE3 (Logic, (EMPTY_TOKEN|Signed), TLIST lst), TLIST lst', SEMICOLON) ->
   Logic(List.rev_map rw' lst, List.rev_map rw' lst')
+| TUPLE4 (EMPTY_TOKEN, TUPLE3 (Logic, EMPTY_TOKEN, dims), TLIST lst', SEMICOLON) ->
+  Logic((match dims with TLIST lst -> List.rev_map rw' lst | _ -> []), List.rev_map rw' lst')
 | TUPLE6 (Task, EMPTY_TOKEN, IDENTIFIER taskid, TUPLE2 (SEMICOLON, TLIST lst), arg5, arg6) ->
   DeclTask(taskid, List.rev_map rw' lst, rw' arg5, rw' arg6)
 | EMPTY_TOKEN -> rw' (TLIST [])
@@ -282,11 +284,21 @@ let dimlst = match dimlst' with
     | _ -> failwith "dimlst'" in
   Typ(id, dimlst, List.rev_map rw' lst)
 | TUPLE2 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id) -> Typ(id, [], [])
+| TUPLE4 (EMPTY_TOKEN, TUPLE3 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id, EMPTY_TOKEN),
+      TLIST lst, SEMICOLON) -> Typ(id, List.rev_map rw' lst, [])
 | TUPLE6 (Typedef, TUPLE5 (Enum, TUPLE3 (Logic, EMPTY_TOKEN, TLIST lst),
         LBRACE,
         TLIST lst',
 	RBRACE),
-(TYPE_HYPHEN_IDENTIFIER id | IDENTIFIER id), EMPTY_TOKEN, EMPTY_TOKEN, SEMICOLON) -> TypEnum id
+	  (TYPE_HYPHEN_IDENTIFIER id | IDENTIFIER id), EMPTY_TOKEN, EMPTY_TOKEN, SEMICOLON) ->
+  TypEnum id
+| TUPLE6
+     (Typedef,
+      TUPLE2 (TUPLE5 (Struct, TUPLE2 (Packed, EMPTY_TOKEN), LBRACE, TLIST lst, RBRACE), EMPTY_TOKEN),
+      IDENTIFIER id,
+      EMPTY_TOKEN,
+      EMPTY_TOKEN,
+      SEMICOLON) -> Struct(id, List.rev_map rw' lst)
 | TUPLE2 (IDENTIFIER id, EMPTY_TOKEN) -> Id id
 | TUPLE4 (IDENTIFIER id,
       TLIST elst,
@@ -377,6 +389,7 @@ let rec dump fd = function
   | Sub(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " - "; dump fd (rw2); fprintf fd ")"
   | Mult(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " * "; dump fd (rw2); fprintf fd ")"
   | Div(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " / "; dump fd (rw2); fprintf fd ")"
+  | StarStar(rw, rw2) -> fprintf fd "("; dump fd (rw); fprintf fd " ** "; dump fd (rw2); fprintf fd ")"
   | Ifelse(rw, rw2, rw3) -> fprintf fd "if ("; dump fd (rw); fprintf fd ") begin\n"; dump fd (rw2); fprintf fd "\nend else begin\n"; dump fd (rw3); fprintf fd "\nend\n"
   | Iff(rw, rw2) -> fprintf fd "if ("; dump fd (rw); fprintf fd ") begin\n"; dump fd (rw2); fprintf fd "\nend\n"
   | ForLoop(rw_lst, rw2, rw3, rw4) -> fprintf fd "for (";
@@ -424,6 +437,10 @@ let rec dump fd = function
   | PartSel(rw, rw2, rw3) -> fprintf fd "PartSel "; dump fd (rw); dump fd (rw2); dump fd (rw3)
   | GenBlock(rw_lst) -> fprintf fd "GenBlock\n"; dump_lst fd ";" (rw_lst)
   | Cast(rw, rw2) -> fprintf fd "Cast "; dump fd (rw); dump fd (rw2)
+  | TildeAnd _ -> fprintf fd "~&"
+  | TildeOr _ -> fprintf fd "~|"
+  | Struct (id, _) -> fprintf fd "struct %s" id
+  | Package (id, _) -> fprintf fd "package %s" id
 
 and dump_lst fd sep rw = let delim = ref "" in
     List.iter (fun itm -> fprintf fd "%s" !delim; dump fd itm; delim := sep) rw

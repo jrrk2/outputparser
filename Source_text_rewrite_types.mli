@@ -27,6 +27,7 @@ type rw =
   | Caret of rw
   | Bits of rw
   | Typ of string * rw list * rw list
+  | Struct of string * rw list
   | TypEnum of string
   | Comma of rw * rw * rw
   | Clog2 of rw

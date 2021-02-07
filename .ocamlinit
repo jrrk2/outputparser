@@ -36,6 +36,7 @@
 open Output
 open Template
 open Output_parser
+
 let _ = parse "V3ParseBison.output";;
 let (t,g) = List.hd !tg';;
 let mungelst = ref [];;
@@ -62,7 +63,7 @@ let v = "wrapper.sv";;
 let v = "preprocess.sv";;
    
 let modlst,x = rewrite v;;
-let loop = Hashtbl.find modules (List.hd modlst);;
+let loop = Hashtbl.find modules "swerv";;
 
 type attr = {subst: (string,rw)Hashtbl.t}
 
@@ -148,11 +149,28 @@ let rec descend (attr:attr) = function
   | Mem3(str1, rw2, rw3, rw4) -> Mem3(str1, descend attr (rw2), descend attr (rw3), descend attr (rw4))
   | PartSel(str1, rw2, rw3) -> PartSel(str1, descend attr (rw2), descend attr (rw3))
   | GenBlock(rw_lst) -> GenBlock(descend_lst attr (rw_lst))
+  | TildeAnd _ as x -> x
+  | TildeOr _ as x -> x
+  | Caret _ as x -> x
+  | Bits _ as x -> x
+  | Typ (_, _, _) as x -> x
+  | Struct (_, _) as x -> x
+  | TypEnum _ as x -> x
+  | Comma (_, _, _) as x -> x
+  | Clog2 _ as x -> x
+  | Greater (_, _) as x -> x
+  | Xnor (_, _) as x -> x
+  | StarStar (_, _) as x -> x
+  | DeclGenvar _ as x -> x
+  | Cast (_, _) as x -> x
+  | Package (id, rw_lst) -> Package(id, descend_lst attr rw_lst)
 
 and descend_lst attr x = List.map (descend attr) x
 
 let h=Hashtbl.create 255;;
 Hashtbl.add h "i" (Intgr 0);;
 let y = descend {subst=h} x;;
+let z = descend {subst=h} loop;;
 
-let (a,b,c,d,e,f,g) = match !missing with Some (TUPLE7(a,b,c,d,e,f,g)) -> (a,b,c,d,e,f,g);;
+open Source_text_rewrite_types;;
+
