@@ -70,7 +70,7 @@ let rec rw' = function
 | TUPLE5 ((Input|Output) as dir, TUPLE2 (Integer, EMPTY_TOKEN), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
    Port(rw' dir, port, [])
 | TUPLE5 ((Input|Output) as dir, TUPLE3 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id, lst), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
-   Port(rw' dir, port, Typ (id, []) :: match lst with EMPTY_TOKEN -> [] | TLIST lst -> List.rev_map rw' lst | _ -> failwith "port")
+   Port(rw' dir, port, Typ (id, [], []) :: match lst with EMPTY_TOKEN -> [] | TLIST lst -> List.rev_map rw' lst | _ -> failwith "port")
 | TUPLE5 ((Input|Output) as dir, TUPLE3 (Logic, EMPTY_TOKEN, lst), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
    Port(rw' dir, port, match lst with EMPTY_TOKEN -> [] | TLIST lst -> List.rev_map rw' lst | _ -> failwith "port")
 | TUPLE6 ((Input|Output) as dir, EMPTY_TOKEN, TLIST lst, IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
@@ -99,26 +99,29 @@ m
 | TUPLE7 (EMPTY_TOKEN, IDENTIFIER id1, DOT, IDENTIFIER id2, IDENTIFIER id3, EMPTY_TOKEN, EMPTY_TOKEN) ->
   Dot3(id1,id2,id3)
 | TUPLE3 (lhs, DOT, rhs) -> Field (rw' lhs, rw' rhs)
-| TUPLE4 (IDENTIFIER id, LBRACK, exp, RBRACK) -> Sel (id, rw' exp)
+| TUPLE4 (lval, LBRACK, exp, RBRACK) -> Sel (rw' lval, rw' exp)
 | TUPLE6 (IDENTIFIER id, LBRACK, lft, COLON, rght, RBRACK) -> Slice (id, rw' lft, rw' rght)
 | TUPLE3 (TUPLE3 (exp1, COMMA, exp2), COMMA, exp3) -> Comma (rw' exp1, rw' exp2, rw' exp3)
 | TUPLE5 (lhs, LT_EQ, EMPTY_TOKEN, exp, SEMICOLON) -> NonBlocking (rw' lhs, rw' exp)
 | TUPLE2 (HYPHEN, rhs) -> UMinus(rw' rhs)
 | TUPLE2 (PLING, rhs) -> Pling(rw' rhs)
 | TUPLE2 (TILDE, rhs) -> Tilde(rw' rhs)
+| TUPLE2 (TILDE_AMPERSAND, rhs) -> TildeAnd(rw' rhs)
+| TUPLE2 (TILDE_VBAR, rhs) -> TildeOr(rw' rhs)
 | TUPLE2 (CARET, rhs) -> Caret(rw' rhs)
 | TUPLE2 (AMPERSAND, rhs) -> RedAnd(rw' rhs)
 | TUPLE2 (VBAR, rhs) -> RedOr(rw' rhs)
 | TUPLE2 (lhs, PLUS_PLUS) -> Inc(rw' lhs)
 | TUPLE2 (lhs, HYPHEN_HYPHEN) -> Dec(rw' lhs)
-| TUPLE7 (Function, Automatic, typ, EMPTY_TOKEN, body, Endfunction, elbl) ->
+| TUPLE7 (Function, (Automatic|EMPTY_TOKEN), typ, EMPTY_TOKEN, body, Endfunction, elbl) ->
   let body = match body with
     | TUPLE5 (LPAREN, TLIST lst, RPAREN, SEMICOLON, TUPLE2 (TLIST lst2, TLIST lst3)) -> Unknown "function1"
     | TUPLE2 (SEMICOLON, TUPLE2 (TLIST lst, TLIST lst3)) -> Unknown "function2"
     | oth -> Unknown "function3" in body
 | TUPLE4 (DLR_bits, LPAREN, rhs, RPAREN) -> Bits(match rhs with
-  | TUPLE3 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN) -> Typ(typ, [])
-  | oth -> failwith "$bits")
+  | TUPLE3 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN) -> Typ(typ, [], [])
+  | TUPLE6 (IDENTIFIER typ, LBRACK, lft, COLON, rght, RBRACK) -> Typ(typ, Dim(rw' lft, rw' rght) :: [], [])
+  | oth -> missing := Some oth; failwith "$bits")
 | TUPLE4 (DLR_clog2, LPAREN, rhs, RPAREN) -> Clog2(rw' rhs)
 | TUPLE4 (DLR_signed, LPAREN, rhs, RPAREN) -> Signed(rw' rhs)
 | TUPLE4 (DLR_unsigned, LPAREN, rhs, RPAREN) -> Unsigned(rw' rhs)
@@ -126,6 +129,7 @@ m
 | TUPLE3 (lhs, HYPHEN, rhs) -> Sub(rw' lhs, rw' rhs)
 | TUPLE3 (lhs, STAR, rhs) -> Mult(rw' lhs, rw' rhs)
 | TUPLE3 (lhs, SLASH, rhs) -> Div(rw' lhs, rw' rhs)
+| TUPLE3 (lhs, STAR_STAR, rhs) -> StarStar(rw' lhs, rw' rhs)
 | TUPLE3 (lhs, AMPERSAND, rhs) -> And(rw' lhs, rw' rhs)
 | TUPLE3 (lhs, AMPERSAND_AMPERSAND, rhs) -> And2(rw' lhs, rw' rhs)
 | TUPLE3 (lhs, VBAR, rhs) -> Or(rw' lhs, rw' rhs)
@@ -151,6 +155,8 @@ m
  Ifelse(rw' cond, rw' if_clause, rw' else_clause)
 | TUPLE7 (If, LPAREN, cond, RPAREN, if_clause, Else, else_clause) ->
  Ifelse(rw' cond, rw' if_clause, rw' else_clause)
+| TUPLE5 (If, LPAREN, cond, RPAREN, if_clause) ->
+ Iff(rw' cond, rw' if_clause)
 | TUPLE6 (EMPTY_TOKEN, If, LPAREN, cond, RPAREN, if_clause) ->
  Iff(rw' cond, rw' if_clause)
 | TUPLE2 (Always, TUPLE2 (TUPLE4 (AT, LPAREN, sentry, RPAREN), stmts)) ->
@@ -158,6 +164,8 @@ m
 | TUPLE2 (Always, TUPLE2 (TUPLE2 (AT, STAR), TUPLE4(Begin, TLIST stmts, End, EMPTY_TOKEN))) ->
  AlwaysComb(List.rev_map rw' stmts)
 | TUPLE2 (Always_comb, TUPLE4(Begin, TLIST stmts, End, EMPTY_TOKEN)) ->
+ AlwaysComb(List.rev_map rw' stmts)
+| TUPLE2 (Always_comb, TUPLE4(TUPLE3(Begin, COLON, IDENTIFIER lbl), TLIST stmts, End, elbl)) ->
  AlwaysComb(List.rev_map rw' stmts)
 | TUPLE2 (Always_ff, TUPLE2 (TUPLE4 (AT, LPAREN, sentry, RPAREN), stmts)) -> Sentry(rw' sentry, rw' stmts)
 | TUPLE3 (lhs, EQUALS, exp) -> Blocking (rw' lhs, rw' exp)
@@ -215,14 +223,14 @@ let dimlst = match dimlst' with
       TUPLE3 (LPAREN, TLIST lst', RPAREN),
       SEMICOLON, TLIST lst'', Endinterface, EMPTY_TOKEN) ->
   DeclIntf(id, List.rev_map rw' lst, List.rev_map rw' lst', List.rev_map rw' lst'')
-| TUPLE3 (TUPLE3 (Logic, EMPTY_TOKEN, TLIST lst), TLIST lst', SEMICOLON) ->
+| TUPLE3 (TUPLE3 (Logic, (EMPTY_TOKEN|Signed), TLIST lst), TLIST lst', SEMICOLON) ->
   Logic(List.rev_map rw' lst, List.rev_map rw' lst')
 | TUPLE6 (Task, EMPTY_TOKEN, IDENTIFIER taskid, TUPLE2 (SEMICOLON, TLIST lst), arg5, arg6) ->
   DeclTask(taskid, List.rev_map rw' lst, rw' arg5, rw' arg6)
 | EMPTY_TOKEN -> rw' (TLIST [])
 | Endtask ->  rw' (TLIST [])
-| TUPLE6 (TUPLE4 (IDENTIFIER memory, LBRACK, exp, RBRACK), LBRACK, hi, COLON, lo, RBRACK) ->
-  Mem3(memory, rw' exp, rw' hi, rw' lo)
+| TUPLE6 (TUPLE4 (lval, LBRACK, exp, RBRACK), LBRACK, hi, COLON, lo, RBRACK) ->
+  Mem3(rw' lval, rw' exp, rw' hi, rw' lo)
 | TUPLE3 (IDENTIFIER memory, TLIST lst, EMPTY_TOKEN) -> Mem1(memory, List.rev_map rw' lst)
 | TUPLE5 (arg1, QUERY, arg2, COLON, arg3) -> Query(rw' arg1, rw' arg2, rw' arg3)
 | TUPLE2 (TUPLE2 (DLR_stop, EMPTY_TOKEN), SEMICOLON) -> Unknown "$stop"
@@ -258,7 +266,7 @@ ForLoop (rw' (TUPLE3(IDENTIFIER ix, EQUALS, INTEGER_NUMBER strt)) :: [], rw' sto
 | TUPLE4 (EMPTY_TOKEN, IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> Id id
 | TUPLE6 (lval, LBRACK, lhs, PLUS_COLON, rhs, RBRACK) ->
   PartSel(rw' lval, rw' lhs, rw' rhs)
-| TUPLE5 (EMPTY_TOKEN, TUPLE4 (Case, LPAREN, slice, RPAREN),
+| TUPLE5 (EMPTY_TOKEN, TUPLE4 ((Case|Casez|Casex), LPAREN, slice, RPAREN),
       EMPTY_TOKEN,
       TLIST caselst,
       Endcase) ->
@@ -267,13 +275,27 @@ let lstrf = ref [] in
 List.iter (collapse_case lst' lstrf) (List.rev caselst);
  CaseStmt(rw' slice, List.rev !lst')
 | TUPLE3 (Generate, TLIST genlst, Endgenerate) -> GenBlock(List.rev_map rw' genlst)
-| TUPLE3 (TUPLE3 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id, EMPTY_TOKEN), TLIST lst, SEMICOLON) ->
-  Typ(id, List.rev_map rw' lst)
+| TUPLE3 (TUPLE3 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id, dimlst'), TLIST lst, SEMICOLON) ->
+let dimlst = match dimlst' with
+    | TLIST dimlst -> List.rev_map rw' (dimlst)
+    | EMPTY_TOKEN -> []
+    | _ -> failwith "dimlst'" in
+  Typ(id, dimlst, List.rev_map rw' lst)
+| TUPLE2 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id) -> Typ(id, [], [])
 | TUPLE6 (Typedef, TUPLE5 (Enum, TUPLE3 (Logic, EMPTY_TOKEN, TLIST lst),
         LBRACE,
         TLIST lst',
 	RBRACE),
 (TYPE_HYPHEN_IDENTIFIER id | IDENTIFIER id), EMPTY_TOKEN, EMPTY_TOKEN, SEMICOLON) -> TypEnum id
+| TUPLE2 (IDENTIFIER id, EMPTY_TOKEN) -> Id id
+| TUPLE4 (IDENTIFIER id,
+      TLIST elst,
+      EMPTY_TOKEN,
+      TUPLE2(EQUALS, TUPLE3 (QUOTE_LBRACE, TLIST [TUPLE3 (Default, COLON, exp)], RBRACE))) ->
+ Unknown "302" 
+| TUPLE4 (DOT, IDENTIFIER id, LPAREN, RPAREN) -> Unknown id
+| TUPLE4 (TUPLE4 (Package, EMPTY_TOKEN, IDENTIFIER pkgid, SEMICOLON), TLIST itmlst, Endpackage, elab) ->
+  Package(pkgid, List.rev_map rw' itmlst)
 | oth -> missing := Some oth; failwith ("rw' fail: "^Source_text_types.getstr oth)
 
 and wire_map = function
@@ -322,7 +344,7 @@ let rec dump fd = function
   | Edge(rw, rw2) -> fprintf fd "Edge\n"; dump fd (rw); dump fd (rw2)
   | Intgr(int1) -> fprintf fd "%d" int1
   | Number(str1) -> fprintf fd "%s" (str1)
-  | Sel(str1, rw2) -> fprintf fd "%s[" (str1); dump fd (rw2); fprintf fd "]"
+  | Sel(rw, rw2) -> dump fd (rw); fprintf fd "["; dump fd (rw2); fprintf fd "]"
   | Inc(rw) -> fprintf fd "("; dump fd (rw); fprintf fd ")++"
   | Dec(rw) -> fprintf fd "("; dump fd (rw); fprintf fd ")--"
   | RedAnd(rw) -> fprintf fd "&("; dump fd (rw); fprintf fd ")"
@@ -332,7 +354,7 @@ let rec dump fd = function
   | Tilde(rw) -> fprintf fd "~("; dump fd (rw); fprintf fd ")"
   | Caret(rw) -> fprintf fd "^("; dump fd (rw); fprintf fd ")"
   | Bits(rw) -> fprintf fd "$bits("; dump fd (rw); fprintf fd ")"
-  | Typ(s, rwlst) -> fprintf fd "(%s)" s
+  | Typ(s, rwlst, rwlst') -> fprintf fd "(%s)" s
   | TypEnum(s) -> fprintf fd "Enum(%s)" s
   | Comma(rw, rw2, rw3) -> fprintf fd "("; dump fd (rw); fprintf fd ", "; dump fd (rw2); fprintf fd ", "; dump fd (rw3); fprintf fd ")"
   | Clog2(rw) -> fprintf fd "$clog2("; dump fd (rw); fprintf fd ")"
@@ -398,9 +420,10 @@ let rec dump fd = function
   | DeclLogic(rw_lst) -> fprintf fd "DeclLogic\n"; dump_lst fd ";" (rw_lst)
   | DeclTask(str1, rw_lst2, rw3, rw4) -> fprintf fd "DeclTask %s\n" (str1); dump_lst fd ";" (rw_lst2); dump fd (rw3); dump fd (rw4)
   | Mem1(str1, rw_lst) -> fprintf fd "Mem1 %s\n" (str1); dump_lst fd ";" (rw_lst)
-  | Mem3(str1, rw2, rw3, rw4) -> fprintf fd "Mem3 %s\n" (str1); dump fd (rw2); dump fd (rw3); dump fd (rw4)
+  | Mem3(rw, rw2, rw3, rw4) -> fprintf fd "Mem3 "; dump fd (rw); dump fd (rw2); dump fd (rw3); dump fd (rw4)
   | PartSel(rw, rw2, rw3) -> fprintf fd "PartSel "; dump fd (rw); dump fd (rw2); dump fd (rw3)
   | GenBlock(rw_lst) -> fprintf fd "GenBlock\n"; dump_lst fd ";" (rw_lst)
+  | Cast(rw, rw2) -> fprintf fd "Cast "; dump fd (rw); dump fd (rw2)
 
 and dump_lst fd sep rw = let delim = ref "" in
     List.iter (fun itm -> fprintf fd "%s" !delim; dump fd itm; delim := sep) rw

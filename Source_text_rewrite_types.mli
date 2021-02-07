@@ -12,7 +12,7 @@ type rw =
   | Id of string
   | Intgr of int
   | Number of string
-  | Sel of string * rw
+  | Sel of rw * rw
   | NonBlocking of rw * rw
   | Query of rw * rw * rw
   | RedAnd of rw
@@ -22,9 +22,11 @@ type rw =
   | Dec of rw
   | Pling of rw
   | Tilde of rw
+  | TildeAnd of rw
+  | TildeOr of rw
   | Caret of rw
   | Bits of rw
-  | Typ of string * rw list
+  | Typ of string * rw list * rw list
   | TypEnum of string
   | Comma of rw * rw * rw
   | Clog2 of rw
@@ -47,6 +49,7 @@ type rw =
   | Sub of rw * rw
   | Mult of rw * rw
   | Div of rw * rw
+  | StarStar of rw * rw
   | Ifelse of rw * rw * rw
   | Iff of rw * rw
   | ForLoop of rw list * rw * rw * rw
@@ -84,7 +87,8 @@ type rw =
   | DeclLogic of rw list
   | DeclTask of string * rw list * rw * rw
   | Mem1 of string * rw list
-  | Mem3 of string * rw * rw * rw
+  | Mem3 of rw * rw * rw * rw
   | PartSel of rw * rw * rw
   | GenBlock of rw list
   | Cast of rw * rw
+  | Package of string * rw list
