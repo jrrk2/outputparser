@@ -308,6 +308,7 @@ let dimlst = match dimlst' with
 | TUPLE4 (DOT, IDENTIFIER id, LPAREN, RPAREN) -> Unknown id
 | TUPLE4 (TUPLE4 (Package, EMPTY_TOKEN, IDENTIFIER pkgid, SEMICOLON), TLIST itmlst, Endpackage, elab) ->
   Package(pkgid, List.rev_map rw' itmlst)
+| STRING s -> Unknown s
 | oth -> missing := Some oth; failwith ("rw' fail: "^Source_text_types.getstr oth)
 
 and wire_map = function

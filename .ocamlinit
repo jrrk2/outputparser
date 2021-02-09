@@ -55,14 +55,16 @@ open Source_text_lex
 open Source_text
 
 let v = "timer.v";;
-let v = "process.v";;
 let v = "interface_test.sv";;
-let v = "picorv32_ref.v";;
 let v = "wrapper.sv";;
-let v = "preprocess.sv";;
 let v = "loop.v";;
+let v = "picorv32_ref.v";;
+let v = "process.v";;
+let v = "preprocess.sv";;
    
 let modlst,x = rewrite v;;
+
+let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;
 
 let y = unroll {subst=Hashtbl.create 255; fn=descend} x;;
 
