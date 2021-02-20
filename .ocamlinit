@@ -61,6 +61,7 @@ let v = "loop.v";;
 let v = "picorv32_ref.v";;
 let v = "process.v";;
 let v = "preprocess.sv";;
+let v = "blocking.v";;
    
 let modlst,x = rewrite v;;
 

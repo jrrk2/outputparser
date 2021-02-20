@@ -4,6 +4,7 @@
 *.cmx
 *.i
 *.o
+*.dump
 ord.ml
 output_lexer.ml
 output_parser
