@@ -93,3 +93,5 @@ type rw =
   | GenBlock of rw list
   | Cast of rw * rw
   | Package of string * rw list
+  | DepLst of string list
+  

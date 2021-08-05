@@ -25,7 +25,7 @@ DMCFILES=dSFMT.i main.i Orbital.i position.i support.i System.i Walker.i walkthe
 SED=sed -e 's=\^ _Nonnull=* =g' -e 's=\* _Nonnull=* =g'
 CPP=clang -E -D __extension__= -D __restrict= -D __const=const -D __attribute__\(x\)= -D __asm__\(x\)= -D __PRETTY_FUNCTION__=__FILE__ -I $(SIMPLEDMC)/dest -I $(SIMPLEDMC)/dest/gcc/debug_dump -D DSFMT_MEXP=19937 -D __inline__=inline -D _Nullable= -D__asm\(x\)=
 
-all: output_parser output_parser.top
+all: output_parser output_parser.top Source_text_top
 
 output_parser: output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
 	ocamlopt -g -o $@ output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
@@ -47,8 +47,8 @@ clean:
 
 ############################################################################
 
-Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli Source_text_rewrite.ml Source_text_main.ml
-	ocamlmktop -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli Source_text_rewrite.ml Source_text_main.ml
+Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml Source_text_rewrite.ml Source_text_main.ml
+	ocamlmktop -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml Source_text_rewrite.ml Source_text_main.ml
 
 Source_text.mly Source_text_types.ml: V3ParseBison.output Source_text.patch
 	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string INTEGER_NUMBER=string FLOATING_HYPHEN_POINT_NUMBER=float TYPE_HYPHEN_IDENTIFIER=string IDENTIFIER_HYPHEN_COLON_COLON=string STRING=string ./output_parser $<

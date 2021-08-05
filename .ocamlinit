@@ -62,13 +62,21 @@ let v = "picorv32_ref.v";;
 let v = "process.v";;
 let v = "preprocess.sv";;
 let v = "blocking.v";;
+let v = "uart.sv";;
    
 let modlst,x = rewrite v;;
 
+(*
 let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;
+*)
+
+open Source_text_rewrite_types
 
 let y = unroll {subst=Hashtbl.create 255; fn=descend} x;;
 
-open Source_text_rewrite_types;;
-open Source_text_rewrite;;
-
+let z = Hashtbl.find modules "uart_baudgen";;
+let Modul(entnam, port_lst, body_lst) = z;;
+let s = List.filter (function Sentry _ -> true | _ -> false) body_lst;;
+let h = List.hd s;;
+let Sentry (Edge (Pos clk, Pos rst), BeginBlock lst1) = h;;
+let Ifelse (Equals (Id rst, Number n1), BeginBlock lst2, BeginBlock lst3) = List.hd lst1;;
