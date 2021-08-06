@@ -11,7 +11,7 @@ type rw =
   | Edge of rw * rw
   | Id of string
   | Intgr of int
-  | Number of string
+  | Number of int * int * int * string
   | Sel of rw * rw
   | NonBlocking of rw * rw
   | Query of rw * rw * rw
@@ -94,4 +94,5 @@ type rw =
   | Cast of rw * rw
   | Package of string * rw list
   | DepLst of string list
+  | Deflt
   

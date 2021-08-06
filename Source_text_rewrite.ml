@@ -63,6 +63,39 @@ let caseref = ref None
 
 let modules = Hashtbl.create 255
 
+let widthnum (str:string) =
+let base = ref 10
+and width = ref 0
+and value = ref 0
+and basing = ref 0
+and converting = ref true in
+for idx = 0 to String.length(str)-1 do let ch = Char.lowercase_ascii(str.[idx]) in begin
+match ch with
+| '_' -> ()
+| '?' -> value := !value * !base
+| '\'' -> converting := false; basing := idx+1;
+| '0'..'9' -> if (!converting) then
+    width := (!width * !base) + int_of_char(ch) - int_of_char('0')
+else
+    value := (!value * !base) + int_of_char(ch) - int_of_char('0')
+| 'a'..'z' ->  if (!converting) then
+    width := (!width * !base) + int_of_char(ch) - int_of_char('a') + 10
+else if (!basing==idx) then begin match ch with
+  | 'b' -> base := 2
+  | 'd' -> base := 10
+  | 'h' -> base := 16
+  | _ -> value := int_of_char(ch) - int_of_char('a') + 10
+end else
+    value := (!value * !base) + int_of_char(ch) - int_of_char('a') + 10;
+| _ -> converting := false; width := 0
+end
+done;
+if (!basing == 0) then begin
+  value := !width;
+  width := 32;
+end;
+Number (!base, !width, !value, (String.sub str (1 + !basing) (String.length str - 1 - !basing)))
+
 let rec rw' = function
 | Input -> In
 | Output -> Out
@@ -77,7 +110,7 @@ let rec rw' = function
 | TUPLE6 ((Input|Output) as dir, EMPTY_TOKEN, TLIST lst, IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
    Port(rw' dir, port, List.rev_map rw' lst)
 | TUPLE6 (TUPLE2 ((Input|Output) as dir, Wire), EMPTY_TOKEN, TLIST lst, IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> 
-Port (rw' dir, port, [])
+Port (rw' dir, port, List.rev_map rw' lst)
 | TUPLE4 (TUPLE2 ((Input|Output) as dir, Wire), IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> 
 Port (rw' dir, port, [])
 | TUPLE2 ((Input|Output) as dir, IDENTIFIER port) -> Port(rw' dir, port, [])
@@ -95,7 +128,7 @@ m
   Edge(Neg clk, Neg reset)
 | TUPLE2 (Posedge, IDENTIFIER clk) -> Pos clk
 | TUPLE2 (Negedge, IDENTIFIER clk) -> Neg clk
-| INTEGER_NUMBER n -> (try Intgr (int_of_string (String.trim n)) with err -> Number n)
+| INTEGER_NUMBER n -> (let n = String.trim n in try Intgr (int_of_string n) with err -> widthnum n)
 | IDENTIFIER id -> Id id
 | TUPLE3 (IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN) -> Id id
 | TUPLE2 (IDENTIFIER id, SEMICOLON) -> Id id
@@ -339,13 +372,13 @@ and wire_map = function
 
 and collapse_case lst' lstrf = function
 | COLON -> lst' := CaseItm !lstrf :: !lst'
-| TLIST [INTEGER_NUMBER n] -> lstrf := [Number n]
-| INTEGER_NUMBER n -> lstrf := [Number n]
+| TLIST [INTEGER_NUMBER n] -> lstrf := [widthnum n]
+| INTEGER_NUMBER n -> lstrf := [widthnum n]
 | IDENTIFIER s -> lstrf := [Id s]
 | TLIST [IDENTIFIER s] -> lstrf := [Id s]
-| Default -> lstrf := [Number ""]
-| TUPLE3 (TLIST [INTEGER_NUMBER n], COLON, body) ->  lstrf := [Number n]; lstrf := rw' body :: !lstrf
-| TUPLE3 (Default, COLON, body) ->  lstrf := [Number ""]; lstrf := rw' body :: !lstrf
+| Default -> lstrf := [Deflt]
+| TUPLE3 (TLIST [INTEGER_NUMBER n], COLON, body) ->  lstrf := [widthnum n]; lstrf := rw' body :: !lstrf
+| TUPLE3 (Default, COLON, body) ->  lstrf := [Deflt]; lstrf := rw' body :: !lstrf
 | (TUPLE4 _ | TUPLE5 _) as oth -> lstrf := rw' oth :: !lstrf
 | oth -> missing := Some oth; failwith "collapse case"
 
@@ -368,7 +401,7 @@ let rec descend' (attr:attr) = function
   | Neg(str1) -> Neg (str1)
   | Edge(rw, rw2) -> Edge(descend_itm attr (rw), descend_itm attr (rw2))
   | Intgr(int1) -> Intgr int1
-  | Number(str1) -> Number (str1)
+  | Number _ as n -> n
   | Sel(str1, rw2) -> Sel(str1, descend_itm attr rw2)
   | Inc(rw) -> Inc(descend_itm attr rw)
   | Dec(rw) -> Dec(descend_itm attr rw)
@@ -449,6 +482,7 @@ let rec descend' (attr:attr) = function
   | DeclGenvar _ as x -> x
   | Cast (_, _) as x -> x
   | DepLst lst as x -> x
+  | Deflt -> Deflt
 
 and descend_lst attr x = List.map (attr.fn attr) x
 
@@ -511,5 +545,5 @@ let rewrite v =
 		let fd = open_out (k^"_dump.vhd") in Dump_vhdl.template fd x;
 		close_out fd) modules;
   let modlst = !modlst in
-  modlst, x
+  modlst, x, p, p'
 

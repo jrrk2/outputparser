@@ -35,7 +35,7 @@ let rec dump fd = function
   | Neg(str1) -> fprintf fd "negedge %s" (str1)
   | Edge(rw, rw2) -> fprintf fd "Edge\n"; dump fd (rw); dump fd (rw2)
   | Intgr(int1) -> fprintf fd "%d" int1
-  | Number(str1) -> fprintf fd "%s" (str1)
+  | Number(int1,int2,int3,str1) -> fprintf fd "(%d,%d,%d,%s)" int1 int2 int3 str1
   | Sel(rw, rw2) -> dump fd (rw); fprintf fd "["; dump fd (rw2); fprintf fd "]"
   | Inc(rw) -> fprintf fd "("; dump fd (rw); fprintf fd ")++"
   | Dec(rw) -> fprintf fd "("; dump fd (rw); fprintf fd ")--"
@@ -122,12 +122,157 @@ let rec dump fd = function
   | Struct (id, _) -> fprintf fd "struct %s" id
   | Package (id, _) -> fprintf fd "package %s" id
   | DepLst(rw_lst) -> fprintf fd "DepLst\n"; dump_str_lst fd ";" (rw_lst)
-
+  | Deflt -> fprintf fd "default"
+  
 and dump_lst fd sep rw = let delim = ref "" in
     List.iter (fun itm -> fprintf fd "%s" !delim; dump fd itm; delim := sep) rw
 and dump_str_lst fd sep lst = fprintf fd "%s" (String.concat sep lst)
 
-let template fd = function Modul(entnam, port_lst, body_lst) ->
+let rec dump fd = function
+| TypEnum _ -> ()
+| DeclReg _ -> ()
+| oth -> unhand := Some oth; failwith "dump"
+
+let rec obin w n = 
+  (if w > 0 then obin (w-1) (n lsr 2) else "")^string_of_int (n mod 2)
+
+let rec vexpr = function
+| Id s -> s
+| Number (2,1,n,_) -> "'" ^ string_of_int n ^ "'"
+| Number (2,w,n,_) -> "\"" ^ (obin w n) ^ "\""
+| Number (b,w,n,s) -> string_of_int n
+| Intgr n -> string_of_int n
+| Tilde expr -> "~" ^ vexpr expr
+| Concat lst -> String.concat " & " (List.map vexpr lst)
+| Sel (Id id, rhs) -> id ^ "( " ^ vexpr rhs ^ "  s)"
+| Slice (id, hi, lo) -> id ^ "( " ^ vexpr hi ^ " downto " ^ vexpr lo ^ " )"
+| Add (lhs, rhs) -> vexpr lhs ^ "-" ^ vexpr rhs
+| Sub (lhs, rhs) -> vexpr lhs ^ "-" ^ vexpr rhs
+| Equals (lhs, rhs) -> vexpr lhs ^ "=" ^ vexpr rhs
+| NotEq (lhs, rhs) -> vexpr lhs ^ "!=" ^ vexpr rhs
+| GtEq (lhs, rhs) -> vexpr lhs ^ ">=" ^ vexpr rhs
+| Or (lhs, rhs) -> vexpr lhs ^ " or " ^ vexpr rhs
+| Xor (lhs, rhs) -> vexpr lhs ^ " xor " ^ vexpr rhs
+| And (lhs, rhs) -> vexpr lhs ^ " and " ^ vexpr rhs
+| And2 (lhs, rhs) -> vexpr lhs ^ " && " ^ vexpr rhs
+| Clog2 expr -> "Clog2("^vexpr expr^")"
+| Unsigned expr -> "unsigned("^vexpr expr^")"
+| Shiftl (lhs, rhs) -> "shift_left("^vexpr lhs^", "^vexpr rhs^")"
+| oth -> unhand := Some oth; failwith "vexpr"
+
+let rec simplify = function
+| Add (Intgr lhs, Intgr rhs) -> Intgr (lhs + rhs)
+| Sub (Intgr lhs, Intgr rhs) -> Intgr (lhs - rhs)
+| And (Intgr lhs, Intgr rhs) -> Intgr (lhs land rhs)
+| Or (Intgr lhs, Intgr rhs) -> Intgr (lhs lor rhs)
+| Xor (Intgr lhs, Intgr rhs) -> Intgr (lhs lxor rhs)
+| Shiftl (Intgr lhs, Intgr rhs) -> Intgr (lhs lsl rhs)
+| Add (lhs, rhs) -> Add (simplify lhs, simplify rhs)
+| Sub (lhs, rhs) -> Sub (simplify lhs, simplify rhs)
+| And (lhs, rhs) -> And (simplify lhs, simplify rhs)
+| Or (lhs, rhs) -> Or (simplify lhs, simplify rhs)
+| Xor (lhs, rhs) -> Xor (simplify lhs, simplify rhs)
+| Shiftl (lhs, rhs) -> Shiftl (simplify lhs, simplify rhs)
+| oth -> oth
+
+let simplify x = 
+  let rslt1 = ref (simplify (simplify (simplify (simplify x)))) in
+  let rslt2 = ref (simplify (simplify (simplify (simplify !rslt1)))) in
+  while !rslt1 <> !rslt2 do
+    rslt1 := simplify (simplify (simplify (simplify !rslt2)));
+    rslt2 := simplify (simplify (simplify (simplify !rslt1)));
+  done;
+  !rslt2
+
+let vexpr x = vexpr (simplify x)
+
+let asgn fd expr = function
+| Id lhs -> fprintf fd "            %s <= %s;\n" lhs (vexpr expr)
+| Sel (Id id, rhs) -> fprintf fd "            %s(%s) <= %s;\n" id (vexpr rhs) (vexpr expr)
+| Slice (id, hi, lo) -> fprintf fd "            %s( %s downto %s ) <= %s;\n" id (vexpr hi) (vexpr lo) (vexpr expr)
+| oth -> unhand := Some oth; failwith "asgn"
+
+let decl_template fd = function
+    | DeclReg ([Dim (Intgr hi, Intgr lo)], [nam], [[]]) ->
+    fprintf fd "    signal %s : std_logic_vector(%d downto %d);\n" nam hi lo
+    | DeclReg ([], [nam], [[]]) ->
+    fprintf fd "    signal %s : std_logic;\n" nam
+    | DeclReg ([Dim (hi, Intgr lo)], [nam], [[]]) ->
+    fprintf fd "    signal %s : std_logic_vector(%s downto %d);\n" nam (vexpr hi) lo
+    | DeclIntf1 (typ, [Id state1; Id state2]) -> ()
+    | CaseStmt _ -> ()
+    | Asgnlst _ -> ()
+    | Sentry _ -> ()
+    | TypEnum _ -> ()
+    | Hash _ -> ()
+    | Typ (typ, [], typ_lst) -> ()
+    | DeclIntf1 (typ, lst) -> ()
+    | oth -> unhand := Some oth; failwith "decl_template"
+
+let rec stmt_clause fd = function
+      | Itmlst lst -> List.iter (stmt_clause fd) lst      
+      | BeginBlock lst -> List.iter (stmt_clause fd) lst      
+      | Ifelse (condition, if_lst, else_lst) ->
+  fprintf fd "        if (%s) then\n" (vexpr condition);
+    (match if_lst with BeginBlock if_lst -> List.iter (stmt_clause fd) if_lst | _ -> stmt_clause fd if_lst);       
+  fprintf fd "        else\n";
+    (match else_lst with BeginBlock else_lst -> List.iter (stmt_clause fd) else_lst | _ -> stmt_clause fd else_lst);
+      | Blocking (lhs, expr) -> asgn fd expr lhs
+      | NonBlocking (lhs, expr) -> asgn fd expr lhs
+      | Iff _ as x -> iff_template fd x
+      | DeclLogic lst -> ()
+      | CaseStmt (Id state, imtlst) -> ()
+      | Unknown ";" -> ()
+      | oth -> unhand := Some oth; failwith "stmt_clause"
+      
+and iff_template fd = function
+    | Source_text_rewrite_types.Iff(condition, if_lst) ->
+  fprintf fd "        if (%s) then\n" (vexpr condition);
+    stmt_clause fd if_lst;       
+    | oth -> unhand := Some oth; failwith "iff_template"
+
+let rec sent_template fd = function
+    | BeginBlock lst -> List.iter (sent_template fd) lst
+    | Ifelse (Equals (Id rst, lev), BeginBlock if_lst, BeginBlock else_lst) ->
+  fprintf fd "        if (%s = %s) then\n" rst (vexpr lev);
+    List.iter (stmt_clause fd) if_lst;       
+  fprintf fd "        elsif (CLK'event and CLK = '1') then\n";
+    List.iter (stmt_clause fd) else_lst;       
+    | oth -> stmt_clause fd oth
+
+let proc_template fd cnt = function
+    | DeclReg _ -> ()
+    | Sentry (Edge (Pos clk, Pos rst), sent_lst) ->
+  fprintf fd "    -- clocked process %d description goes here\n" !cnt;
+  fprintf fd "    SEQ%d: process (%s, %s)\n" !cnt clk rst;
+  incr cnt;
+  fprintf fd "    begin\n";
+  sent_template fd sent_lst;       
+  fprintf fd "    end process;\n";
+  fprintf fd "\n";
+    | Sentry (DepLst dep_lst, sent_lst) ->
+  fprintf fd "    -- combinational process %d description goes here\n" !cnt;
+  fprintf fd "    COMB%d: process (%s)\n" !cnt (String.concat ", " dep_lst);
+  incr cnt;
+  fprintf fd "    begin\n";
+  stmt_clause fd sent_lst;       
+  fprintf fd "    end process;\n";
+  fprintf fd "\n";
+    | CaseStmt _ -> ()
+    | Asgnlst _ -> ()
+    | Iff _ -> ()
+    | Hash _ -> ()
+    | TypEnum _ -> ()
+    | Typ (typ, [], typ_lst) -> ()
+    | DeclIntf1 (typ, lst) -> ()
+    | oth -> unhand := Some oth; failwith "proc_template"
+
+let vdir = function
+  | In -> "in "
+  | Out -> "out"
+  | _ -> failwith "vdir"
+
+let template fd = function Modul(entnam, port_lst, body_lst) -> let cnt = ref 1 in
   fprintf fd "--\n";
   fprintf fd "-- This converter does not currently preserve comments and license information\n";
   fprintf fd "--\n";
@@ -138,60 +283,20 @@ let template fd = function Modul(entnam, port_lst, body_lst) ->
   fprintf fd "\n";
   fprintf fd "-- entity description goes here\n";
   fprintf fd "entity %s is\n" entnam;
-  fprintf fd "    port (\n";
-  List.iter(function
-    | Port(In,  nam, []) -> fprintf fd "        %16s         : in  std_logic;                                 -- %s description placeholder\n" nam nam;
-    | Port(Out, nam, []) -> fprintf fd "        %16s         : out std_logic;                                 -- %s description placeholder\n" nam nam;
-    | oth -> dump fd oth) port_lst;
-  fprintf fd "    );\n";
+  let portxt = List.map(function
+    | Port((In|Out) as dir,  nam, []) ->
+        sprintf "        %16s         : %s std_logic" nam (vdir dir);
+    | Port ((In|Out) as dir, nam, [Dim (hi, Intgr 0)]) ->
+        sprintf "        %16s         : %s std_logic_vector(%s downto 0)" nam (vdir dir) (vexpr hi);
+    | oth -> unhand := Some oth; failwith "template") port_lst in
+  fprintf fd "    port (\n%s\n    );\n" (String.concat ";\n" portxt);
   fprintf fd "end %s;\n" entnam;
   fprintf fd "\n";
   fprintf fd "architecture rtl of %s is\n" entnam;
   fprintf fd "    -- Signals\n";
-  List.iter (function
-    | DeclReg ([Dim (Intgr hi, Intgr lo)], [nam], [[]]) ->
-           fprintf fd "    signal %s : unsigned(%d downto %d);\n" nam hi lo
-    | oth -> () (* dump fd oth *) ) body_lst;
+  List.iter (decl_template fd) body_lst;
   fprintf fd "begin\n";
-List.iter (function
-    | DeclReg _ -> ()
-    | Sentry (Edge (Pos clk, Pos rst), BeginBlock sent_lst) ->
-  fprintf fd "    -- process description goes here\n";
-  fprintf fd "    BG_COUNT: process (%s, %s)\n" clk rst;
-  fprintf fd "    begin\n";
-  List.iter (function
-    | Ifelse (Equals (Id rst, Number n1), BeginBlock if_lst, BeginBlock else_lst) ->
-  fprintf fd "        if (%s = '1') then\n" rst;
-    List.iter (function
-      | NonBlocking (Id lhs, expr) ->
-    fprintf fd "            %s <= (others => '0');\n" lhs;
-      | oth -> () (* dump fd oth *) ) if_lst;       
-  fprintf fd "        elsif (CLK'event and CLK = '1') then\n";
-    List.iter (function
-    | Ifelse (Equals (Id rst, Number n1), BeginBlock if_lst, BeginBlock else_lst) ->
-  fprintf fd "        if (%s = '1') then\n" rst;
-      | NonBlocking (Id lhs, expr) ->
-    fprintf fd "            %s <= (others => '0');\n" lhs;
-      | oth -> () (* dump fd oth *) ) else_lst;       
-    | oth -> () (* dump fd oth *) ) sent_lst;       
-  fprintf fd "    end process;\n";
-  fprintf fd "\n";
-    | oth -> dump fd oth) body_lst;
-  fprintf fd "            iCounter <= (others => '0');\n";
-  fprintf fd "            BAUDTICK <= '0';\n";
-  fprintf fd "            if (CLEAR = '1') then\n";
-  fprintf fd "                iCounter <= (others => '0');\n";
-  fprintf fd "            elsif (CE = '1') then\n";
-  fprintf fd "                iCounter <= iCounter + 1;\n";
-  fprintf fd "            end if;\n";
-  fprintf fd "\n";
-  fprintf fd "            BAUDTICK <= '0';\n";
-  fprintf fd "            if (iCounter = unsigned(DIVIDER)) then\n";
-  fprintf fd "                iCounter <= (others => '0');\n";
-  fprintf fd "                BAUDTICK <= '1';\n";
-  fprintf fd "            end if;\n";
-  fprintf fd "        end if;\n";
-  fprintf fd "    end process;\n";
+List.iter (proc_template fd cnt) body_lst;
   fprintf fd "\n";
   fprintf fd "end rtl;\n";
   fprintf fd "\n";
