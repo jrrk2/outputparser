@@ -7,8 +7,12 @@ let rec rw = function
 | CONS3(lft,_,rght) -> (match rw lft with TLIST arg -> TLIST (rw rght :: arg) | _ -> failwith "CONS3")
 | CONS4(lft,arg1,arg2,arg3) -> (match rw lft with TLIST arg -> TLIST (rw arg1 :: rw arg2 :: rw arg3 :: arg) | _ -> failwith "CONS4")
 | CONS2(lft,rght) -> (match rw lft with TLIST arg -> TLIST (rw rght :: arg) | _ -> failwith "CONS2")
+| ELIST lst -> ELIST (List.map rw lst)
 | TLIST lst -> TLIST (List.map rw lst)
 | TUPLE2(arg1,arg2) -> TUPLE2 (rw arg1, rw arg2)
+| TUPLE3(LPAREN,arg,RPAREN) -> TUPLE3(LPAREN,rw arg,RPAREN)
+| TUPLE3(arg1,(PLUS|HYPHEN|STAR|SLASH|AMPERSAND|AMPERSAND_AMPERSAND|VBAR|VBAR_VBAR|EQ_EQ|PLING_EQ|LT_EQ|GT_EQ|LT_LT|GT_GT|GT_GT_GT|LESS|GREATER|CARET|CARET_TILDE|STAR_STAR as arg2),arg3) -> ELIST (flatten (flatten (arg1 :: arg2 :: arg3 :: [])))
+| TUPLE5(arg1,QUERY,arg3,COLON,arg5) -> ELIST (flatten (flatten (arg1 :: QUERY :: arg3 :: COLON :: arg5 :: [])))
 | TUPLE3(arg1,arg2,arg3) -> TUPLE3 (rw arg1, rw arg2, rw arg3)
 | TUPLE4(arg1,arg2,arg3,arg4) -> TUPLE4 (rw arg1, rw arg2, rw arg3, rw arg4)
 | TUPLE5(arg1,arg2,arg3,arg4,arg5) -> TUPLE5 (rw arg1, rw arg2, rw arg3, rw arg4, rw arg5)
@@ -58,10 +62,14 @@ let rec rw = function
 | EOF_TOKEN) as oth) -> oth
 | oth -> failwith ("rw fail: "^Source_text_types.getstr oth)
 
+and flatten lst = List.flatten (List.map (function ELIST lst -> List.map rw lst | oth -> [rw oth]) lst)
+
 let missing = ref None
 let caseref = ref None
 
 let modules = Hashtbl.create 255
+let othlst = ref None
+let priorlst = ref None
 
 let widthnum (str:string) =
 let base = ref 10
@@ -185,6 +193,7 @@ m
 | TUPLE2 (TUPLE3 (lhs, VBAR_EQ, rhs), SEMICOLON) -> Blocking(rw' lhs, Or(rw' lhs, rw' rhs))
 | TUPLE2 (TUPLE3 (lhs, PLUS_EQ, rhs), SEMICOLON) -> Blocking(rw' lhs, Add(rw' lhs, rw' rhs))
 | TUPLE4 (TUPLE2 (Int, EMPTY_TOKEN), lhs, EQUALS, rhs) -> Blocking(rw' lhs, rw' rhs)
+| TUPLE3 (LPAREN, ELIST explst, RPAREN) -> priority explst
 | TUPLE3 (LPAREN, exp, RPAREN) -> rw' exp
 | TUPLE6 (LBRACE, repeat, LBRACE, TLIST lst, RBRACE, RBRACE) -> Repl(rw' repeat, List.rev_map rw' lst)
 | TUPLE8 (EMPTY_TOKEN, If, LPAREN, cond, RPAREN, if_clause, Else, else_clause) ->
@@ -226,6 +235,7 @@ let dimlst = match dimlst' with
  BeginBlock (match List.rev_map rw' stmts with Itmlst x :: [] -> x | oth -> oth)
 | TUPLE3 (Begin, TLIST stmts, End) ->
  BeginBlock (match List.rev_map rw' stmts with Itmlst x :: [] -> x | oth -> oth)
+| ELIST lst -> othlst := Some lst; priority lst
 | TLIST lst -> Itmlst(List.rev_map rw' lst)
 | TUPLE5 (lhs, EMPTY_TOKEN, EMPTY_TOKEN, EQUALS, exp) -> Blocking (rw' lhs, rw' exp)
 | TUPLE3 (TUPLE3 (Bit, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst, SEMICOLON) ->
@@ -364,6 +374,68 @@ Package(pkgid, List.rev_map rw' itmlst)
 | STRING s -> Unknown s
 | SEMICOLON -> Unknown ";"
 | oth -> missing := Some oth; failwith ("rw' fail: "^Source_text_types.getstr oth)
+
+and priority explst = match prior1 explst with hd :: [] -> rw' hd | oth -> priorlst := Some oth; failwith "priority"
+
+and prior1 = function
+| [] -> []
+| lhs :: (STAR_STAR as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior2 lst
+
+and prior2 = function
+| [] -> []
+| lhs :: (STAR|SLASH as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior3 lst
+
+and prior3 = function
+| [] -> []
+| lhs :: (PLUS|HYPHEN as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior4 lst
+
+and prior4 = function
+| [] -> []
+| lhs :: (LT_LT|GT_GT|GT_GT_GT (* |LT_LT_LT *) as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior5 lst
+
+and prior5 = function
+| [] -> []
+| lhs :: (LESS|LT_EQ|GREATER|GT_EQ as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior6 lst
+
+and prior6 = function
+| [] -> []
+| lhs :: (EQ_EQ|PLING_EQ as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior7 lst
+
+and prior7 = function
+| [] -> []
+| lhs :: (AMPERSAND as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior8 lst
+
+and prior8 = function
+| [] -> []
+| lhs :: (CARET|CARET_TILDE as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior9 lst
+
+and prior9 = function
+| [] -> []
+| lhs :: (VBAR as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior10 lst
+
+and prior10 = function
+| [] -> []
+| lhs :: (AMPERSAND_AMPERSAND as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior11 lst
+
+and prior11 = function
+| [] -> []
+| lhs :: (VBAR_VBAR as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lst -> prior12 lst
+
+and prior12 = function
+| [] -> []
+| lhs :: QUERY :: rhs :: COLON :: rhs' :: tl -> prior1 (TUPLE5(lhs, QUERY, rhs, COLON, rhs') :: tl)
+| oth -> oth
 
 and wire_map = function
 | TUPLE2 (IDENTIFIER id, EMPTY_TOKEN) -> Id id

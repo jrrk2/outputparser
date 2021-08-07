@@ -134,7 +134,7 @@ let rec dump fd = function
 | oth -> unhand := Some oth; failwith "dump"
 
 let rec obin w n = 
-  (if w > 0 then obin (w-1) (n lsr 2) else "")^string_of_int (n mod 2)
+  (if w > 1 then obin (w-1) (n lsr 1) else "")^string_of_int (n land 1)
 
 let rec vexpr = function
 | Id s -> s
@@ -144,21 +144,22 @@ let rec vexpr = function
 | Intgr n -> string_of_int n
 | Tilde expr -> "~" ^ vexpr expr
 | Concat lst -> String.concat " & " (List.map vexpr lst)
-| Sel (Id id, rhs) -> id ^ "( " ^ vexpr rhs ^ "  s)"
+| Sel (Id id, rhs) -> id ^ "( " ^ vexpr rhs ^ " )"
 | Slice (id, hi, lo) -> id ^ "( " ^ vexpr hi ^ " downto " ^ vexpr lo ^ " )"
-| Add (lhs, rhs) -> vexpr lhs ^ "-" ^ vexpr rhs
+| Add (lhs, rhs) -> vexpr lhs ^ "+" ^ vexpr rhs
 | Sub (lhs, rhs) -> vexpr lhs ^ "-" ^ vexpr rhs
-| Equals (lhs, rhs) -> vexpr lhs ^ "=" ^ vexpr rhs
-| NotEq (lhs, rhs) -> vexpr lhs ^ "!=" ^ vexpr rhs
-| GtEq (lhs, rhs) -> vexpr lhs ^ ">=" ^ vexpr rhs
+| Equals (lhs, rhs) -> vexpr lhs ^ " = " ^ vexpr rhs
+| NotEq (lhs, rhs) -> vexpr lhs ^ " != " ^ vexpr rhs
+| GtEq (lhs, rhs) -> vexpr lhs ^ " >= " ^ vexpr rhs
 | Or (lhs, rhs) -> vexpr lhs ^ " or " ^ vexpr rhs
 | Xor (lhs, rhs) -> vexpr lhs ^ " xor " ^ vexpr rhs
 | And (lhs, rhs) -> vexpr lhs ^ " and " ^ vexpr rhs
-| And2 (lhs, rhs) -> vexpr lhs ^ " && " ^ vexpr rhs
+| And2 (lhs, rhs) -> vexpr lhs ^ " and " ^ vexpr rhs
 | Clog2 expr -> "Clog2("^vexpr expr^")"
 | Unsigned expr -> "unsigned("^vexpr expr^")"
 | Shiftl (lhs, rhs) -> "shift_left("^vexpr lhs^", "^vexpr rhs^")"
 | Dot (port, conn) -> port ^ " => " ^ (vexpr conn)
+| Query (cond', ctrue', cfalse') -> sprintf "%s when %s else %s" (vexpr ctrue') (vexpr cond') (vexpr cfalse')
 | Unknown u -> "unknown: " ^ u
 | oth -> unhand := Some oth; failwith "vexpr"
 
@@ -187,11 +188,12 @@ let simplify x =
   !rslt2
 
 let vexpr x = vexpr (simplify x)
+let initexpr x = match simplify x with Intgr 0 -> "(others => '0')" | oth -> vexpr oth
 
 let asgn fd expr = function
-| Id lhs -> fprintf fd "            %s <= %s;\n" lhs (vexpr expr)
-| Sel (Id id, rhs) -> fprintf fd "            %s(%s) <= %s;\n" id (vexpr rhs) (vexpr expr)
-| Slice (id, hi, lo) -> fprintf fd "            %s( %s downto %s ) <= %s;\n" id (vexpr hi) (vexpr lo) (vexpr expr)
+| Id lhs -> fprintf fd "            %s <= %s;\n" lhs (initexpr expr)
+| Sel (Id id, rhs) -> fprintf fd "            %s(%s) <= %s;\n" id (vexpr rhs) (initexpr expr)
+| Slice (id, hi, lo) -> fprintf fd "            %s( %s downto %s ) <= %s;\n" id (vexpr hi) (vexpr lo) (initexpr expr)
 | oth -> unhand := Some oth; failwith "asgn"
 
 let vdir = function
@@ -240,6 +242,7 @@ let rec stmt_clause fd = function
     (match if_lst with BeginBlock if_lst -> List.iter (stmt_clause fd) if_lst | _ -> stmt_clause fd if_lst);       
   fprintf fd "        else\n";
     (match else_lst with BeginBlock else_lst -> List.iter (stmt_clause fd) else_lst | _ -> stmt_clause fd else_lst);
+  fprintf fd "        end if;\n";
       | Blocking (lhs, expr) -> asgn fd expr lhs
       | NonBlocking (lhs, expr) -> asgn fd expr lhs
       | Iff _ as x -> iff_template fd x
@@ -251,17 +254,28 @@ let rec stmt_clause fd = function
 and iff_template fd = function
     | Source_text_rewrite_types.Iff(condition, if_lst) ->
   fprintf fd "        if (%s) then\n" (vexpr condition);
-    stmt_clause fd if_lst;       
+    stmt_clause fd if_lst;
+  fprintf fd "        end if;\n";
     | oth -> unhand := Some oth; failwith "iff_template"
 
 let rec sent_template fd = function
     | BeginBlock lst -> List.iter (sent_template fd) lst
-    | Ifelse (Equals (Id rst, lev), BeginBlock if_lst, BeginBlock else_lst) ->
+    | Ifelse (Equals (Id rst, lev), if_lst, else_lst) ->
   fprintf fd "        if (%s = %s) then\n" rst (vexpr lev);
-    List.iter (stmt_clause fd) if_lst;       
+    stmt_clause fd if_lst;
   fprintf fd "        elsif (CLK'event and CLK = '1') then\n";
-    List.iter (stmt_clause fd) else_lst;       
+    stmt_clause fd else_lst;
+  fprintf fd "        end if;\n";
+    | Ifelse (Id rst, if_lst, else_lst) ->
+  fprintf fd "        if (%s = %s) then\n" rst (vexpr (Number (2, 1, 1, "1")));
+    stmt_clause fd if_lst;
+  fprintf fd "        elsif (CLK'event and CLK = '1') then\n";
+    stmt_clause fd else_lst;
+  fprintf fd "        end if;\n";
+    | oth -> unhand := Some oth; failwith "sent_template"
+(*
     | oth -> stmt_clause fd oth
+*)
 
 let proc_template fd cnt = function
     | DeclReg _ -> ()
@@ -278,18 +292,22 @@ let proc_template fd cnt = function
   fprintf fd "    COMB%d: process (%s)\n" !cnt (String.concat ", " dep_lst);
   incr cnt;
   fprintf fd "    begin\n";
-  stmt_clause fd sent_lst;       
+  stmt_clause fd sent_lst;
   fprintf fd "    end process;\n";
   fprintf fd "\n";
     | CaseStmt _ -> ()
-    | Asgnlst _ -> ()
+    | Asgnlst lst -> List.iter (function
+      | Blocking (Id rhs, expr) -> fprintf fd "%s <= %s;\n" rhs (vexpr expr);
+      | Blocking (Slice (rhs, hi, lo), expr) -> fprintf fd "-- %s\n" rhs;
+      | Blocking (Sel (Id rhs, sel), expr) -> fprintf fd "-- %s\n" rhs;
+      | oth -> unhand := Some oth; failwith "assign_template") lst
     | Iff _ -> ()
     | Hash _ -> ()
     | TypEnum _ -> ()
     | Typ (typ, [], typ_lst) -> ()
     | DeclIntf1 (typ, lst) -> List.iter (function
         | DeclIntf2 (inst, pinlst) ->
-	fprintf fd "%s: %s port map (\n\t%s);\n" inst typ (String.concat ",\n\t" (List.map vexpr pinlst))
+	fprintf fd "%s: %s port map (\n\t%s\n\t);\n" inst typ (String.concat ",\n\t" (List.map vexpr pinlst))
 	| Id id -> fprintf fd "--%s\n" id
 	| oth -> unhand := Some oth; failwith "DeclIntf"
 	) lst;

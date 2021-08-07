@@ -172,6 +172,7 @@ let template toklst gramlst =
     List.iter (fun (typ,itm) -> Hashtbl.add termhash itm (true, typ);
                if not (List.mem itm !toklst') then toklst' := itm :: !toklst')
       [
+      "token list", "ELIST";
       "string list", "SLIST";
       "token list", "TLIST"];
     let toklst' = List.sort compare !toklst' in

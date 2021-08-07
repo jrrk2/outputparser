@@ -723,6 +723,7 @@ let tok' = function
 | Do  -> "\"do\""
 | EMPTY_TOKEN  -> "\"EMPTY_TOKEN\""
 | END  -> "\"END\""
+| ELIST  _ -> "\"ELIST\""
 | EOF_TOKEN  -> ""
 | EQUALS  -> "="
 | EQ_EQ  -> "\"==\""
