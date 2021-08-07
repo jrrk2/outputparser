@@ -158,6 +158,8 @@ let rec vexpr = function
 | Clog2 expr -> "Clog2("^vexpr expr^")"
 | Unsigned expr -> "unsigned("^vexpr expr^")"
 | Shiftl (lhs, rhs) -> "shift_left("^vexpr lhs^", "^vexpr rhs^")"
+| Dot (port, conn) -> port ^ " => " ^ (vexpr conn)
+| Unknown u -> "unknown: " ^ u
 | oth -> unhand := Some oth; failwith "vexpr"
 
 let rec simplify = function
@@ -192,21 +194,42 @@ let asgn fd expr = function
 | Slice (id, hi, lo) -> fprintf fd "            %s( %s downto %s ) <= %s;\n" id (vexpr hi) (vexpr lo) (vexpr expr)
 | oth -> unhand := Some oth; failwith "asgn"
 
-let decl_template fd = function
+let vdir = function
+  | In -> "in "
+  | Out -> "out"
+  | _ -> failwith "vdir"
+
+let ports = function
+    | Port((In|Out) as dir,  nam, []) ->
+        sprintf "%24s         : %s std_logic" nam (vdir dir);
+    | Port ((In|Out) as dir, nam, [Dim (hi, Intgr 0)]) ->
+        sprintf "%24s         : %s std_logic_vector(%s downto 0)" nam (vdir dir) (vexpr hi);
+    | oth -> unhand := Some oth; failwith "component"
+
+let decl_template fd modules complst = function
     | DeclReg ([Dim (Intgr hi, Intgr lo)], [nam], [[]]) ->
     fprintf fd "    signal %s : std_logic_vector(%d downto %d);\n" nam hi lo
     | DeclReg ([], [nam], [[]]) ->
     fprintf fd "    signal %s : std_logic;\n" nam
     | DeclReg ([Dim (hi, Intgr lo)], [nam], [[]]) ->
     fprintf fd "    signal %s : std_logic_vector(%s downto %d);\n" nam (vexpr hi) lo
-    | DeclIntf1 (typ, [Id state1; Id state2]) -> ()
+    | DeclIntf1 (typ, _) -> if not (List.mem typ !complst) then
+    begin
+    complst := typ :: !complst;
+    match Hashtbl.find_opt modules typ with Some (Modul(_, port_lst, _)) ->
+  fprintf fd "    -- Component %s description\n" typ;
+  fprintf fd "    component %s is\n" typ;
+  fprintf fd "    port (\n%s\n    );\n" (String.concat ";\n" (List.map ports port_lst));
+  fprintf fd "    end component;\n";
+	| None -> fprintf fd "-- %s is not a module\n" typ;
+        | Some oth -> unhand := Some oth; failwith ("DeclIntf: "^typ)
+    end
     | CaseStmt _ -> ()
     | Asgnlst _ -> ()
     | Sentry _ -> ()
     | TypEnum _ -> ()
     | Hash _ -> ()
     | Typ (typ, [], typ_lst) -> ()
-    | DeclIntf1 (typ, lst) -> ()
     | oth -> unhand := Some oth; failwith "decl_template"
 
 let rec stmt_clause fd = function
@@ -264,15 +287,15 @@ let proc_template fd cnt = function
     | Hash _ -> ()
     | TypEnum _ -> ()
     | Typ (typ, [], typ_lst) -> ()
-    | DeclIntf1 (typ, lst) -> ()
+    | DeclIntf1 (typ, lst) -> List.iter (function
+        | DeclIntf2 (inst, pinlst) ->
+	fprintf fd "%s: %s port map (\n\t%s);\n" inst typ (String.concat ",\n\t" (List.map vexpr pinlst))
+	| Id id -> fprintf fd "--%s\n" id
+	| oth -> unhand := Some oth; failwith "DeclIntf"
+	) lst;
     | oth -> unhand := Some oth; failwith "proc_template"
 
-let vdir = function
-  | In -> "in "
-  | Out -> "out"
-  | _ -> failwith "vdir"
-
-let template fd = function Modul(entnam, port_lst, body_lst) -> let cnt = ref 1 in
+let template fd modules = function Modul(entnam, port_lst, body_lst) -> let cnt = ref 1 in
   fprintf fd "--\n";
   fprintf fd "-- This converter does not currently preserve comments and license information\n";
   fprintf fd "--\n";
@@ -283,18 +306,14 @@ let template fd = function Modul(entnam, port_lst, body_lst) -> let cnt = ref 1 
   fprintf fd "\n";
   fprintf fd "-- entity description goes here\n";
   fprintf fd "entity %s is\n" entnam;
-  let portxt = List.map(function
-    | Port((In|Out) as dir,  nam, []) ->
-        sprintf "        %16s         : %s std_logic" nam (vdir dir);
-    | Port ((In|Out) as dir, nam, [Dim (hi, Intgr 0)]) ->
-        sprintf "        %16s         : %s std_logic_vector(%s downto 0)" nam (vdir dir) (vexpr hi);
-    | oth -> unhand := Some oth; failwith "template") port_lst in
-  fprintf fd "    port (\n%s\n    );\n" (String.concat ";\n" portxt);
+  fprintf fd "    port (\n%s\n    );\n" (String.concat ";\n" (List.map ports port_lst));
   fprintf fd "end %s;\n" entnam;
   fprintf fd "\n";
   fprintf fd "architecture rtl of %s is\n" entnam;
   fprintf fd "    -- Signals\n";
-  List.iter (decl_template fd) body_lst;
+  let complst = ref [] in
+  List.iter (decl_template fd modules complst) (List.sort compare (List.filter (function DeclIntf1 _ -> true | _ -> false) body_lst));
+  List.iter (decl_template fd modules complst) (List.filter (function DeclIntf1 _ -> false | _ -> true) body_lst);
   fprintf fd "begin\n";
 List.iter (proc_template fd cnt) body_lst;
   fprintf fd "\n";

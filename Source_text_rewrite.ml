@@ -542,7 +542,7 @@ let rewrite v =
   let modlst = ref [] in
   Hashtbl.iter (fun k x ->
 		modlst := k :: !modlst;
-		let fd = open_out (k^"_dump.vhd") in Dump_vhdl.template fd x;
+		let fd = open_out (k^"_dump.vhd") in Dump_vhdl.template fd modules x;
 		close_out fd) modules;
   let modlst = !modlst in
   modlst, x, p, p'

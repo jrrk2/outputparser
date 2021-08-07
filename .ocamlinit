@@ -73,12 +73,14 @@ let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; clo
 
 let y = unroll {subst=Hashtbl.create 255; fn=descend} x;;
 
-let z = Hashtbl.find modules "uart_baudgen";;
+let z = Hashtbl.find modules "apb_uart";;
 let Modul(entnam, port_lst, body_lst) = z;;
 let s = List.filter (function Sentry _ -> true | _ -> false) body_lst;;
 let h = List.hd s;;
-let Sentry (Edge (Pos clk, Pos rst), BeginBlock lst1) = h;;
-let Ifelse (Equals (Id rst, Number _), BeginBlock lst2, BeginBlock lst3) = List.hd lst1;;
+let Sentry (Edge (Pos clk, Pos rst), blk) = h;;
+let Ifelse (Equals (Id rst, Number _), BeginBlock lst2, BeginBlock lst3) = blk;;
+
+let b = List.filter (function DeclReg _ -> false | Asgnlst _ -> false | Sentry _ -> false | _ -> true) body_lst;;
 
 let rwmods = Hashtbl.create 255;;
 
