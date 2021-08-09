@@ -4,6 +4,7 @@ type rw =
   | In
   | Out
   | Itmlst of rw list
+  | Expression of rw
   | Port of rw * string * rw list
   | Modul of string * rw list * rw list
   | Pos of string

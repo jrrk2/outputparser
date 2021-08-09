@@ -63,6 +63,7 @@ let v = "picorv32_ref.v";;
 let v = "process.v";;
 let v = "preprocess.sv";;
 let v = "blocking.v";;
+let v = "prec.sv";;
 let v = "uart.sv";;
    
 let modlst,x,p,p' = rewrite v;;
@@ -75,10 +76,8 @@ let y = unroll {subst=Hashtbl.create 255; fn=descend} x;;
 
 let z = Hashtbl.find modules "apb_uart";;
 let Modul(entnam, port_lst, body_lst) = z;;
-let s = List.filter (function Sentry _ -> true | _ -> false) body_lst;;
-let h = List.hd s;;
-let Sentry (Edge (Pos clk, Pos rst), blk) = h;;
-let Ifelse (Equals (Id rst, Number _), BeginBlock lst2, BeginBlock lst3) = blk;;
+let s = List.filter (function Sentry _ -> false | DeclReg _ -> false | Asgnlst [Blocking (Id _, _)] -> true | _ -> false) body_lst;;
+let a x = List.nth s x;;
 
 let b = List.filter (function DeclReg _ -> false | Asgnlst _ -> true | Sentry _ -> false | _ -> false) body_lst;;
 
@@ -93,32 +92,20 @@ let _ = match p' with
     | TUPLE2(TLIST lst, _) -> scanp lst
     | _ -> ();;
 
-(*
-assign   iWrite = (PSEL ==  1'b1 && PENABLE ==  1'b1) && PWRITE ==  1'b1 ?  1'b1 :   1'b0;
-
-TUPLE3
- (TUPLE3
-   (LPAREN,
-    TUPLE3
-     (IDENTIFIER "PSEL", EQ_EQ,
-      TUPLE3
-       (INTEGER_NUMBER "1'b1 ", AMPERSAND_AMPERSAND,
-        TUPLE3 (IDENTIFIER "PENABLE", EQ_EQ, INTEGER_NUMBER "1'b1"))),
-    RPAREN),
-  AMPERSAND_AMPERSAND,
-  TUPLE3
-   (IDENTIFIER "PWRITE", EQ_EQ,
-    TUPLE5
-     (INTEGER_NUMBER "1'b1 ", QUERY, INTEGER_NUMBER "1'b1 ", COLON,
-      INTEGER_NUMBER "1'b0")))
-*)
-
 let conthash = Hashtbl.create 255;;
+let othasgn = ref None
 
 let (arg1, arg2, arg3, arg4, arg5, arg6) = Hashtbl.find rwmods "apb_uart";;
 let TLIST lst = arg4;;
 let lst' = List.filter (function TUPLE5 (Assign, _, _, _, _) -> true | _ -> false) lst;;
 let _ = List.iter (function
   | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST [TUPLE3 (IDENTIFIER lhs, EQUALS, expr)], SEMICOLON) -> Hashtbl.replace conthash lhs expr
-  | _ -> ()) lst';;
+  | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST [TUPLE3 (TUPLE6 (IDENTIFIER lhs, LBRACK, hi, COLON, lo, RBRACK), EQUALS, expr)], SEMICOLON) -> Hashtbl.replace conthash lhs expr
+  | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST [TUPLE3 (TUPLE4 (IDENTIFIER lhs, LBRACK, ix, RBRACK), EQUALS, expr)], SEMICOLON) -> Hashtbl.replace conthash lhs expr
+  | oth -> othasgn := Some oth; failwith "Assign") lst';;
 
+let v' = List.filter (function
+ | (Source_text_rewrite_types.Add _, _, _) -> false
+ | ((Sub _ |Id _|Number _ | Intgr _ | Slice _ | Sel _ | Equals _ | GtEq _ | Expression (Equals _) | Expression (Or (Equals _ , Equals _))), _, _) -> false
+ | (And2 _, _, _) -> true
+ | _ ->false) !vlst;;

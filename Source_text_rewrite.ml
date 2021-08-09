@@ -68,8 +68,8 @@ let missing = ref None
 let caseref = ref None
 
 let modules = Hashtbl.create 255
-let othlst = ref None
 let priorlst = ref None
+let mlst = ref []
 
 let widthnum (str:string) =
 let base = ref 10
@@ -193,8 +193,7 @@ m
 | TUPLE2 (TUPLE3 (lhs, VBAR_EQ, rhs), SEMICOLON) -> Blocking(rw' lhs, Or(rw' lhs, rw' rhs))
 | TUPLE2 (TUPLE3 (lhs, PLUS_EQ, rhs), SEMICOLON) -> Blocking(rw' lhs, Add(rw' lhs, rw' rhs))
 | TUPLE4 (TUPLE2 (Int, EMPTY_TOKEN), lhs, EQUALS, rhs) -> Blocking(rw' lhs, rw' rhs)
-| TUPLE3 (LPAREN, ELIST explst, RPAREN) -> priority explst
-| TUPLE3 (LPAREN, exp, RPAREN) -> rw' exp
+| TUPLE3 (LPAREN, exp, RPAREN) -> Expression (rw' exp)
 | TUPLE6 (LBRACE, repeat, LBRACE, TLIST lst, RBRACE, RBRACE) -> Repl(rw' repeat, List.rev_map rw' lst)
 | TUPLE8 (EMPTY_TOKEN, If, LPAREN, cond, RPAREN, if_clause, Else, else_clause) ->
  Ifelse(rw' cond, rw' if_clause, rw' else_clause)
@@ -235,7 +234,7 @@ let dimlst = match dimlst' with
  BeginBlock (match List.rev_map rw' stmts with Itmlst x :: [] -> x | oth -> oth)
 | TUPLE3 (Begin, TLIST stmts, End) ->
  BeginBlock (match List.rev_map rw' stmts with Itmlst x :: [] -> x | oth -> oth)
-| ELIST lst -> othlst := Some lst; priority lst
+| ELIST lst -> priority lst
 | TLIST lst -> Itmlst(List.rev_map rw' lst)
 | TUPLE5 (lhs, EMPTY_TOKEN, EMPTY_TOKEN, EQUALS, exp) -> Blocking (rw' lhs, rw' exp)
 | TUPLE3 (TUPLE3 (Bit, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst, SEMICOLON) ->
@@ -375,67 +374,69 @@ Package(pkgid, List.rev_map rw' itmlst)
 | SEMICOLON -> Unknown ";"
 | oth -> missing := Some oth; failwith ("rw' fail: "^Source_text_types.getstr oth)
 
-and priority explst = match prior1 explst with hd :: [] -> rw' hd | oth -> priorlst := Some oth; failwith "priority"
+and priority explst =
+  let matched = prior12 (prior11 (prior10 (prior9 (prior8 (prior7 (prior6 (prior5 (prior4 (prior3 (prior2 (prior1 explst))))))))))) in
+  mlst := (explst,matched) :: !mlst; match matched with hd :: [] -> rw' hd | oth -> priorlst := Some oth; failwith "priority"
 
 and prior1 = function
 | [] -> []
 | lhs :: (STAR_STAR as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior2 lst
+| hd :: tl -> hd :: prior1 tl
 
 and prior2 = function
 | [] -> []
-| lhs :: (STAR|SLASH as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior3 lst
+| lhs :: (STAR|SLASH as op) :: rhs :: tl -> prior2 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior2 tl
 
 and prior3 = function
 | [] -> []
-| lhs :: (PLUS|HYPHEN as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior4 lst
+| lhs :: (PLUS|HYPHEN as op) :: rhs :: tl -> prior3 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior3 tl
 
 and prior4 = function
 | [] -> []
-| lhs :: (LT_LT|GT_GT|GT_GT_GT (* |LT_LT_LT *) as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior5 lst
+| lhs :: (LT_LT|GT_GT|GT_GT_GT (* |LT_LT_LT *) as op) :: rhs :: tl -> prior4 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior4 tl
 
 and prior5 = function
 | [] -> []
-| lhs :: (LESS|LT_EQ|GREATER|GT_EQ as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior6 lst
+| lhs :: (LESS|LT_EQ|GREATER|GT_EQ as op) :: rhs :: tl -> prior5 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior5 tl
 
 and prior6 = function
 | [] -> []
-| lhs :: (EQ_EQ|PLING_EQ as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior7 lst
+| lhs :: (EQ_EQ|PLING_EQ as op) :: rhs :: tl -> prior6 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior6 tl
 
 and prior7 = function
 | [] -> []
-| lhs :: (AMPERSAND as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior8 lst
+| lhs :: (AMPERSAND as op) :: rhs :: tl -> prior7 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior6 tl
 
 and prior8 = function
 | [] -> []
-| lhs :: (CARET|CARET_TILDE as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior9 lst
+| lhs :: (CARET|CARET_TILDE as op) :: rhs :: tl -> prior8 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior8 tl
 
 and prior9 = function
 | [] -> []
-| lhs :: (VBAR as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior10 lst
+| lhs :: (VBAR as op) :: rhs :: tl -> prior9 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior9 tl
 
 and prior10 = function
 | [] -> []
-| lhs :: (AMPERSAND_AMPERSAND as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior11 lst
+| lhs :: (AMPERSAND_AMPERSAND as op) :: rhs :: tl -> prior10 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior10 tl
 
 and prior11 = function
 | [] -> []
-| lhs :: (VBAR_VBAR as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
-| lst -> prior12 lst
+| lhs :: (VBAR_VBAR as op) :: rhs :: tl -> prior11 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior11 tl
 
 and prior12 = function
 | [] -> []
 | lhs :: QUERY :: rhs :: COLON :: rhs' :: tl -> prior1 (TUPLE5(lhs, QUERY, rhs, COLON, rhs') :: tl)
-| oth -> oth
+| hd :: tl -> hd :: prior12 tl
 
 and wire_map = function
 | TUPLE2 (IDENTIFIER id, EMPTY_TOKEN) -> Id id
@@ -458,6 +459,7 @@ type attr = {subst: (string,rw)Hashtbl.t; fn: attr -> rw -> rw}
 
 let rec descend' (attr:attr) = function
   | Id id -> Id id
+  | Expression rw -> Expression(descend_itm attr rw)
   | Itmlst(rw_lst) -> Itmlst(descend_lst attr (rw_lst:rw list))
   | Sentry (Pos clk, lst) -> Sentry(Pos clk, descend_itm attr lst)
   | Unknown str -> Unknown str
