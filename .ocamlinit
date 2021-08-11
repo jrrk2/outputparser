@@ -1,3 +1,7 @@
+#print_length 100000;;
+#print_depth 100000;;
+
+
 (**************************************************************************)
 (*                                                                        *)
 (* OCaml template Copyright (C) 2004-2010                                 *)
@@ -75,8 +79,10 @@ let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; clo
 let y = unroll {subst=Hashtbl.create 255; fn=descend} x;;
 
 let z = Hashtbl.find modules "apb_uart";;
-let Modul(entnam, port_lst, body_lst) = z;;
-let s = List.filter (function Sentry _ -> false | DeclReg _ -> false | Asgnlst [Blocking (Id _, _)] -> true | _ -> false) body_lst;;
+let Modul(entnam, parms, port_lst, body_lst) = z;;
+let s, s' = List.partition (function Sentry _ -> false | DeclReg _ -> false | Asgnlst _ -> false | DeclIntf1 _ -> false | Hash _ -> false | _ -> true) body_lst;;
+let h = List.filter (function Hash _ -> true | _ -> false) s';;
+
 let a x = List.nth s x;;
 
 let b = List.filter (function DeclReg _ -> false | Asgnlst _ -> true | Sentry _ -> false | _ -> false) body_lst;;
@@ -86,18 +92,65 @@ let rwmods = Hashtbl.create 255;;
 let scanp = 
   List.iter (function
     | TUPLE7 (TUPLE3 (Module, EMPTY_TOKEN, IDENTIFIER nam), arg1, arg2, arg3, arg4, arg5, arg6) -> Hashtbl.add rwmods nam (arg1, arg2, arg3, arg4, arg5, arg6)
-    | _ -> ())
+    | _ -> failwith "scanp")
 
 let _ = match p' with
     | TUPLE2(TLIST lst, _) -> scanp lst
     | _ -> ();;
 
+let declhash = Hashtbl.create 255;;
 let conthash = Hashtbl.create 255;;
+let othdecl = ref None
 let othasgn = ref None
 
 let (arg1, arg2, arg3, arg4, arg5, arg6) = Hashtbl.find rwmods "apb_uart";;
 let TLIST lst = arg4;;
-let lst' = List.filter (function TUPLE5 (Assign, _, _, _, _) -> true | _ -> false) lst;;
+let lst',lst'' = List.partition (function TUPLE5 (Assign, _, _, _, _) -> true | _ -> false) lst;;
+let lst''' = List.filter (function
+  | TUPLE2 (Always, _) -> false
+  | TUPLE4 (IDENTIFIER _, TUPLE4(HASH, _, _, _), _, _) -> false
+  | TUPLE4 (IDENTIFIER _, EMPTY_TOKEN, TLIST (TUPLE5 _ :: _), _) -> false
+  | _ -> true) lst'';;
+let _ = List.iter (function
+  | TUPLE3 (TUPLE3 (Reg, EMPTY_TOKEN, dimlst), TLIST [TUPLE3 (IDENTIFIER lhs, EMPTY_TOKEN, EMPTY_TOKEN)], SEMICOLON) as x -> Hashtbl.replace declhash lhs x
+  | TUPLE3 (TUPLE3 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST [TUPLE3 (IDENTIFIER lhs, EMPTY_TOKEN, EMPTY_TOKEN)], SEMICOLON) as x -> Hashtbl.replace declhash lhs x
+  | TUPLE4 (IDENTIFIER typ_id, EMPTY_TOKEN, TLIST [TUPLE2 (IDENTIFIER lhs, EMPTY_TOKEN)], SEMICOLON) as x -> Hashtbl.replace declhash lhs x
+  | TUPLE6 (Typedef, TUPLE5 (Enum, typ_decl, LBRACE, TLIST id_lst, RBRACE), IDENTIFIER typ_id, EMPTY_TOKEN, EMPTY_TOKEN, SEMICOLON) as x -> Hashtbl.replace declhash typ_id x
+  | TUPLE6 (Typedef, TUPLE5 (Enum, typ_decl, LBRACE, TLIST lst, RBRACE), TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN, EMPTY_TOKEN, SEMICOLON) as x ->  Hashtbl.replace declhash typ_id x
+  | TUPLE3 (TUPLE3 (Logic, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst, SEMICOLON) as x -> List.iter (function TUPLE3 (IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN) -> Hashtbl.replace declhash nam x) lst
+  | TUPLE3 (TUPLE3 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), TLIST lst, SEMICOLON) as x -> List.iter (function
+      | TUPLE3 (IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN) -> Hashtbl.replace declhash nam x
+      | oth -> othdecl := Some oth; failwith "Decltyp" ) lst
+  | oth -> othdecl := Some oth; failwith "Decl") lst''';;
+
+let alst' = List.filter (function
+  | TUPLE2 (Always, _) -> true
+  | _ -> false) lst'';;
+
+let caselst = ref [];;
+
+let _ = List.iter (function
+  | TUPLE2 (Always,
+     TUPLE2
+      (TUPLE4 (AT, LPAREN, TUPLE3 (_, Or, _), RPAREN),
+       TUPLE8 (EMPTY_TOKEN, If, LPAREN, _, RPAREN, TUPLE4 (Begin, TLIST lst1, End, EMPTY_TOKEN), Else, TUPLE4 (Begin, TLIST lst, _, _)))) -> ()
+  | TUPLE2 (Always,
+      TUPLE2 (TUPLE4 (AT, LPAREN, _, RPAREN),
+        TUPLE4 (Begin,
+          TLIST
+           [TLIST
+             [TUPLE5
+               (EMPTY_TOKEN,
+                TUPLE4 (Case, LPAREN, _, RPAREN),
+                EMPTY_TOKEN,
+                TLIST lst1,
+		Endcase)]], End, EMPTY_TOKEN))) -> caselst := lst1 :: !caselst
+  | oth -> othasgn := Some oth; failwith "always") alst';;
+
+let itms = ref [];;
+let itms' = ref [];;
+let c = List.iter (collapse_case itms itms') (List.rev (List.hd !caselst));;
+
 let _ = List.iter (function
   | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST [TUPLE3 (IDENTIFIER lhs, EQUALS, expr)], SEMICOLON) -> Hashtbl.replace conthash lhs expr
   | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST [TUPLE3 (TUPLE6 (IDENTIFIER lhs, LBRACK, hi, COLON, lo, RBRACK), EQUALS, expr)], SEMICOLON) -> Hashtbl.replace conthash lhs expr

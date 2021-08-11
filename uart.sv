@@ -662,7 +662,7 @@ assign   iTXFIFO16Full = iTXFIFOUsage[4];
 assign   iTXFIFOFull = iFCR_FIFO64E ==  1'b0 ? iTXFIFO16Full :  iTXFIFO64Full;  
 assign   iTXFIFOWrite = ((iFCR_FIFOEnable ==  1'b0 && iTXFIFOEmpty ==  1'b1) | (iFCR_FIFOEnable ==  1'b1 && iTXFIFOFull ==  1'b0)) && iTHRWrite ==  1'b1 ?  1'b1 :   1'b0;  
 assign   iTXFIFOClear = iFCR_TXFIFOReset ==  1'b1 ?  1'b1 :   1'b0;  
-slib_fifo #(.WIDTH(11), .SIZE_E(11)) UART_RXFF (
+slib_fifo #(.WIDTH(11), .SIZE_E(6)) UART_RXFF (
 	.CLK(CLK),
 	.RST(iRST),
 	.CLEAR(iRXFIFOClear),
@@ -983,7 +983,7 @@ endmodule
  
 
 
-module slib_clock_div #(parameter RATIO = 4) (
+module slib_clock_div #(parameter RATIO = 8) (
 	input wire		CLK,
 	input wire		RST,
 	input wire		CE,
@@ -1232,9 +1232,6 @@ reg [SIZE_E:0] iRDAddr;
 reg [SIZE_E:0] init;  
 reg [SIZE_E - 1:0] iUSAGE;  
 
-case (SIZE_E)
-  6:
-    begin:size64
        reg [WIDTH-1:0] iFIFOMem [0:2**SIZE_E-1];
 
        always @(posedge CLK or posedge RST)
@@ -1254,36 +1251,6 @@ case (SIZE_E)
              end
 
        end
-
-    end
-  11:
-    begin:size2048
-     RAMB16_S9_S9 RAMB16_S9_S9_inst
-       (
-        .CLKA   ( CLK                      ),      
-        .DOA    ( Q                        ),      
-        .DOPA   (                          ),
-        .ADDRA  ( iRDAddr[SIZE_E - 1:0]    ),      
-        .DIA    ( 8'b0                     ),      
-        .DIPA   ( 1'b0                     ),
-        .ENA    ( 1'b1                     ),      
-        .SSRA   ( 1'b0                     ),      
-        .WEA    ( 1'b0                     ),      
-        .CLKB   ( CLK                      ),      
-        .DOB    (                          ),      
-        .DOPB   (                          ),
-        .ADDRB  ( iWRAddr[SIZE_E-1:0]      ),      
-        .DIB    ( D                        ),      
-        .DIPB   ( 1'b0                     ),
-        .ENB    ( iFULL == 1'b0            ),      
-        .SSRB   ( 1'b0                     ),      
-        .WEB    ( WRITE                    )       
-        );
-    end  
-  default:
-    $error("FIFO size must be 6 or 11");
-
-endcase  
    
 assign   iFULL = (iRDAddr[SIZE_E - 1:0]  == iWRAddr[SIZE_E - 1:0] ) && (iRDAddr[SIZE_E] != iWRAddr[SIZE_E]) ?  1'b1 :   1'b0;  
 
@@ -1400,7 +1367,7 @@ endmodule
  
 
 
-module slib_input_filter #(parameter SIZE = 4) (
+module slib_input_filter #(parameter SIZE = 2) (
 	input wire		CLK,
 	input wire		RST,
 	input wire		CE,
@@ -2361,10 +2328,10 @@ always @(CState or TXSTART or DIN or WLS or PEN or SP or EPS or STB or iParity)
      
   end
    
+    logic iP40, iP50, iP60, iP70;
      
     always @ (DIN or WLS)
     begin:TX_PAR
-        logic iP40, iP50, iP60, iP70;
         iP40 = DIN[4] ^ DIN[3] ^ DIN[2] ^ DIN[1] ^ DIN[0];
         iP50 = DIN[5] ^ iP40;
         iP60 = DIN[6] ^ iP50;

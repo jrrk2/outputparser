@@ -6,7 +6,7 @@ type rw =
   | Itmlst of rw list
   | Expression of rw
   | Port of rw * string * rw list
-  | Modul of string * rw list * rw list
+  | Modul of string * rw list * rw list * rw list
   | Pos of string
   | Neg of string
   | Edge of rw * rw
@@ -29,7 +29,7 @@ type rw =
   | Bits of rw
   | Typ of string * rw list * rw list
   | Struct of string * rw list
-  | TypEnum of string
+  | TypEnum of string * rw list * rw list
   | Comma of rw * rw * rw
   | Clog2 of rw
   | Equals of rw * rw

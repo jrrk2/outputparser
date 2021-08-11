@@ -109,6 +109,11 @@ parsemain: Translation_unit_list Translation_unit_list.top $(DMCFILES)
 %.cmo: %.ml
 	ocamlc.opt -g -c $<
 
+ghdl:
+	ghdl -a *.vhd
+	ghdl -e apb_uart
+	ghdl --synth apb_uart > apb_uart.synth
+
 depend:
 	ocamldep *.ml >.depend
 

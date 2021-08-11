@@ -53,3 +53,6 @@ Source_text_top
 Source_text_types.ml
 mungelst.ml
 *_dump.v
+*.synth
+work-obj93.cf
+

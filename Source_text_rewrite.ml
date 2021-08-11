@@ -105,6 +105,8 @@ end;
 Number (!base, !width, !value, (String.sub str (1 + !basing) (String.length str - 1 - !basing)))
 
 let rec rw' = function
+| TUPLE4 (IDENTIFIER id, EMPTY_TOKEN, TLIST (TUPLE2 (IDENTIFIER _, EMPTY_TOKEN) :: _ as lst), SEMICOLON) -> Typ(id, [], List.rev_map rw' lst)
+| TUPLE4 (IDENTIFIER id, EMPTY_TOKEN, TLIST (TUPLE5 _ :: _ as lst), SEMICOLON) -> DeclIntf1 (id, List.rev_map rw' lst)
 | Input -> In
 | Output -> Out
 | TUPLE2 (TLIST lst, EOF_TOKEN) -> Itmlst(List.rev_map rw' lst)
@@ -123,8 +125,12 @@ Port (rw' dir, port, List.rev_map rw' lst)
 Port (rw' dir, port, [])
 | TUPLE2 ((Input|Output) as dir, IDENTIFIER port) -> Port(rw' dir, port, [])
 | TUPLE7 (TUPLE3 (Module, EMPTY_TOKEN, IDENTIFIER modid), params,
-   TUPLE3(LPAREN, TLIST portlst, RPAREN), SEMICOLON, TLIST itmlst, Endmodule, EMPTY_TOKEN) ->
-let m = Modul (modid, List.rev_map rw' (portlst), List.rev_map rw' (itmlst)) in
+		 TUPLE3(LPAREN, TLIST portlst, RPAREN), SEMICOLON, TLIST itmlst, Endmodule, EMPTY_TOKEN) ->
+let p = match params with TUPLE4(HASH, LPAREN, TLIST plst, RPAREN) ->
+List.rev_map (function
+	      | TUPLE2 (_, TUPLE4 (IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN, TUPLE2 (EQUALS, expr))) -> Param(nam, rw' expr)
+	      | oth -> missing := Some oth; failwith "param") plst | oth -> [] in		 
+let m = Modul (modid, p, List.rev_map rw' (portlst), List.rev_map rw' (itmlst)) in
 Hashtbl.add modules modid m;
 m
 | TUPLE5 (tag, QUOTE, LPAREN, exp, RPAREN) -> Cast(rw' tag, rw' exp)
@@ -245,10 +251,10 @@ let dimlst = match dimlst' with
 	  | oth -> failwith "Int[eger]") lst)
 | TUPLE5 (DOT, IDENTIFIER port, LPAREN, conn, RPAREN) -> Dot(port,rw' conn)
 | TUPLE2 (DOT, IDENTIFIER port) -> Dot(port, Id port)
+| TUPLE4 (DOT, IDENTIFIER port, LPAREN, RPAREN) -> Dot(port, Deflt)
 | DOT_STAR -> Dot("*", Unknown "*")
 | TUPLE5 (IDENTIFIER id, EMPTY_TOKEN, LPAREN, TLIST [TLIST lst], RPAREN) ->
   DeclIntf2 (id, List.rev_map rw' lst)
-| TUPLE4 (IDENTIFIER id, EMPTY_TOKEN, TLIST lst, SEMICOLON) -> DeclIntf1 (id, List.rev_map rw' lst)
 | TUPLE5 (IDENTIFIER id, EMPTY_TOKEN, LPAREN, TLIST lst, RPAREN) -> Parenth (id, List.rev_map rw' lst)
 | TUPLE4 (IDENTIFIER id, TUPLE4 (HASH, LPAREN, TLIST lst, RPAREN), TLIST lst', SEMICOLON) ->
   Hash(id, List.rev_map rw' lst, List.rev_map rw' lst')
@@ -317,21 +323,12 @@ ForLoop (rw' (TUPLE3(IDENTIFIER ix, EQUALS, INTEGER_NUMBER strt)) :: [], rw' sto
 | TUPLE5 (EMPTY_TOKEN, TUPLE4 ((Case|Casez|Casex), LPAREN, slice, RPAREN),
       EMPTY_TOKEN,
       TLIST caselst,
-      Endcase) ->
-let lst' = ref [] in
-let lstrf = ref [] in
-caseref := Some caselst;
-List.iter (collapse_case lst' lstrf) (List.rev caselst);
- CaseStmt(rw' slice, List.rev !lst')
+      Endcase) -> collapse_case' slice caselst
 | TUPLE6 ((Case|Casez|Casex), LPAREN, slice, RPAREN,
       TLIST caselst,
-      Endcase) ->
-let lst' = ref [] in
-let lstrf = ref [] in
-caseref := Some caselst;
-List.iter (collapse_case lst' lstrf) (List.rev caselst);
- CaseStmt(rw' slice, List.rev !lst')
+      Endcase) -> collapse_case' slice caselst
 | TUPLE3 (Generate, TLIST genlst, Endgenerate) -> GenBlock(List.rev_map rw' genlst)
+
 | TUPLE3 (TUPLE3 (EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id, dimlst'), TLIST lst, SEMICOLON) ->
 let dimlst = match dimlst' with
     | TLIST dimlst -> List.rev_map rw' (dimlst)
@@ -347,9 +344,12 @@ let dimlst = match dimlst' with
 	RBRACE),
 	  (TYPE_HYPHEN_IDENTIFIER id | IDENTIFIER id), EMPTY_TOKEN, EMPTY_TOKEN, SEMICOLON) ->
   let typ' = match typ with 
-    | TUPLE3 (Logic, EMPTY_TOKEN, TLIST lst) -> ()
-    | _ -> () in
-  TypEnum id
+    | TUPLE3 (Logic, EMPTY_TOKEN, TLIST lst) -> TypEnum (id, List.rev_map rw' lst, List.rev_map rw' lst')
+    | TUPLE3 (Logic, EMPTY_TOKEN, EMPTY_TOKEN) -> TypEnum (id, [], List.rev_map rw' lst')
+    | EMPTY_TOKEN -> TypEnum (id, [], List.rev_map rw' lst')
+
+    | oth -> missing := Some oth; failwith "typ_enum" in
+  typ'
 | TUPLE6
      (Typedef,
       TUPLE2 (TUPLE5 (Struct, TUPLE2 (Packed, EMPTY_TOKEN), LBRACE, TLIST lst, RBRACE), EMPTY_TOKEN),
@@ -363,7 +363,6 @@ let dimlst = match dimlst' with
       EMPTY_TOKEN,
       TUPLE2(EQUALS, TUPLE3 (QUOTE_LBRACE, TLIST [TUPLE3 (Default, COLON, exp)], RBRACE))) ->
  Unknown "302" 
-| TUPLE4 (DOT, IDENTIFIER id, LPAREN, RPAREN) -> Unknown id
 | TUPLE4 (TUPLE4 (Package, EMPTY_TOKEN, IDENTIFIER pkgid, SEMICOLON), TLIST itmlst, Endpackage, elab) ->
 Package(pkgid, List.rev_map rw' itmlst)
 | TUPLE3 (IDENTIFIER lft, Or, IDENTIFIER rght) -> DepLst (lft :: rght :: [])
@@ -455,6 +454,13 @@ and collapse_case lst' lstrf = function
 | (TUPLE4 _ | TUPLE5 _) as oth -> lstrf := rw' oth :: !lstrf
 | oth -> missing := Some oth; failwith "collapse case"
 
+and collapse_case' slice caselst =
+let lst' = ref [] in
+let lstrf = ref [] in
+caseref := Some caselst;
+List.iter (collapse_case lst' lstrf) (List.rev caselst);
+ CaseStmt(rw' slice, List.rev ((CaseItm (BeginBlock [] :: !lstrf)) :: !lst'))
+
 type attr = {subst: (string,rw)Hashtbl.t; fn: attr -> rw -> rw}
 
 let rec descend' (attr:attr) = function
@@ -465,7 +471,7 @@ let rec descend' (attr:attr) = function
   | Unknown str -> Unknown str
   | In -> In
   | Out -> Out
-  | Modul(str1, rw_lst2, rw_lst3) -> Modul(str1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
+  | Modul(str1, rw_lst1, rw_lst2, rw_lst3) -> Modul(str1, descend_lst attr rw_lst1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
   | DeclReg(rw_lst, str1_lst, rw_lst_lst) -> DeclReg(descend_lst attr rw_lst, str1_lst,
     List.map (fun itm -> descend_lst attr itm) rw_lst_lst)
   | NonBlocking(rw, rw2) -> NonBlocking(descend_itm attr rw, descend_itm attr rw2)
