@@ -177,6 +177,7 @@ let rec vexpr typhash = function
 | Number (b,w,n,s) -> "\"" ^ (obin w n) ^ "\""
 | Intgr n -> "\"" ^ (obin 32 n) ^ "\""
 | Tilde expr -> "not " ^ (vexpr typhash) expr
+| Pling expr -> "not " ^ (vexpr typhash) expr
 | Concat lst -> String.concat " & " (List.map (vexpr typhash) lst)
 | Sel (Id id, (Slice _ as rhs)) -> id ^ "(to_integer (" ^ vexpr' typhash rhs ^ ") )"
 | Sel (Id id, rhs) -> id ^ "( " ^ cexpr typhash rhs ^ " )"
@@ -286,6 +287,7 @@ let asgn fd typhash expr = function
 | Sel (Id id, Id ("WIDTH" as rhs)) -> fprintf fd "            %s(%s) <= %s;\n" id rhs (sel_expr typhash expr)
 | Sel (Id id, rhs) -> fprintf fd "            %s(to_integer(%s)) <= %s;\n" id (vexpr' typhash rhs) (sel_expr typhash expr)
 | Slice (id, hi, lo) -> fprintf fd "            %s( %s downto %s ) <= %s;\n" id (cexpr typhash hi) (cexpr typhash lo) (initexpr typhash expr)
+| Concat _ as lst -> fprintf fd "            %s <= %s;\n" (vexpr typhash lst) (initexpr typhash expr)
 | oth -> unhand := Some oth; failwith "asgn"
 
 let vdir = function
@@ -307,19 +309,30 @@ let parm_template fd typhash parm_lst =
   | Dot (nam, Intgr expr) -> Hashtbl.replace typhash nam (Vint expr); sprintf "%24s         : integer := %d" nam expr
   | oth -> unhand := Some oth; failwith "param_lst") parm_lst))
 
+let decl_mem fd typhash first last hi lo cnt mem =
+    fprintf fd "    type Mem_Type%d is array (%s downto %s) of std_logic_vector(%s downto %s);\n" !cnt (cexpr typhash last) (cexpr typhash first) (cexpr typhash hi) (cexpr typhash lo);
+    fprintf fd "    signal %s : Mem_Type%d := (others => (others => '0'));\n" mem !cnt;
+incr cnt
+
 let decl_template fd typhash modules complst cnt = function
-    | DeclReg ([], reg_lst, [[]]) -> List.iter (fun nam -> Hashtbl.replace typhash nam Std_logic;
-    fprintf fd "    signal %s : std_logic;\n" nam) reg_lst;
+    | DeclWire ([Dim (hi, lo)], wire_lst) -> List.iter (function
+	  | Id nam -> Hashtbl.replace typhash nam (Std_logic_vector(hi,lo));
+	  fprintf fd "    signal %s : std_logic_vector(%s downto %s);\n" nam (cexpr typhash hi) (cexpr typhash lo)
+	  | oth -> unhand := Some oth; failwith "DeclWire") wire_lst
+    | DeclWire ([], wire_lst) -> List.iter (function
+          | Id nam -> Hashtbl.replace typhash nam Std_logic;
+	  fprintf fd "    signal %s : std_logic;\n" nam
+	  | oth -> unhand := Some oth; failwith "DeclWire") wire_lst;
     | DeclLogic (reg_lst) -> List.iter (function
 	  | Id nam -> Hashtbl.replace typhash nam Std_logic; fprintf fd "    signal %s : std_logic;\n" nam
 	  | oth -> unhand := Some oth; failwith "DeclLogic"
         ) reg_lst;
-    | DeclReg ([Dim (hi, lo)], [nam], [[]]) -> Hashtbl.replace typhash nam (Std_logic_vector(hi,lo));
-    fprintf fd "    signal %s : std_logic_vector(%s downto %s);\n" nam (cexpr typhash hi) (cexpr typhash lo)
-    | DeclReg ([Dim (hi, lo)], [mem], [[Dim (first, last)]]) ->
-    fprintf fd "    type Mem_Type%d is array (%s downto %s) of std_logic_vector(%s downto %s);\n" !cnt (cexpr typhash last) (cexpr typhash first) (cexpr typhash hi) (cexpr typhash lo);
-    fprintf fd "    signal %s : Mem_Type%d := (others => (others => '0'));\n" mem !cnt;
-    incr cnt;
+    | DeclReg ([], reg_lst, [[]]) -> List.iter (fun nam -> Hashtbl.replace typhash nam Std_logic;
+    fprintf fd "    signal %s : std_logic;\n" nam) reg_lst;
+    | DeclReg ([Dim (hi, lo)], mem_lst, [[Dim (first, last)]]) -> List.iter (decl_mem fd typhash first last hi lo cnt) mem_lst
+    | DeclReg ([Dim (hi, lo)], nam_lst, init) -> List.iter (fun nam -> Hashtbl.replace typhash nam (Std_logic_vector(hi,lo));
+    fprintf fd "    signal %s : std_logic_vector(%s downto %s);\n" nam (cexpr typhash hi) (cexpr typhash lo);
+    if init <> [] then fprintf stderr "register %s is initialised (ignored)\n" nam) nam_lst
     | DeclIntf1 (typ, _) -> if not (List.mem typ !complst) then
     begin
     complst := typ :: !complst;
@@ -398,20 +411,31 @@ and iff_template fd typhash = function
   fprintf fd "        end if;\n";
     | oth -> unhand := Some oth; failwith "iff_template"
 
-let rec sent_template fd typhash = function
-    | BeginBlock lst -> List.iter (sent_template fd typhash) lst
+let rec sent_template fd typhash clk = function
+    | BeginBlock lst -> List.iter (sent_template fd typhash clk) lst
     | Ifelse (Equals (Id rst, lev), if_lst, else_lst) ->
   fprintf fd "        if (%s = %s) then\n" rst (vexpr typhash lev);
     stmt_clause fd typhash if_lst;
-  fprintf fd "        elsif (CLK'event and CLK = '1') then\n";
+  fprintf fd "        elsif (%s'event and %s = '1') then\n" clk clk;
     stmt_clause fd typhash else_lst;
   fprintf fd "        end if;\n";
     | Ifelse (Id rst, if_lst, else_lst) ->
   fprintf fd "        if (%s = %s) then\n" rst (vexpr typhash (Number (2, 1, 1, "1")));
     stmt_clause fd typhash if_lst;
-  fprintf fd "        elsif (CLK'event and CLK = '1') then\n";
+  fprintf fd "        elsif (%s'event and %s = '1') then\n" clk clk;
     stmt_clause fd typhash else_lst;
   fprintf fd "        end if;\n";
+    | Ifelse (Pling (Id rst), if_lst, else_lst) ->
+  fprintf fd "        if (%s = %s) then\n" rst (vexpr typhash (Number (2, 1, 0, "1")));
+    stmt_clause fd typhash if_lst;
+  fprintf fd "        elsif (%s'event and %s = '1') then\n" clk clk;
+    stmt_clause fd typhash else_lst;
+  fprintf fd "        end if;\n";
+    | Iff (Id cond, if_lst) ->
+  fprintf fd "        if (%s'event and %s = '1') then\n" clk clk;
+    stmt_clause fd typhash if_lst;
+  fprintf fd "        end if;\n";
+
     | oth -> unhand := Some oth; failwith "sent_template"
 
 let instance_template fd typhash typ params = function
@@ -424,13 +448,22 @@ let instance_template fd typhash typ params = function
     
 let proc_template fd typhash cnt = function
     | DeclReg _ -> ()
+    | DeclWire _ -> ()
     | DeclLogic _ -> ()
-    | Sentry (Edge (Pos clk, Pos rst), sent_lst) ->
+    | Sentry (Edge (Pos clk, (Pos rst|Neg rst)), sent_lst) ->
   fprintf fd "    -- clocked process %d description goes here\n" !cnt;
   fprintf fd "    SEQ%d: process (%s, %s)\n" !cnt clk rst;
   incr cnt;
   fprintf fd "    begin\n";
-  sent_template fd typhash sent_lst;       
+  sent_template fd typhash clk sent_lst;       
+  fprintf fd "    end process;\n";
+  fprintf fd "\n";
+    | Sentry (Pos clk, sent_lst) ->
+  fprintf fd "    -- clocked process %d description goes here\n" !cnt;
+  fprintf fd "    SEQ%d: process (%s)\n" !cnt clk;
+  incr cnt;
+  fprintf fd "    begin\n";
+  sent_template fd typhash clk sent_lst;       
   fprintf fd "    end process;\n";
   fprintf fd "\n";
     | Sentry (DepLst dep_lst, sent_lst) ->

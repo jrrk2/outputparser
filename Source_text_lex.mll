@@ -1112,10 +1112,11 @@ let tok arg = if verbose then Printf.printf "tokenToBison  TOKEN {c%d-%d:}=%d %s
   arg
 }
 
-let ident = ['a'-'z' 'A'-'Z' '$'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$']*
+let ident = ['a'-'z' 'A'-'Z' '$' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$']*
+let escaped = '\\'[^' ']*' '
 let fltnum = ['0'-'9']+'.'['E' '-' '+' '0'-'9']*
 let sizednumber = ['0'-'9']+'\''['b' 'd' 'h'][ '0'-'9' 'a'-'f' 'x' 'A'-'F' 'X' '_' ' ']+
-let number = ['0'-'9' '_']+
+let number = ['0'-'9']['0'-'9' '_']*
 let dfltnum = '''['0'-'9' 'b' 'h' 'x']['0'-'9' 'a'-'f' 'A'-'F' 'x']*
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
@@ -1209,6 +1210,9 @@ rule token = parse
       { tok ( try let f = float_of_string n in FLOATING_HYPHEN_POINT_NUMBER f with _ -> IDENTIFIER n) }
   | ident as s
       { tok ( try keyword s with Not_found -> if Hashtbl.mem typehash s then TYPE_HYPHEN_IDENTIFIER s else if !import_seen then IDENTIFIER_HYPHEN_COLON_COLON s else IDENTIFIER s ) }
+  | escaped as s
+      { let s = String.sub s 1 (String.length s - 1) in
+        tok ( if Hashtbl.mem typehash s then TYPE_HYPHEN_IDENTIFIER s else if !import_seen then IDENTIFIER_HYPHEN_COLON_COLON s else IDENTIFIER s ) }
   | qstring as s
       { tok ( STRING s ) }
   | eof

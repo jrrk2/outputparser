@@ -69,12 +69,12 @@ let v = "preprocess.sv";;
 let v = "blocking.v";;
 let v = "prec.sv";;
 let v = "uart.sv";;
+let v = "apb_uart.vsyn";;
    
 let modlst,x,p,p' = rewrite v;;
 
 (*
 let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;
-*)
 
 let y = unroll {subst=Hashtbl.create 255; fn=descend} x;;
 
@@ -149,7 +149,7 @@ let _ = List.iter (function
 
 let itms = ref [];;
 let itms' = ref [];;
-let c = List.iter (collapse_case itms itms') (List.rev (List.hd !caselst));;
+let _ = List.iter (collapse_case itms itms') (List.rev (List.hd !caselst));;
 
 let _ = List.iter (function
   | TUPLE5 (Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST [TUPLE3 (IDENTIFIER lhs, EQUALS, expr)], SEMICOLON) -> Hashtbl.replace conthash lhs expr
@@ -162,3 +162,5 @@ let v' = List.filter (function
  | ((Sub _ |Id _|Number _ | Intgr _ | Slice _ | Sel _ | Equals _ | GtEq _ | Expression (Equals _) | Expression (Or (Equals _ , Equals _))), _, _) -> false
  | (And2 _, _, _) -> true
  | _ ->false) !vlst;;
+
+*)

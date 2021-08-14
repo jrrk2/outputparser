@@ -104,6 +104,8 @@ if (!basing == 0) then begin
 end;
 Number (!base, !width, !value, (String.sub str (1 + !basing) (String.length str - 1 - !basing)))
 
+let remap = ref None
+
 let rec rw' = function
 | TUPLE4 (IDENTIFIER id, EMPTY_TOKEN, TLIST (TUPLE2 (IDENTIFIER _, EMPTY_TOKEN) :: _ as lst), SEMICOLON) -> Typ(id, [], List.rev_map rw' lst)
 | TUPLE4 (IDENTIFIER id, EMPTY_TOKEN, TLIST (TUPLE5 _ :: _ as lst), SEMICOLON) -> DeclIntf1 (id, List.rev_map rw' lst)
@@ -129,8 +131,16 @@ Port (rw' dir, port, [])
 let p = match params with TUPLE4(HASH, LPAREN, TLIST plst, RPAREN) ->
 List.rev_map (function
 	      | TUPLE2 (_, TUPLE4 (IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN, TUPLE2 (EQUALS, expr))) -> Param(nam, rw' expr)
-	      | oth -> missing := Some oth; failwith "param") plst | oth -> [] in		 
-let m = Modul (modid, p, List.rev_map rw' (portlst), List.rev_map rw' (itmlst)) in
+	      | oth -> missing := Some oth; failwith "param") plst | oth -> [] in
+	      let itms = List.rev_map rw' (itmlst) in
+	      let portdecl, itms = List.partition (function DeclLogic (Port _ :: _) -> true | _ -> false) itms in
+              let porthash = Hashtbl.create 255 in
+              let _ = List.iter (function DeclLogic lst -> List.iter (function Port(dir, nam, dimlst) -> Hashtbl.add porthash nam (dir,dimlst) | _ -> ()) lst | _ -> ()) portdecl in
+	      let ports = List.rev_map rw' (portlst) in
+	      let ports' = List.map (function
+				      | Id port -> let dir,dims = Hashtbl.find porthash port in Port(dir, port, dims)
+				      | oth -> remap := Some oth; failwith "ports") ports in
+let m = Modul (modid, p, ports', itms) in
 Hashtbl.add modules modid m;
 m
 | TUPLE5 (tag, QUOTE, LPAREN, exp, RPAREN) -> Cast(rw' tag, rw' exp)
@@ -371,6 +381,14 @@ Package(pkgid, List.rev_map rw' itmlst)
                                               | _ ->  missing := Some oth; failwith ("dep fail: "^Source_text_types.getstr oth))
 | STRING s -> Unknown s
 | SEMICOLON -> Unknown ";"
+| TUPLE2 (TUPLE3 ((Input|Output) as dir, EMPTY_TOKEN, TLIST lst), SEMICOLON) ->
+DeclLogic(List.rev_map (function
+	| TUPLE3 (IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> Port(rw' dir, port, [])
+        | oth -> missing := Some oth; failwith ("rw' port fail: "^Source_text_types.getstr oth)) lst)
+| TUPLE2 (TUPLE5 ((Input|Output) as dir, EMPTY_TOKEN, EMPTY_TOKEN, TLIST lst, TLIST lst'), SEMICOLON) ->
+DeclLogic(List.rev_map (function
+	| TUPLE3 (IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) -> Port(rw' dir, port, List.rev_map rw' lst)
+        | oth -> missing := Some oth; failwith ("rw' port fail: "^Source_text_types.getstr oth)) lst')
 | oth -> missing := Some oth; failwith ("rw' fail: "^Source_text_types.getstr oth)
 
 and priority explst =
@@ -619,11 +637,13 @@ let rewrite v =
   let p = parse v in
   let p' = rw p in
   let x = rw' p' in
+  let fd = open_out (v^"_dump.vhd") in 
   let modlst = ref [] in
   Hashtbl.iter (fun k x ->
 		modlst := k :: !modlst;
-		let fd = open_out (k^"_dump.vhd") in Dump_vhdl.template fd modules x;
-		close_out fd) modules;
+		Dump_vhdl.template fd modules x;
+		) modules;
+  close_out fd;
   let modlst = !modlst in
   modlst, x, p, p'
 

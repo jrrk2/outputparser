@@ -15,7 +15,6 @@
  
  
 
-
  
  
  
@@ -30,7 +29,6 @@
  
  
  
-
 
 module apb_uart(
 	input wire		CLK,
@@ -56,7 +54,6 @@ module apb_uart(
 	output logic		SOUT);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
  
  
  
@@ -255,13 +252,13 @@ always @(posedge CLK or posedge iRST)
 always @(posedge CLK or posedge iRST)
   if ((iRST ==  1'b1))
     begin
-       iIER[3:0] <= 0;
+       iIER[7:0] <= 0;
     end
   else
     begin
        if ((iIERWrite ==  1'b1))
          begin
-            iIER[3:0] <= PWDATA[3:0];
+            iIER[7:0] <= {4'b0,PWDATA[3:0]};
          end
     end
 
@@ -269,7 +266,6 @@ assign   iIER_ERBI = iIER[0];
 assign   iIER_ETBEI = iIER[1];  
 assign   iIER_ELSI = iIER[2];  
 assign   iIER_EDSSI = iIER[3];  
-assign iIER[7:4] = 0;
 
 uart_interrupt UART_IIC (
 	.CLK(CLK),
@@ -423,13 +419,13 @@ assign   iLCR_DLAB = iLCR[7];
 always @(posedge CLK or posedge iRST)
   if ((iRST ==  1'b1))
     begin
-       iMCR[5:0] <= 0;
+       iMCR[7:0] <= 0;
     end
   else
     begin
        if ((iMCRWrite ==  1'b1))
          begin
-            iMCR[5:0] <= PWDATA[5:0];
+            iMCR[7:0] <= {2'b0,PWDATA[5:0]};
          end
     end
 
@@ -439,7 +435,6 @@ assign   iMCR_OUT1 = iMCR[2];
 assign   iMCR_OUT2 = iMCR[3];  
 assign   iMCR_LOOP = iMCR[4];  
 assign   iMCR_AFE = iMCR[5];  
-assign iMCR[7:6] = 0;
 
 always @(posedge CLK or posedge iRST)
   if ((iRST ==  1'b1))
@@ -716,13 +711,12 @@ assign   iRXClear =  1'b0;
 assign   iSIN = iMCR_LOOP ==  1'b0 ? iSINr :  iSOUT;  
 assign   iTXEnable = iTXFIFOEmpty ==  1'b0 && (iMCR_AFE ==  1'b0 | (iMCR_AFE ==  1'b1 && iMSR_CTS ==  1'b1)) ?  1'b1 :   1'b0;  
 
-   typedef enum logic [1:0] {TXIDLE, TXSTART, TXRUN, TXEND} tx_state_type;
-   typedef enum logic {RXIDLE, RXSAVE} rx_state_type;
+   typedef enum {TXIDLE, TXSTART, TXRUN, TXEND} tx_state_type;
+   typedef enum {RXIDLE, RXSAVE} rx_state_type;
    
    rx_state_type rx_State;
    tx_state_type tx_State;
    
-     
     always @ (posedge CLK or posedge iRST)
         if (iRST == 1'b1)
           begin
@@ -949,7 +943,6 @@ assign   PSLVERR =  1'b0;
 
 endmodule  
 
-
  
 
  
@@ -966,7 +959,6 @@ endmodule
  
  
 
-
  
  
  
@@ -981,7 +973,6 @@ endmodule
  
  
  
-
 
 module slib_clock_div #(parameter RATIO = 8) (
 	input wire		CLK,
@@ -990,7 +981,6 @@ module slib_clock_div #(parameter RATIO = 8) (
 	output logic		Q);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 reg iQ;  
 reg [$clog2(RATIO-1)-1:0] iCounter;
    
@@ -1025,7 +1015,6 @@ assign   Q = iQ;
 
 endmodule  
 
-
  
 
  
@@ -1042,7 +1031,6 @@ endmodule
  
  
 
-
  
  
  
@@ -1057,7 +1045,6 @@ endmodule
  
  
  
-
 
 module slib_counter # (parameter WIDTH = 4) (
 	input wire		CLK,
@@ -1071,7 +1058,6 @@ module slib_counter # (parameter WIDTH = 4) (
 	output logic		OVERFLOW);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 reg [WIDTH:0] iCounter;  
 
 always @(posedge CLK or posedge RST)
@@ -1114,7 +1100,6 @@ assign   Q = iCounter[WIDTH - 1:0];
 assign   OVERFLOW = iCounter[WIDTH];  
 endmodule  
 
-
  
 
  
@@ -1131,7 +1116,6 @@ endmodule
  
  
 
-
  
  
  
@@ -1146,7 +1130,6 @@ endmodule
  
  
  
-
 
 module slib_edge_detect(
 	input wire		CLK,
@@ -1156,7 +1139,6 @@ module slib_edge_detect(
 	output logic		FE);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 reg iDd;  
 
 always @(posedge CLK or posedge RST)
@@ -1177,7 +1159,6 @@ assign   FE = iDd ==  1'b1 && D ==  1'b0 ?  1'b1 :   1'b0;
 
 endmodule  
 
-
  
 
  
@@ -1194,7 +1175,6 @@ endmodule
  
  
 
-
  
  
  
@@ -1209,7 +1189,6 @@ endmodule
  
  
  
-
 
 module slib_fifo # (parameter WIDTH = 8, parameter SIZE_E=6) (
 	input wire		CLK,
@@ -1224,7 +1203,6 @@ module slib_fifo # (parameter WIDTH = 8, parameter SIZE_E=6) (
 	output logic	[SIZE_E - 1:0] 	USAGE);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 reg iEMPTY;  
 reg iFULL;  
 reg [SIZE_E:0] iWRAddr;  
@@ -1333,7 +1311,6 @@ assign   USAGE = iUSAGE;
 
 endmodule  
 
-
  
 
  
@@ -1350,7 +1327,6 @@ endmodule
  
  
 
-
  
  
  
@@ -1365,7 +1341,6 @@ endmodule
  
  
  
-
 
 module slib_input_filter #(parameter SIZE = 2) (
 	input wire		CLK,
@@ -1375,7 +1350,6 @@ module slib_input_filter #(parameter SIZE = 2) (
 	output logic		Q);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 
 reg [$clog2(SIZE+1)-1:0] iCount;
    
@@ -1415,7 +1389,6 @@ always @(posedge CLK or posedge RST)
 
 endmodule
 
-
  
 
  
@@ -1432,7 +1405,6 @@ endmodule
  
  
 
-
  
  
  
@@ -1447,7 +1419,6 @@ endmodule
  
  
  
-
 
 module slib_input_sync(
 	input wire		CLK,
@@ -1456,7 +1427,6 @@ module slib_input_sync(
 	output logic		Q);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 reg [1:0] iD;  
 
 always @(posedge CLK or posedge RST)
@@ -1476,7 +1446,6 @@ always @(posedge CLK or posedge RST)
 assign   Q = iD[1];  
 endmodule  
 
-
  
 
  
@@ -1493,7 +1462,6 @@ endmodule
  
  
 
-
  
  
  
@@ -1508,7 +1476,6 @@ endmodule
  
  
  
-
 
 module slib_mv_filter #(parameter WIDTH = 4, THRESHOLD = 10) (
 	input wire		CLK,
@@ -1519,7 +1486,6 @@ module slib_mv_filter #(parameter WIDTH = 4, THRESHOLD = 10) (
 	output logic		Q);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 reg [WIDTH:0] iCounter;  
 reg iQ;  
 
@@ -1555,7 +1521,6 @@ assign   Q = iQ;
 
 endmodule  
 
-
  
 
  
@@ -1572,7 +1537,6 @@ endmodule
  
  
 
-
  
  
  
@@ -1587,7 +1551,6 @@ endmodule
  
  
  
-
 
 module uart_baudgen(
 	input wire		CLK,
@@ -1598,7 +1561,6 @@ module uart_baudgen(
 	output logic		BAUDTICK);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 reg [15:0] iCounter;  
 
 always @(posedge CLK or posedge RST)
@@ -1634,7 +1596,6 @@ end
 
 endmodule  
 
-
  
 
  
@@ -1651,7 +1612,6 @@ endmodule
  
  
 
-
  
  
  
@@ -1666,7 +1626,6 @@ endmodule
  
  
  
-
 
 module uart_interrupt(
 	input wire		CLK,
@@ -1682,7 +1641,6 @@ module uart_interrupt(
 	output logic		INT);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 reg iRLSInterrupt;  
 reg iRDAInterrupt;  
 reg iCTIInterrupt;  
@@ -1733,7 +1691,6 @@ assign   INT =  ~ iIIR[0];
 
 endmodule  
 
-
  
 
  
@@ -1750,7 +1707,6 @@ endmodule
  
  
 
-
  
  
  
@@ -1765,7 +1721,6 @@ endmodule
  
  
  
-
 
 module uart_receiver(
 	input wire		CLK,
@@ -1785,7 +1740,6 @@ module uart_receiver(
 	output logic		RXFINISHED);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 typedef enum logic [2:0] {IDLE,
 START,
 DATA,
@@ -1853,7 +1807,6 @@ begin
 iParity <= (((((((iDOUT[7] ^ iDOUT[6]) ^ iDOUT[5]) ^ iDOUT[4]) ^ iDOUT[3]) ^ iDOUT[2]) ^ iDOUT[1]) ^ iDOUT[0]) ^  ~ EPS;  
 
 end
-
 
 always @(posedge CLK or posedge RST)
   if ((RST ==  1'b1))
@@ -1996,7 +1949,6 @@ endcase
 
 end
 
-
 always @(posedge CLK or posedge RST)
 begin
 if ((RST ==  1'b1))
@@ -2049,7 +2001,6 @@ assign   FE = iFE;
 assign   RXFINISHED = iRXFinished;  
 endmodule
 
-
  
 
  
@@ -2066,7 +2017,6 @@ endmodule
  
  
 
-
  
  
  
@@ -2081,7 +2031,6 @@ endmodule
  
  
  
-
 
 module uart_transmitter(
 	input wire		CLK,
@@ -2100,7 +2049,6 @@ module uart_transmitter(
 	output logic		SOUT);  
  
  
-typedef enum {FALSE,TRUE} bool_t;  
 typedef enum logic [3:0] {IDLE,
 START,
 BIT0,
