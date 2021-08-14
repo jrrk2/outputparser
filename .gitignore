@@ -28,6 +28,15 @@ output_parser.ml
 output_parser.mli
 outputparser
 outputparser.top
+File_top
+File.ml
+File.mli
+File_lex.ml
+File_ord.ml
+liberty_parser.y
+liberty_parser.tab.c
+liberty_parser.output
+NangateOpenCellLibrary_typical.lib
 Program
 Program.top
 Program.mly
@@ -58,6 +67,7 @@ g.sh
 mykernel.c
 mykernel_main.c
 mykernel_test.c
+Source_text
 Source_text.ml
 Source_text.mli
 Source_text.mly

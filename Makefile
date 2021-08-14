@@ -45,7 +45,7 @@ ord.ml: ord.sh output_parser.mli
 clean:
 	rm -f output_lexer.ml output_parser.mli output_parser.ml outputparser outputparser.top ord.ml *.cm? *.o
 
-############################################################################
+###########################################################################
 
 Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml Source_text_rewrite.ml Source_text_main.ml
 	ocamlmktop -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml Source_text_rewrite.ml
@@ -68,6 +68,37 @@ Source_text_lex.ml: Source_text_lex.mll
 
 Source_text.ml: Source_text.mly
 	menhir $(MENHIRFLAGS) $<
+
+############################################################################
+
+File_top: File.cmo File_types.cmo File_ord.ml File_lex.ml File_rewrite_types.mli File_rewrite.ml File_main.ml
+	ocamlmktop -g -o $@ File_types.cmo File.cmo File_ord.ml File_lex.ml File_rewrite_types.mli File_rewrite.ml
+
+File: File.cmx File_types.cmx File_lex.ml File_rewrite_types.mli File_rewrite.ml File_main.ml
+	ocamlopt.opt -g -o $@ File_types.cmx File.cmx File_lex.ml File_rewrite_types.mli File_rewrite.ml File_main.ml
+
+liberty_parser.tab.c liberty_parser.tab.h: liberty_parser.y
+	bison -v -y -d $<
+
+libertytest: File.mly
+
+File.mly: output_parser liberty_parser.output
+	env OCAMLRUNPARAM=b STRING=string IDENT=string NUM=string TYPE_NAME=string ./output_parser liberty_parser.output
+
+File.cmo: File_types.ml File.ml File.mli
+	ocamlc.opt -g -c File.mli File_types.ml File.ml
+
+File.cmx: File_types.ml File.ml File.mli
+	ocamlopt.opt -g -c File.mli File_types.ml File.ml
+
+File_lex.ml: File_lex.mll
+	ocamllex $<
+
+File.ml File.mli: File.mly
+	menhir $(MENHIRFLAGS) $<
+
+File_ord.ml: ord_file.sh File.mli
+	sh ord_file.sh
 
 ############################################################################
 

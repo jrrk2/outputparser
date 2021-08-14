@@ -149,7 +149,7 @@
 
 /* Parser rules */
 
-start: unused grammar terminals nonterminals STATE { ($1, $2, $3, List.rev $4, []); }
+start: unused grammar terminals NONTERMINALS { ($1, $2, $3, [], []); }
 
 unused:
 	conflst { [] }
@@ -178,11 +178,12 @@ nontermlst:
 nontermitm:
     |   dolitm LPAREN NUMBER RPAREN ntlst { NONTERMITM($1,$3) }
     |   ID LPAREN NUMBER RPAREN ntlst { NONTERMITM(ID $1,$3) }
+    |   ID LESS ID GREATER LPAREN NUMBER RPAREN ntlst { NONTERMITM(ID $1,$6) }
     |   dolat LPAREN NUMBER RPAREN ntlst { NONTERMITM($1,$3) }
 
 ntlst:
 	ntitm { [ $1 ] }
-    | ntlst COMMA ntitm { $3 :: $1 }
+    | ntlst ntitm { $2 :: $1 }
 
 ntitm:
 	ID ID COLON numlst { ID $1 }
@@ -196,6 +197,7 @@ termitm:
     |   quotitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   dquotitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   ID LPAREN NUMBER RPAREN numlst { TERMITM(ID (String.uppercase_ascii $1),$3) }
+    |   ID LESS ID GREATER LPAREN NUMBER RPAREN numlst { TERMITM(ID (String.uppercase_ascii $1),$6) }
 
 quotitm:
 	QUOTE BACKSLASH ID QUOTE
