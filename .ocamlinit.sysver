@@ -1,40 +1,3 @@
-#print_length 100000;;
-#print_depth 100000;;
-
-
-(**************************************************************************)
-(*                                                                        *)
-(* OCaml template Copyright (C) 2004-2010                                 *)
-(*  Sylvain Conchon, Jean-Christophe Filliatre and Julien Signoles        *)
-(* Adapted to boolean logic by Jonathan Kimmitt                           *)
-(*  Copyright 2016 University of Cambridge                                *)
-(*                                                                        *)
-(*  This software is free software; you can redistribute it and/or        *)
-(*  modify it under the terms of the GNU Library General Public           *)
-(*  License version 2.1, with the special exception on linking            *)
-(*  described in file LICENSE.                                            *)
-(*                                                                        *)
-(*  This software is distributed in the hope that it will be useful,      *)
-(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
-(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                  *)
-(*                                                                        *)
-(**************************************************************************)
-
-(*
-#use ".ocamlinit.output"
-*)
-
-(*
-#use ".ocamlinit.lef"
-*)
-
-(*
-#use ".ocamlinit.program"
-*)
-
-(*
-#use ".ocamlinit.ansic"
-*)
 
 (*
 open Output
@@ -58,6 +21,7 @@ open Source_text_rewrite
 open Source_text_lex
 open Source_text
 open Dump_vhdl
+;;
 
 let v = "timer.v";;
 let v = "interface_test.sv";;
@@ -70,8 +34,13 @@ let v = "blocking.v";;
 let v = "prec.sv";;
 let v = "uart.sv";;
 let v = "apb_uart.vsyn";;
-   
+let v = "../cva6/verilate_preproc.sv";;
+
+let x = rw (parse v);;
+
+(*
 let modlst,x,p,p' = rewrite v;;
+*)
 
 (*
 let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;

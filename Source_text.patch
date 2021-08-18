@@ -1,45 +1,71 @@
---- Source_text.mly	2021-01-05 13:43:32.988116649 +0000
-+++ Source_text.mly.old	2021-01-05 13:35:51.856350888 +0000
-@@ -3,6 +3,9 @@
-   open Source_text_types
+--- Source_text.mly.orig	2021-08-18 12:48:57.000000000 +0100
++++ Source_text.mly	2021-08-18 14:14:10.000000000 +0100
+@@ -4,6 +4,9 @@
    let declst = ref []
+   let packhash_add id_t = Hashtbl.add packhash id_t ()
    let typehash_add id_t = Hashtbl.add typehash id_t ()
 +  let type_decl = function
-+   | IDENTIFIER id as x -> typehash_add id; x
-+   | oth -> typehash_add "oth"; oth
++    | IDENTIFIER id as x -> typehash_add id; x
++    | oth -> typehash_add "oth"; oth
  %}
  
  %token  ACCEPT
-@@ -1013,19 +1016,19 @@
- 	|	signingE rangeList { TUPLE2($1,$2) }
+@@ -572,7 +575,7 @@
+ 
+ package_declaration: packageFront package_itemListE Endpackage endLabelE { TUPLE5(STRING("package_declaration20"),$1,$2,Endpackage,$4) }
+ 
+-packageFront: Package lifetimeE idAny SEMICOLON { TUPLE5(STRING("packageFront21"),Package,$2,$3,SEMICOLON) }
++packageFront: Package lifetimeE idCC SEMICOLON { TUPLE5(STRING("packageFront21"),Package,$2,$3,SEMICOLON) }
+ 
+ package_itemListE: /* empty */ { EMPTY_TOKEN }
+ 	|	package_itemList { ($1) }
+@@ -1016,19 +1019,19 @@
+ 	|	signingE rangeList { TUPLE3(STRING("implicit_typeE363"),$1,$2) }
  	|	signing { ($1) }
  
--type_declaration: Typedef data_typeNoRef idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE6(Typedef,$2,$3,$4,$5,SEMICOLON) }
--	|	Typedef packageClassScope idType packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE8(Typedef,$2,$3,$4,$5,$6,$7,SEMICOLON) }
--	|	Typedef packageClassScope idType parameter_value_assignmentClass packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE9(Typedef,$2,$3,$4,$5,$6,$7,$8,SEMICOLON) }
--	|	Typedef idType packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE7(Typedef,$2,$3,$4,$5,$6,SEMICOLON) }
--	|	Typedef idType parameter_value_assignmentClass packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE8(Typedef,$2,$3,$4,$5,$6,$7,SEMICOLON) }
--	|	Typedef id DOT idAny idAny SEMICOLON { TUPLE6(Typedef,$2,DOT,$4,$5,SEMICOLON) }
--	|	Typedef idType SEMICOLON { TUPLE3(Typedef,$2,SEMICOLON) }
--	|	Typedef id SEMICOLON { TUPLE3(Typedef,$2,SEMICOLON) }
--	|	Typedef Enum idAny SEMICOLON { TUPLE4(Typedef,Enum,$3,SEMICOLON) }
--	|	Typedef Struct idAny SEMICOLON { TUPLE4(Typedef,Struct,$3,SEMICOLON) }
--	|	Typedef Union idAny SEMICOLON { TUPLE4(Typedef,Union,$3,SEMICOLON) }
--	|	Typedef Class idAny SEMICOLON { TUPLE4(Typedef,Class,$3,SEMICOLON) }
--	|	Typedef Interface Class idAny SEMICOLON { TUPLE5(Typedef,Interface,Class,$4,SEMICOLON) }
-+type_declaration: Typedef data_typeNoRef idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE6(Typedef,$2,type_decl $3,$4,$5,SEMICOLON) }
-+	|	Typedef packageClassScope idType packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE8(Typedef,$2,$3,$4,type_decl $5,$6,$7,SEMICOLON) }
-+	|	Typedef packageClassScope idType parameter_value_assignmentClass packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE9(Typedef,$2,$3,$4,$5,type_decl $6,$7,$8,SEMICOLON) }
-+	|	Typedef idType packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE7(Typedef,$2,$3,type_decl $4,$5,$6,SEMICOLON) }
-+	|	Typedef idType parameter_value_assignmentClass packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE8(Typedef,$2,$3,$4,type_decl $5,$6,$7,SEMICOLON) }
-+	|	Typedef id DOT idAny idAny SEMICOLON { TUPLE6(Typedef,$2,DOT,$4,type_decl $5,SEMICOLON) }
-+	|	Typedef idType SEMICOLON { TUPLE3(Typedef,type_decl $2,SEMICOLON) }
-+	|	Typedef id SEMICOLON { TUPLE3(Typedef,type_decl $2,SEMICOLON) }
-+	|	Typedef Enum idAny SEMICOLON { TUPLE4(Typedef,Enum,type_decl $3,SEMICOLON) }
-+	|	Typedef Struct idAny SEMICOLON { TUPLE4(Typedef,Struct,type_decl $3,SEMICOLON) }
-+	|	Typedef Union idAny SEMICOLON { TUPLE4(Typedef,Union,type_decl $3,SEMICOLON) }
-+	|	Typedef Class idAny SEMICOLON { TUPLE4(Typedef,Class,type_decl $3,SEMICOLON) }
-+	|	Typedef Interface Class idAny SEMICOLON { TUPLE5(Typedef,Interface,Class,type_decl $4,SEMICOLON) }
+-type_declaration: Typedef data_typeNoRef idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE7(STRING("type_declaration365"),Typedef,$2,$3,$4,$5,SEMICOLON) }
+-	|	Typedef packageClassScope idType packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE9(STRING("type_declaration366"),Typedef,$2,$3,$4,$5,$6,$7,SEMICOLON) }
+-	|	Typedef packageClassScope idType parameter_value_assignmentClass packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE10(STRING("type_declaration367"),Typedef,$2,$3,$4,$5,$6,$7,$8,SEMICOLON) }
+-	|	Typedef idType packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE8(STRING("type_declaration368"),Typedef,$2,$3,$4,$5,$6,SEMICOLON) }
+-	|	Typedef idType parameter_value_assignmentClass packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE9(STRING("type_declaration369"),Typedef,$2,$3,$4,$5,$6,$7,SEMICOLON) }
+-	|	Typedef id DOT idAny idAny SEMICOLON { TUPLE7(STRING("type_declaration370"),Typedef,$2,DOT,$4,$5,SEMICOLON) }
+-	|	Typedef idType SEMICOLON { TUPLE4(STRING("type_declaration371"),Typedef,$2,SEMICOLON) }
+-	|	Typedef id SEMICOLON { TUPLE4(STRING("type_declaration372"),Typedef,$2,SEMICOLON) }
+-	|	Typedef Enum idAny SEMICOLON { TUPLE5(STRING("type_declaration373"),Typedef,Enum,$3,SEMICOLON) }
+-	|	Typedef Struct idAny SEMICOLON { TUPLE5(STRING("type_declaration374"),Typedef,Struct,$3,SEMICOLON) }
+-	|	Typedef Union idAny SEMICOLON { TUPLE5(STRING("type_declaration375"),Typedef,Union,$3,SEMICOLON) }
+-	|	Typedef Class idAny SEMICOLON { TUPLE5(STRING("type_declaration376"),Typedef,Class,$3,SEMICOLON) }
+-	|	Typedef Interface Class idAny SEMICOLON { TUPLE6(STRING("type_declaration377"),Typedef,Interface,Class,$4,SEMICOLON) }
++type_declaration: Typedef data_typeNoRef idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE7(STRING("type_declaration365"),Typedef,$2,type_decl $3,$4,$5,SEMICOLON) }
++	|	Typedef packageClassScope idType packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE9(STRING("type_declaration366"),Typedef,$2,$3,$4,type_decl $5,$6,$7,SEMICOLON) }
++	|	Typedef packageClassScope idType parameter_value_assignmentClass packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE10(STRING("type_declaration367"),Typedef,$2,$3,$4,$5,type_decl $6,$7,$8,SEMICOLON) }
++	|	Typedef idType packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE8(STRING("type_declaration368"),Typedef,$2,$3,type_decl $4,$5,$6,SEMICOLON) }
++	|	Typedef idType parameter_value_assignmentClass packed_dimensionListE idAny variable_dimensionListE dtypeAttrListE SEMICOLON { TUPLE9(STRING("type_declaration369"),Typedef,$2,$3,$4,type_decl $5,$6,$7,SEMICOLON) }
++	|	Typedef id DOT idAny idAny SEMICOLON { TUPLE7(STRING("type_declaration370"),Typedef,$2,DOT,$4,type_decl $5,SEMICOLON) }
++	|	Typedef idType SEMICOLON { TUPLE4(STRING("type_declaration371"),Typedef,type_decl $2,SEMICOLON) }
++	|	Typedef id SEMICOLON { TUPLE4(STRING("type_declaration372"),Typedef,type_decl $2,SEMICOLON) }
++	|	Typedef Enum idAny SEMICOLON { TUPLE5(STRING("type_declaration373"),Typedef,Enum,type_decl $3,SEMICOLON) }
++	|	Typedef Struct idAny SEMICOLON { TUPLE5(STRING("type_declaration374"),Typedef,Struct,type_decl $3,SEMICOLON) }
++	|	Typedef Union idAny SEMICOLON { TUPLE5(STRING("type_declaration375"),Typedef,Union,type_decl $3,SEMICOLON) }
++	|	Typedef Class idAny SEMICOLON { TUPLE5(STRING("type_declaration376"),Typedef,Class,type_decl $3,SEMICOLON) }
++	|	Typedef Interface Class idAny SEMICOLON { TUPLE6(STRING("type_declaration377"),Typedef,Interface,Class,type_decl $4,SEMICOLON) }
  
  dtypeAttrListE: /* empty */ { EMPTY_TOKEN }
  	|	dtypeAttrList { ($1) }
+@@ -1246,7 +1249,7 @@
+ list_of_param_assignments: param_assignment { CONS1 ($1) }
+ 	|	list_of_param_assignments COMMA param_assignment { CONS3($1,COMMA,$3) }
+ 
+-type_assignment: idAny sigAttrListE EQUALS data_type { TUPLE5(STRING("type_assignment540"),$1,$2,EQUALS,$4) }
++type_assignment: idAny sigAttrListE EQUALS data_type { TUPLE5(STRING("type_assignment540"),type_decl $1,$2,EQUALS,$4) }
+ 
+ list_of_type_assignments: type_assignment { CONS1 ($1) }
+ 	|	list_of_type_assignments COMMA type_assignment { CONS3($1,COMMA,$3) }
+@@ -3369,6 +3372,7 @@
+ 
+ idAny: IDENTIFIER { (IDENTIFIER $1) }
+ 	|	TYPE_HYPHEN_IDENTIFIER { (TYPE_HYPHEN_IDENTIFIER $1) }
++	|	IDENTIFIER_HYPHEN_COLON_COLON { (IDENTIFIER_HYPHEN_COLON_COLON $1) }
+ 	|	idRandomize { ($1) }
+ 
+ idType: TYPE_HYPHEN_IDENTIFIER { (TYPE_HYPHEN_IDENTIFIER $1) }

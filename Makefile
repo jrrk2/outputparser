@@ -18,14 +18,10 @@
 
 .PHONY: everything
 PARSER=ocamlyacc
-MENHIRFLAGS=#--trace
+MENHIRFLAGS=--trace
 PARSER=menhir $(MENHIRFLAGS)
-SIMPLEDMC=../simpleDMC_verify
-DMCFILES=dSFMT.i main.i Orbital.i position.i support.i System.i Walker.i walkthewalk.i Wavefunction.i
-SED=sed -e 's=\^ _Nonnull=* =g' -e 's=\* _Nonnull=* =g'
-CPP=clang -E -D __extension__= -D __restrict= -D __const=const -D __attribute__\(x\)= -D __asm__\(x\)= -D __PRETTY_FUNCTION__=__FILE__ -I $(SIMPLEDMC)/dest -I $(SIMPLEDMC)/dest/gcc/debug_dump -D DSFMT_MEXP=19937 -D __inline__=inline -D _Nullable= -D__asm\(x\)=
 
-all: output_parser output_parser.top Source_text Source_text_top
+all: output_parser output_parser.top Source_text_top Source_text
 
 output_parser: output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
 	ocamlopt -g -o $@ output_types.mli output_parser.mli ord.ml output_parser.ml output_lexer.ml template.ml output.ml
@@ -45,10 +41,10 @@ ord.ml: ord.sh output_parser.mli
 clean:
 	rm -f output_lexer.ml output_parser.mli output_parser.ml outputparser outputparser.top ord.ml *.cm? *.o
 
-###########################################################################
+################################################################################
 
-Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml Source_text_rewrite.ml Source_text_main.ml
-	ocamlmktop -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml Source_text_rewrite.ml
+Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml classify.ml Source_text_rewrite.ml Source_text_main.ml
+	ocamlmktop -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml classify.ml Source_text_rewrite.ml
 
 Source_text: Source_text.cmx Source_text_types.cmx Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml Source_text_rewrite.ml Source_text_main.ml
 	ocamlopt.opt -g -o $@ Source_text_types.cmx Source_text.cmx Source_text_lex.ml Source_text_rewrite_types.mli dump_vhdl.ml Source_text_rewrite.ml Source_text_main.ml
@@ -67,6 +63,36 @@ Source_text_lex.ml: Source_text_lex.mll
 	ocamllex $<
 
 Source_text.ml: Source_text.mly
+	menhir $(MENHIRFLAGS) $<
+
+dump.cmo: Source_text_rewrite_types.cmi
+
+############################################################################
+
+Pat_top: Pat.cmo Pat_types.cmo Pat_lex.ml Pat_rewrite.ml
+	ocamlmktop -g -o $@ Pat_types.cmo Pat.cmo Pat_lex.ml Pat_rewrite.ml
+
+Pat.cmo: Pat_types.ml Pat.ml Pat.mli
+	ocamlc.opt -g -c Pat.mli Pat_types.ml Pat.ml
+
+Pat_lex.ml: Pat_lex.mll
+	ocamllex $<
+
+Pat.ml: Pat.mly
+	menhir $(MENHIRFLAGS) $<
+
+############################################################################
+
+Extract_top: Extract.cmo Extract_types.cmo Extract_lex.ml Extract_rewrite.ml
+	ocamlmktop -g -o $@ Extract_types.cmo Extract.cmo Extract_lex.ml Extract_rewrite.ml
+
+Extract.cmo: Extract_types.ml Extract.ml Extract.mli
+	ocamlc.opt -g -c Extract.mli Extract_types.ml Extract.ml
+
+Extract_lex.ml: Extract_lex.mll
+	ocamllex $<
+
+Extract.ml: Extract.mly
 	menhir $(MENHIRFLAGS) $<
 
 ############################################################################

@@ -5,6 +5,9 @@ open Printf
 
 type vtyp =
   | Vint of int
+(*
+  | Vpkg of string
+*)
   | Std_logic
   | Std_logic_vector of rw * rw
   | Vsigtyp
@@ -23,12 +26,13 @@ let rec recurs' (vhdl_attr:vhdl_attr) = function
   | Unknown str -> Unknown str
   | In -> In
   | Out -> Out
+  | Inout -> Inout
   | Modul(str1, rw_lst1, rw_lst2, rw_lst3) -> Modul(str1, recurs_lst vhdl_attr  rw_lst1, recurs_lst vhdl_attr  rw_lst2, recurs_lst vhdl_attr  rw_lst3)
   | DeclReg(rw_lst, str1_lst, rw_lst_lst) -> DeclReg(recurs_lst vhdl_attr  rw_lst, str1_lst,
     List.map (fun itm -> recurs_lst vhdl_attr  itm) rw_lst_lst)
   | NonBlocking(rw, rw2) -> NonBlocking(recurs_itm vhdl_attr  rw, recurs_itm vhdl_attr  rw2)
   | Query(rw, rw2, rw3) -> Query(recurs_itm vhdl_attr  rw, recurs_itm vhdl_attr  rw2, recurs_itm vhdl_attr  rw3)
-  | Port(rw, str1, rw_lst) -> Port(recurs_itm vhdl_attr  rw, str1, recurs_lst vhdl_attr  rw_lst)
+  | Port(rw, str1, rw_lst1, rw_lst2) -> Port(recurs_itm vhdl_attr  rw, str1, recurs_lst vhdl_attr rw_lst1, recurs_lst vhdl_attr rw_lst2)
   | Pos(str1) -> Pos (str1)
   | Neg(str1) -> Neg (str1)
   | Edge(rw, rw2) -> Edge(recurs_itm vhdl_attr  (rw), recurs_itm vhdl_attr  (rw2))
@@ -115,6 +119,8 @@ let rec recurs' (vhdl_attr:vhdl_attr) = function
   | Cast (_, _) as x -> x
   | DepLst lst as x -> x
   | Deflt -> Deflt
+  | Dot2 (id1, [], id2) as x -> x
+  | oth -> unhand := Some oth; failwith "vhdl"
 
 and recurs_lst vhdl_attr x = List.map (vhdl_attr.fn vhdl_attr ) x
 
@@ -296,17 +302,22 @@ let vdir = function
   | _ -> failwith "vdir"
 
 let ports typhash = function
-    | Port((In|Out) as dir,  nam, []) -> Hashtbl.replace typhash nam Std_logic;
+    | Port((In|Out) as dir,  nam, [], []) -> Hashtbl.replace typhash nam Std_logic;
         sprintf "%24s         : %s std_logic" nam (vdir dir);
-    | Port ((In|Out) as dir, nam, [Dim (hi, lo)]) -> Hashtbl.replace typhash nam (Std_logic_vector(hi,lo));
+    | Port ((In|Out) as dir, nam, [Dim (hi, lo)], []) -> Hashtbl.replace typhash nam (Std_logic_vector(hi,lo));
         sprintf "%24s         : %s std_logic_vector(%s downto %s)" nam (vdir dir) (cexpr typhash hi) (cexpr typhash lo);
+    | Port ((In|Out) as dir, nam, Dim (hi, lo) :: Dim(hi', lo') :: [], []) -> Hashtbl.replace typhash nam (Std_logic_vector(hi,lo));
+        sprintf "%24s         : %s std_logic_vector(%s downto %s)(%s downto %s)" nam (vdir dir) (cexpr typhash hi) (cexpr typhash lo) (cexpr typhash hi') (cexpr typhash lo')
     | oth -> unhand := Some oth; failwith "component"
 
 let parm_template fd typhash parm_lst = 
   if parm_lst <> [] then
   fprintf fd "    generic (\n%s\n    );\n" (String.concat ";\n" (List.map (function
   | Param (nam, Intgr expr) -> Hashtbl.replace typhash nam (Vint expr); sprintf "%24s         : integer := %d" nam expr
+  | Param (nam, Number (_, _, expr, _)) -> Hashtbl.replace typhash nam (Vint expr); sprintf "%24s         : integer := %d" nam expr
   | Dot (nam, Intgr expr) -> Hashtbl.replace typhash nam (Vint expr); sprintf "%24s         : integer := %d" nam expr
+  | Param (nam, Unknown pkg) -> sprintf "%24s         : string := %s" nam pkg
+  | TypParam (nam, Logic _, Unknown typ :: _) -> sprintf "%24s         : string := %s" nam typ
   | oth -> unhand := Some oth; failwith "param_lst") parm_lst))
 
 let decl_mem fd typhash first last hi lo cnt mem =

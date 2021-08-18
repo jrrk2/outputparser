@@ -435,6 +435,7 @@
     Static, "static";
     Static_HYPHEN_in_HYPHEN_lex, "static;HYPHEN;in;HYPHEN;lex";
     Static_HYPHEN_then_HYPHEN_constraint, "static;HYPHEN;then;HYPHEN;constraint";
+    String, "string";
     Struct, "struct";
     Super, "super";
     Supply0, "supply0";
@@ -939,7 +940,7 @@ let tok' = function
 | STAR_GT  -> "\"*>\""
 | STAR_STAR  -> "\"**\""
 | STRENGTH_keyword_LPAREN_strong1_SLASH_etc_RPAREN  -> "\"STRENGTH_keyword_LPAREN_strong1_SLASH_etc_RPAREN\""
-| STRING s -> "\"STRING\""
+| STRING _ -> "\"STRING\""
 | STRING_HYPHEN_ignored  -> "\"STRING_HYPHEN_ignored\""
 | Sc_bv  -> "\"Sc_bv\""
 | Scalared  -> "\"scalared\""
@@ -970,6 +971,7 @@ let tok' = function
 | TUPLE10  _ -> "\"TUPLE10\""
 | TUPLE11  _ -> "\"TUPLE11\""
 | TUPLE12  _ -> "\"TUPLE12\""
+| TUPLE13  _ -> "\"TUPLE13\""
 | TUPLE2  _ -> "\"TUPLE2\""
 | TUPLE3  _ -> "\"TUPLE3\""
 | TUPLE4  _ -> "\"TUPLE4\""
@@ -1108,16 +1110,16 @@ let ord = function
 let import_seen = ref false
 
 let tok arg = if verbose then Printf.printf "tokenToBison  TOKEN {c%d-%d:}=%d %s\n" (!lincnt+1) (!lincnt+1) (ord arg) (tok' arg);
-  import_seen := (match arg with Import -> true | IDENTIFIER_HYPHEN_COLON_COLON _ -> false | _ -> !import_seen);
+  import_seen := (match arg with Import -> true | Package -> true | IDENTIFIER_HYPHEN_COLON_COLON _ -> false | _ -> !import_seen);
   arg
 }
 
 let ident = ['a'-'z' 'A'-'Z' '$' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$']*
 let escaped = '\\'[^' ']*' '
 let fltnum = ['0'-'9']+'.'['E' '-' '+' '0'-'9']*
-let sizednumber = ['0'-'9']+'\''['b' 'd' 'h'][ '0'-'9' 'a'-'f' 'x' 'A'-'F' 'X' '_' ' ']+
+let sizednumber = ['0'-'9']+'\''['b' 'd' 'h'][' ']*[ '0'-'9' 'a'-'f' 'x' 'A'-'F' 'X' '_' '?']+
 let number = ['0'-'9']['0'-'9' '_']*
-let dfltnum = '''['0'-'9' 'b' 'h' 'x']['0'-'9' 'a'-'f' 'A'-'F' 'x']*
+let dfltnum = '''['0'-'9' 'b' 'd' 'h' 'x' 'X']['0'-'9' 'a'-'f' 'A'-'F' 'x' '?']*
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let qstring = '"'[^'"']*'"'
@@ -1132,6 +1134,7 @@ rule token = parse
 | colon_begin { tok ( COLON_HYPHEN_begin ) }
 *)
 | ">>>" { tok ( GT_GT_GT ) }
+| "<<<" { tok ( LT_LT ) } (* placeholder *)
 | "<<=" { tok ( LT_LT_EQ ) }
 | "||" { tok ( VBAR_VBAR ) }
 | "~|" { tok ( TILDE_VBAR ) }
@@ -1139,6 +1142,7 @@ rule token = parse
 | "~&" { tok ( TILDE_AMPERSAND ) }
 | "==" { tok ( EQ_EQ ) }
 | "+=" { tok ( PLUS_EQ ) }
+| "-=" { tok ( HYPHEN_EQ ) }
 | "<=" { tok ( LT_EQ ) }
 | "!=" { tok ( PLING_EQ ) }
 | "|=" { tok ( VBAR_EQ ) }
@@ -1147,6 +1151,7 @@ rule token = parse
 | ">=" { tok ( GT_EQ ) }
 | ".*" { tok ( DOT_STAR ) }
 | "+:" { tok ( PLUS_COLON ) }
+| "-:" { tok ( HYPHEN_COLON ) }
 | "::" { tok ( COLON_COLON ) }
 | "++" { tok ( PLUS_PLUS ) }
 | "--" { tok ( HYPHEN_HYPHEN ) }
@@ -1209,12 +1214,17 @@ rule token = parse
   | fltnum as n
       { tok ( try let f = float_of_string n in FLOATING_HYPHEN_POINT_NUMBER f with _ -> IDENTIFIER n) }
   | ident as s
-      { tok ( try keyword s with Not_found -> if Hashtbl.mem typehash s then TYPE_HYPHEN_IDENTIFIER s else if !import_seen then IDENTIFIER_HYPHEN_COLON_COLON s else IDENTIFIER s ) }
+      { tok ( try keyword s with Not_found ->
+        if Hashtbl.mem typehash s then TYPE_HYPHEN_IDENTIFIER s else
+        if Hashtbl.mem packhash s then IDENTIFIER_HYPHEN_COLON_COLON s else
+        if !import_seen then ( Hashtbl.add packhash s (); IDENTIFIER_HYPHEN_COLON_COLON s) else IDENTIFIER s ) }
   | escaped as s
       { let s = String.sub s 1 (String.length s - 1) in
-        tok ( if Hashtbl.mem typehash s then TYPE_HYPHEN_IDENTIFIER s else if !import_seen then IDENTIFIER_HYPHEN_COLON_COLON s else IDENTIFIER s ) }
+        tok ( if Hashtbl.mem typehash s then TYPE_HYPHEN_IDENTIFIER s else
+        if Hashtbl.mem packhash s then IDENTIFIER_HYPHEN_COLON_COLON s else
+        if !import_seen then ( Hashtbl.add packhash s (); IDENTIFIER_HYPHEN_COLON_COLON s) else IDENTIFIER s ) }
   | qstring as s
-      { tok ( STRING s ) }
+      { tok ( STRING (String.sub s 1 (String.length s - 1)) ) }
   | eof
       { tok ( EOF_TOKEN ) }
 

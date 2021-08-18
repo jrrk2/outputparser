@@ -1,6 +1,5 @@
-#print_length 100000;;
-#print_depth 100000;;
-
+#print_length 10000000;;
+#print_depth 10000000;;
 
 (**************************************************************************)
 (*                                                                        *)
@@ -36,12 +35,23 @@
 #use ".ocamlinit.ansic"
 *)
 
-open File_rewrite_types
-open File_rewrite
-open File_lex
-open File
+(*
+#use ".ocamlinit.liberty"
+*)
 
-let lib = "NangateOpenCellLibrary_typical.lib";;
+(*
+#use ".ocamlinit.sysver"
+*)
 
-let rw,cellhash = rewrite lib;;
+(*
+#use ".ocamlinit.pat"
+*)
 
+(*
+let x = classify' v;;
+*)
+
+open Source_text
+open Source_text_rewrite_types
+open Matchmly;;
+let x = matchmly Ariane.ariane;;

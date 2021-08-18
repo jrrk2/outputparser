@@ -3,9 +3,10 @@ type rw =
   | Unknown of string
   | In
   | Out
+  | Inout
   | Itmlst of rw list
   | Expression of rw
-  | Port of rw * string * rw list
+  | Port of rw * string * rw list * rw list
   | Modul of string * rw list * rw list * rw list
   | Pos of string
   | Neg of string
@@ -30,6 +31,7 @@ type rw =
   | Typ of string * rw list * rw list
   | Struct of string * rw list
   | TypEnum of string * rw list * rw list
+  | TypEnum2 of rw list * rw list * rw list
   | Comma of rw * rw * rw
   | Clog2 of rw
   | Equals of rw * rw
@@ -59,6 +61,7 @@ type rw =
   | CaseItm of rw list
   | AlwaysComb of rw list
   | Sentry of rw * rw
+  | Latch of rw list
   | Blocking of rw * rw
   | Asgnlst of rw list
   | DeclReg of rw list * string list * rw list list
@@ -68,6 +71,11 @@ type rw =
   | BeginBlock of rw list
   | Bitlst of rw list
   | Dot of string * rw
+  | Dot2 of string * rw list * string
+  | Dot3 of string * string * string
+  | Dot4 of rw list * string
+  | Dot5 of string * rw list
+  | DotBus of string * string * string * rw list
   | Unsigned of rw
   | Signed of rw
   | Concat of rw list
@@ -80,8 +88,8 @@ type rw =
   | DeclModPort of rw list
   | Repl of rw * rw list
   | Slice of string * rw * rw
+  | Slice2 of string * rw * rw
   | Field of rw * rw
-  | Dot3 of string * string *string
   | Parenth of string * rw list
   | Logic of rw list * rw list
   | Param of string * rw
@@ -95,5 +103,14 @@ type rw =
   | Cast of rw * rw
   | Package of string * rw list
   | DepLst of string list
+  | InsideCase of rw * rw
+  | InsideRange of rw * rw
+  | TypParam of string * rw * rw list
+  | Auto of rw list * rw list
+  | QuoteLbrace of string * rw list * rw list
+  | Import of rw list
+  | InitPair of string * rw
+  | AutoInc of string * rw
+  | PreInc of string
+  | ColonColon of string * string
   | Deflt
-  
