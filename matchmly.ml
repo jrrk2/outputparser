@@ -2,9 +2,14 @@ open Source_text_rewrite_types
 open Source_text_lex
 open Source_text
 
-let othpat = ref None
+let othpat1 = ref None
 let othpat2 = ref None
 let othpat3 = ref None
+let othpat4 = ref None
+let othpat5 = ref None
+(*
+ let othpat6 = ref None
+ *)
 let othpat7 = ref None
 let remap = ref None
 let portlstref = ref []
@@ -13,9 +18,15 @@ let rec matchmly = function
 | Input -> In
 | Output -> Out
 | Inout -> Inout
+| Logic -> Atom "logic"
+| Void -> Atom "void"
+| Byte -> Atom "byte"
 | EMPTY_TOKEN -> Deflt
 | IDENTIFIER id -> Id id
-| INTEGER_NUMBER n -> Intgr (int_of_string n)
+| STRING s -> String s
+| VBAR -> Atom "|"
+| AMPERSAND -> Atom "&"
+| INTEGER_NUMBER n -> Number (0,0,0,n)
 | TUPLE3(STRING("assignment_pattern769"), QUOTE_LBRACE, RBRACE) -> Source_text_rewrite_types.Unknown "assignment_pattern769"
 | TUPLE3(STRING("attr_event_control592"), AT, STAR) -> Unknown "attr_event_control592"
 | TUPLE3(STRING("block_item_declaration637"), arg1, SEMICOLON) -> Unknown "block_item_declaration637"
@@ -44,7 +55,10 @@ let rec matchmly = function
 | TUPLE3(STRING("data_declarationVarFront350"), Var, arg2) -> Unknown "data_declarationVarFront350"
 | TUPLE3(STRING("data_declarationVarFront356"), arg1, arg2) -> Unknown "data_declarationVarFront356"
 | TUPLE3(STRING("data_declarationVarFrontClass359"), Var, arg2) -> Unknown "data_declarationVarFrontClass359"
-| TUPLE3(STRING("data_typeBasic264"), arg1, arg2) -> Unknown "data_typeBasic264"
+| TUPLE3(STRING("data_typeBasic264"), arg1, arg2) ->
+  (match arg1, arg2 with
+    | (Byte|Int|Integer), (EMPTY_TOKEN|Unsigned) -> PrimTyp(matchmly arg1, matchmly arg2)
+    | oth -> othpat2 := Some oth; failwith "data_typeBasic264")
 | TUPLE3(STRING("data_typeNoRef267"), arg1, arg2) -> Unknown "data_typeNoRef267"
 | TUPLE3(STRING("data_typeNoRef273"), Virtual_HYPHEN_then_HYPHEN_identifier, arg2) -> Unknown "data_typeNoRef273"
 | TUPLE3(STRING("delay_control492"), HASH, arg2) -> Unknown "delay_control492"
@@ -88,10 +102,21 @@ let rec matchmly = function
 | TUPLE3(STRING("exprNoStr1249"), CARET_TILDE, arg2) -> Unknown "exprNoStr1249"
 | TUPLE3(STRING("exprNoStr1286"), LBRACE, RBRACE) -> Unknown "exprNoStr1286"
 | TUPLE3(STRING("exprOkLvalue1312"), arg1, arg2) -> Unknown "exprOkLvalue1312"
-| TUPLE3(STRING("exprOrDataTypeEqE1106"), EQUALS, arg2) -> Unknown "exprOrDataTypeEqE1106"
+| TUPLE3(STRING("exprOrDataTypeEqE1106"), EQUALS, arg2) ->
+(match arg2 with
+       | IDENTIFIER member -> Id member
+       | INTEGER_NUMBER n -> matchmly arg2
+       | TUPLE4 (STRING ("expr1119"|"expr1121"|"expr1122"|"expr1124"|"expr1142"|"expr1143"|"expr1132"|"expr1159"|"exprScope1329"), _, _, _) -> matchmly arg2
+       | TUPLE6 (STRING ("expr1148"|"expr1162"|"expr1165"|"funcRef788"), _, _, _, _, _) -> matchmly arg2
+       | TUPLE7 (STRING ("expr1155"), _, _, _, _, _, _) -> matchmly arg2
+       | TUPLE5 (STRING "system_f_call_or_t925", _, _, _, _) -> matchmly arg2
+       | TUPLE4 (STRING "exprOkLvalue1307", LBRACE, TLIST lst, RBRACE) -> ExprOKL (List.rev_map matchmly lst)
+       | TUPLE4 (STRING "assignment_pattern767", QUOTE_LBRACE, TLIST lst, RBRACE) -> InitPat (List.rev_map matchmly lst)
+       | TUPLE3 (STRING "exprScope1328", _, _) -> matchmly arg2
+       | oth -> othpat1 := Some oth; failwith "exprOrDataTypeEqE1106")
 | TUPLE3(STRING("exprScope1328"), arg1, arg2) ->
 (match arg1, arg2 with
-       | TLIST lst, IDENTIFIER member -> (match List.map matchmly lst with Package(id_cc, []) :: [] -> Package(id_cc, Id member :: []) | _ -> Unknown "exprScope1328")
+       | TLIST lst, IDENTIFIER member -> (match List.rev_map matchmly lst with Package(id_cc, []) :: [] -> Package(id_cc, Id member :: []) | _ -> Unknown "exprScope1328")
        | oth -> othpat2 := Some oth; failwith "exprScope1328")
 | TUPLE3(STRING("fIdScoped1051"), arg1, arg2) -> Unknown "fIdScoped1051"
 | TUPLE3(STRING("fexpr1174"), PLUS, arg2) -> Unknown "fexpr1174"
@@ -149,7 +174,10 @@ let rec matchmly = function
 | TUPLE3(STRING("modportPortsDecl167"), Import, arg2) -> Unknown "modportPortsDecl167"
 | TUPLE3(STRING("modportPortsDecl168"), Export, arg2) -> Unknown "modportPortsDecl168"
 | TUPLE3(STRING("module_common_item419"), Always, arg2) -> Unknown "module_common_item419"
-| TUPLE3(STRING("module_common_item420"), Always_ff, arg2) -> Unknown "module_common_item420"
+| TUPLE3(STRING("module_common_item420"), Always_ff, arg2) ->
+    (match arg2 with 
+        | TUPLE3 (STRING "statement_item680", event, block) -> AlwaysFF(matchmly event, matchmly block)
+        | oth -> othpat1 := Some oth; failwith "module_common_item420")
 | TUPLE3(STRING("module_common_item421"), Always_latch, arg2) -> Unknown "module_common_item421"
 | TUPLE3(STRING("module_common_item422"), Always_comb, arg2) -> Unknown "module_common_item422"
 | TUPLE3(STRING("module_common_item426"), ERROR_TOKEN, SEMICOLON) -> Unknown "module_common_item426"
@@ -160,15 +188,21 @@ let rec matchmly = function
 | TUPLE3(STRING("packageClassScopeItem2593"), arg1, COLON_COLON) ->
     (match arg1 with 
         | IDENTIFIER_HYPHEN_COLON_COLON id_cc -> Package(id_cc, [])
-        | oth -> othpat := Some oth; failwith "packageClassScopeItem2593")
-| TUPLE3(STRING("package_or_generate_item_declaration36"), arg1, SEMICOLON) -> Unknown "package_or_generate_item_declaration36"
+        | oth -> othpat1 := Some oth; failwith "packageClassScopeItem2593")
+| TUPLE3(STRING("package_or_generate_item_declaration36"), arg1, SEMICOLON) ->
+    (match arg1 with 
+        | TUPLE3 (STRING "parameter_declaration175", decl, TLIST lst) -> ParamDecl(matchmly decl, List.rev_map matchmly lst)
+        | oth -> othpat1 := Some oth; failwith "package_or_generate_item_declaration36")
 | TUPLE3(STRING("packedSigningE322"), Packed, arg2) -> Unknown "packedSigningE322"
 | TUPLE3(STRING("packed_dimension536"), LBRACK, RBRACK) -> Unknown "packed_dimension536"
 | TUPLE3(STRING("paramPortDeclOrArg72"), arg1, arg2) -> Unknown "paramPortDeclOrArg72"
 | TUPLE3(STRING("paramPortDeclOrArg73"), arg1, arg2) -> Unknown "paramPortDeclOrArg73"
 | TUPLE3(STRING("parameter_declaration175"), arg1, arg2) -> Unknown "parameter_declaration175"
 | TUPLE3(STRING("parameter_declaration176"), arg1, arg2) -> Unknown "parameter_declaration176"
-| TUPLE3(STRING("parameter_declarationFront177"), arg1, arg2) -> Unknown "parameter_declarationFront177"
+| TUPLE3(STRING("parameter_declarationFront177"), arg1, arg2) ->
+    (match arg1,arg2 with 
+        | Localparam, EMPTY_TOKEN -> Atom "localparam"
+        | oth -> othpat2 := Some oth; failwith "parameter_declarationFront177")
 | TUPLE3(STRING("parameter_declarationFront178"), arg1, arg2) -> Unknown "parameter_declarationFront178"
 | TUPLE3(STRING("parameter_declarationTypeFront179"), arg1, Type) -> Unknown "parameter_declarationTypeFront179"
 | TUPLE3(STRING("parameter_port_declarationFrontE180"), arg1, arg2) -> Unknown "parameter_port_declarationFrontE180"
@@ -194,7 +228,10 @@ let rec matchmly = function
 | TUPLE3(STRING("specify_block1469"), Specify, Endspecify) -> Unknown "specify_block1469"
 | TUPLE3(STRING("statement_item645"), arg1, SEMICOLON) -> Unknown "statement_item645"
 | TUPLE3(STRING("statement_item657"), arg1, SEMICOLON) -> Unknown "statement_item657"
-| TUPLE3(STRING("statement_item660"), arg1, SEMICOLON) -> Unknown "statement_item660"
+| TUPLE3(STRING("statement_item660"), arg1, SEMICOLON) ->
+(match arg1 with
+       | TUPLE5(STRING str, _, _, _, _) when String.sub str 0 13 = "system_t_call" -> matchmly arg1
+       | oth -> othpat1 := Some oth; failwith "statement_item660")
 | TUPLE3(STRING("statement_item668"), Forever, arg2) -> Unknown "statement_item668"
 | TUPLE3(STRING("statement_item674"), Return, SEMICOLON) -> Unknown "statement_item674"
 | TUPLE3(STRING("statement_item676"), Break, SEMICOLON) -> Unknown "statement_item676"
@@ -236,7 +273,29 @@ let rec matchmly = function
 | TUPLE3(STRING("task_prototype1023"), Task, arg2) -> Unknown "task_prototype1023"
 | TUPLE3(STRING("tfBodyE1056"), arg1, arg2) -> Unknown "tfBodyE1056"
 | TUPLE3(STRING("tfGuts1053"), SEMICOLON, arg2) -> Unknown "tfGuts1053"
-| TUPLE3(STRING("tf_port_item1070"), arg1, arg2) -> Unknown "tf_port_item1070"
+| TUPLE3(STRING("tf_port_item1070"), arg1, arg2) ->
+  (match arg1,arg2 with
+    | TUPLE3 (STRING "data_typeBasic264", (Byte|Int|Integer), (EMPTY_TOKEN|Unsigned)),
+      TUPLE5 (STRING "tf_port_itemAssignment1084", _, _, _, _) -> PortItem(matchmly arg1, matchmly arg2)
+    | TUPLE4 (STRING "data_typeBasic263", Logic, (EMPTY_TOKEN|Signed), TLIST lst'),
+      TUPLE5 (STRING "tf_port_itemAssignment1084", _, _, _, _) -> PortItem(matchmly arg1, matchmly arg2)
+    | TUPLE3 (STRING "tf_port_itemFront1078", Input, TUPLE4 (STRING "data_typeBasic263", Source_text.Logic, EMPTY_TOKEN, TLIST lst)),
+      TUPLE5 (STRING "tf_port_itemAssignment1084", _, _, _, _) -> PortFront(matchmly arg1, matchmly arg2)
+
+(*
+    | TUPLE4 (STRING "data_typeBasic263", (Bit|Logic), (EMPTY_TOKEN|Signed), EMPTY_TOKEN), TLIST lst -> DeclLogic(List.rev_map matchmly lst)
+    | TUPLE4 (STRING "data_typeBasic263", Reg, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst -> DeclReg(List.rev_map matchmly lst, [], [])
+    | TUPLE4 (STRING "data_typeBasic263", Reg, EMPTY_TOKEN, TLIST lst'), TLIST lst -> DeclReg2(List.rev_map matchmly lst, List.rev_map matchmly lst')
+    | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst' -> Typ(typ_id, List.rev_map matchmly lst, List.rev_map matchmly lst')
+    | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst), TLIST lst' -> Typ2(typ_id, List.rev_map matchmly lst, List.rev_map matchmly lst')
+    | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst -> Typ3(typ_id, List.rev_map matchmly lst)
+    | TUPLE6 (STRING "enumDecl323", Enum, base_type, LBRACE, TLIST lst, RBRACE), TLIST lst' -> TypEnum4(matchmly base_type, List.rev_map matchmly lst, List.rev_map matchmly lst')
+    | TUPLE4 (STRING "data_declarationVarFront357", Const, EMPTY_TOKEN, base_type), TLIST lst -> DeclData(matchmly base_type, List.rev_map matchmly lst)
+    | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst'), TLIST lst'' -> Typ4(typ_id, List.rev_map matchmly lst, List.rev_map matchmly lst', List.rev_map matchmly lst'')
+    | TUPLE3 (STRING "data_typeNoRef267", struct_decl, TLIST lst), TLIST lst' -> Typ5(matchmly struct_decl, List.rev_map matchmly lst')
+    | TUPLE3 (STRING "data_typeNoRef267", struct_decl, EMPTY_TOKEN), TLIST lst' -> Typ6(matchmly struct_decl)
+*)
+        | oth -> othpat2 := Some oth; failwith "tf_port_item1070")
 | TUPLE3(STRING("tf_port_itemFront1073"), arg1, arg2) -> Unknown "tf_port_itemFront1073"
 | TUPLE3(STRING("tf_port_itemFront1075"), Var, arg2) -> Unknown "tf_port_itemFront1075"
 | TUPLE3(STRING("tf_port_itemFront1076"), Var, arg2) -> Unknown "tf_port_itemFront1076"
@@ -253,7 +312,7 @@ let rec matchmly = function
 | TUPLE3(STRING("vltItem2676"), Hier_block, arg2) -> Unknown "vltItem2676"
 | TUPLE3(STRING("vltVarAttrVarE2697"), HYPHEN_HYPHEN_var, arg2) -> Unknown "vltVarAttrVarE2697"
 | TUPLE4(STRING("argsExprListE1359"), arg1, COMMA, arg3) -> Unknown "argsExprListE1359"
-| TUPLE4(STRING("assignOne488"), arg1, EQUALS, arg3) -> Unknown "assignOne488"
+| TUPLE4(STRING("assignOne488"), arg1, EQUALS, arg3) -> Asgn1(matchmly arg1, matchmly arg3)
 | TUPLE4(STRING("assignment_pattern767"), QUOTE_LBRACE, arg2, RBRACE) -> Unknown "assignment_pattern767"
 | TUPLE4(STRING("assignment_pattern768"), QUOTE_LBRACE, arg2, RBRACE) -> Unknown "assignment_pattern768"
 | TUPLE4(STRING("bind_directive436"), Bind, arg2, arg3) -> Unknown "bind_directive436"
@@ -267,7 +326,22 @@ let rec matchmly = function
 | TUPLE4(STRING("constraint_block2630"), LBRACE, arg2, RBRACE) -> Unknown "constraint_block2630"
 | TUPLE4(STRING("constraint_expression2641"), Soft, arg2, SEMICOLON) -> Unknown "constraint_expression2641"
 | TUPLE4(STRING("constraint_set2648"), LBRACE, arg2, RBRACE) -> Unknown "constraint_set2648"
-| TUPLE4(STRING("data_declarationVar347"), arg1, arg2, SEMICOLON) -> Unknown "data_declarationVar347"
+| TUPLE4(STRING("data_declarationVar347"), arg1, arg2, SEMICOLON) ->
+  (match arg1, arg2 with
+    | TUPLE4 (STRING "data_typeBasic263", (Bit|Logic), (EMPTY_TOKEN|Signed), EMPTY_TOKEN), TLIST lst -> DeclLogic(List.rev_map matchmly lst)
+    | TUPLE4 (STRING "data_typeBasic263", Logic, (EMPTY_TOKEN|Signed), TLIST lst'), TLIST lst -> DeclLogic2(List.rev_map matchmly lst, List.rev_map matchmly lst')
+    | TUPLE3 (STRING "data_typeBasic264", (Byte|Int|Integer), (EMPTY_TOKEN|Unsigned)), TLIST lst -> DeclInt2(List.rev_map matchmly lst)
+    | TUPLE4 (STRING "data_typeBasic263", Reg, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst -> DeclReg(List.rev_map matchmly lst, [], [])
+    | TUPLE4 (STRING "data_typeBasic263", Reg, EMPTY_TOKEN, TLIST lst'), TLIST lst -> DeclReg2(List.rev_map matchmly lst, List.rev_map matchmly lst')
+    | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst' -> Typ(typ_id, List.rev_map matchmly lst, List.rev_map matchmly lst')
+    | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst), TLIST lst' -> Typ2(typ_id, List.rev_map matchmly lst, List.rev_map matchmly lst')
+    | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst -> Typ3(typ_id, List.rev_map matchmly lst)
+    | TUPLE6 (STRING "enumDecl323", Enum, base_type, LBRACE, TLIST lst, RBRACE), TLIST lst' -> TypEnum4(matchmly base_type, List.rev_map matchmly lst, List.rev_map matchmly lst')
+    | TUPLE4 (STRING "data_declarationVarFront357", Const, EMPTY_TOKEN, base_type), TLIST lst -> DeclData(matchmly base_type, List.rev_map matchmly lst)
+    | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst'), TLIST lst'' -> Typ4(typ_id, List.rev_map matchmly lst, List.rev_map matchmly lst', List.rev_map matchmly lst'')
+    | TUPLE3 (STRING "data_typeNoRef267", struct_decl, TLIST lst), TLIST lst' -> Typ5(matchmly struct_decl, List.rev_map matchmly lst')
+    | TUPLE3 (STRING "data_typeNoRef267", struct_decl, EMPTY_TOKEN), TLIST lst' -> Typ6(matchmly struct_decl)
+    | oth -> othpat2 := Some oth; failwith "data_declarationVar347")
 | TUPLE4(STRING("data_declarationVarClass348"), arg1, arg2, SEMICOLON) -> Unknown "data_declarationVarClass348"
 | TUPLE4(STRING("data_declarationVarFront349"), Var, arg2, arg3) -> Unknown "data_declarationVarFront349"
 | TUPLE4(STRING("data_declarationVarFront353"), Const, Var, arg3) -> Unknown "data_declarationVarFront353"
@@ -281,15 +355,22 @@ let rec matchmly = function
 | TUPLE4(STRING("dist_item2653"), arg1, COLON_SLASH, arg3) -> Unknown "dist_item2653"
 | TUPLE4(STRING("dist_list2650"), arg1, COMMA, arg3) -> Unknown "dist_list2650"
 | TUPLE4(STRING("enumNameRangeE335"), LBRACK, arg2, RBRACK) -> Unknown "enumNameRangeE335"
-| TUPLE4(STRING("enum_base_typeE328"), arg1, arg2, arg3) -> Unknown "enum_base_typeE328"
+| TUPLE4(STRING("enum_base_typeE328"), arg1, arg2, arg3) ->
+(match (arg1, arg2, arg3) with
+       | Logic, EMPTY_TOKEN, EMPTY_TOKEN -> TypEnum5 (matchmly Logic)
+       | Logic, EMPTY_TOKEN, TLIST lst -> TypEnum3 (List.rev_map matchmly lst)
+       | oth -> othpat3 := Some oth; failwith "enum_base_typeE328")
 | TUPLE4(STRING("enum_base_typeE330"), arg1, arg2, arg3) -> Unknown "enum_base_typeE330"
-| TUPLE4(STRING("enum_name_declaration333"), arg1, arg2, arg3) -> Unknown "enum_name_declaration333"
+| TUPLE4(STRING("enum_name_declaration333"), arg1, arg2, arg3) ->
+(match (arg1, arg2, arg3) with
+       | IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN -> Id id
+       | oth -> othpat3 := Some oth; failwith "enum_name_declaration333")
 | TUPLE4(STRING("event_expression598"), arg1, Or, arg3) -> Unknown "event_expression598"
 | TUPLE4(STRING("event_expression599"), arg1, COMMA, arg3) -> Unknown "event_expression599"
-| TUPLE4(STRING("expr1119"), arg1, PLUS, arg3) -> Unknown "expr1119"
+| TUPLE4(STRING("expr1119"), arg1, PLUS, arg3) -> Add(matchmly arg1, matchmly arg3)
 | TUPLE4(STRING("expr1120"), arg1, HYPHEN, arg3) -> Sub(matchmly arg1, matchmly arg3)
 | TUPLE4(STRING("expr1121"), arg1, STAR, arg3) -> Unknown "expr1121"
-| TUPLE4(STRING("expr1122"), arg1, SLASH, arg3) -> Unknown "expr1122"
+| TUPLE4(STRING("expr1122"), arg1, SLASH, arg3) -> Div(matchmly arg1, matchmly arg3)
 | TUPLE4(STRING("expr1123"), arg1, PERCENT, arg3) -> Unknown "expr1123"
 | TUPLE4(STRING("expr1124"), arg1, EQ_EQ, arg3) -> Unknown "expr1124"
 | TUPLE4(STRING("expr1125"), arg1, PLING_EQ, arg3) -> Unknown "expr1125"
@@ -442,7 +523,7 @@ let rec matchmly = function
 | TUPLE4(STRING("interface_generate_region120"), Generate, arg2, Endgenerate) -> Unknown "interface_generate_region120"
 | TUPLE4(STRING("loop_variables783"), arg1, COMMA, arg3) -> Unknown "loop_variables783"
 | TUPLE4(STRING("modFront54"), Module, arg2, modid) ->
-    (match modid with IDENTIFIER id -> print_endline id | oth -> othpat := Some oth; failwith "modFront54");
+    (match modid with IDENTIFIER id -> print_endline id | oth -> othpat1 := Some oth; failwith "modFront54");
     Unknown "modFront54"
 | TUPLE4(STRING("modport_declaration156"), Modport, arg2, SEMICOLON) -> Unknown "modport_declaration156"
 | TUPLE4(STRING("module_or_generate_item408"), Defparam, arg2, SEMICOLON) -> Unknown "module_or_generate_item408"
@@ -500,7 +581,11 @@ let rec matchmly = function
 | TUPLE4(STRING("type_declaration371"), Typedef, arg2, SEMICOLON) -> Unknown "type_declaration371"
 | TUPLE4(STRING("type_declaration372"), Typedef, arg2, SEMICOLON) -> Unknown "type_declaration372"
 | TUPLE4(STRING("udpFront57"), Primitive, arg2, arg3) -> Unknown "udpFront57"
-| TUPLE4(STRING("variable_decl_assignment297"), arg1, arg2, arg3) -> Unknown "variable_decl_assignment297"
+| TUPLE4(STRING("variable_decl_assignment297"), arg1, arg2, arg3) ->
+(match (arg1, arg2, arg3) with
+       | IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN -> Id id
+       | IDENTIFIER id, TLIST lst, EMPTY_TOKEN -> DeclAsgn(id, List.rev_map matchmly lst)
+       | oth -> othpat3 := Some oth; failwith "variable_decl_assignment297")
 | TUPLE4(STRING("variable_dimension313"), LBRACK, arg2, RBRACK) -> Unknown "variable_dimension313"
 | TUPLE4(STRING("variable_dimension315"), LBRACK, STAR, RBRACK) -> Unknown "variable_dimension315"
 | TUPLE4(STRING("variable_lvalue2480"), LBRACE, arg2, RBRACE) -> Unknown "variable_lvalue2480"
@@ -596,7 +681,11 @@ let rec matchmly = function
 | TUPLE5(STRING("par_blockPreId620"), arg1, arg2, Join, arg4) -> Unknown "par_blockPreId620"
 | TUPLE5(STRING("par_blockPreId621"), arg1, arg2, Join_any, arg4) -> Unknown "par_blockPreId621"
 | TUPLE5(STRING("par_blockPreId622"), arg1, arg2, Join_none, arg4) -> Unknown "par_blockPreId622"
-| TUPLE5(STRING("param_assignment537"), arg1, arg2, arg3, arg4) -> Unknown "param_assignment537"
+| TUPLE5(STRING("param_assignment537"), arg1, arg2, arg3, arg4) ->
+    (match arg1, arg2, arg3, arg4 with
+      | IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN, expr_typ -> ParamAsgn1(id, matchmly expr_typ)
+      | IDENTIFIER id, TLIST lst, EMPTY_TOKEN, expr_typ -> ParamAsgn2(id, List.rev_map matchmly lst, matchmly expr_typ)
+      | oth -> othpat4 := Some oth; failwith "param_assignment537")
 | TUPLE5(STRING("parameter_port_listE69"), HASH, LPAREN, arg3, RPAREN) -> Unknown "parameter_port_listE69"
 | TUPLE5(STRING("parameter_value_assignment60"), HASH, LPAREN, arg3, RPAREN) -> Unknown "parameter_value_assignment60"
 | TUPLE5(STRING("parameter_value_assignmentClass65"), HASH, LPAREN, arg3, RPAREN) -> Unknown "parameter_value_assignmentClass65"
@@ -636,7 +725,7 @@ let rec matchmly = function
 | TUPLE5(STRING("system_f_call_or_t921"), DLR_bitstoshortreal, LPAREN, arg3, RPAREN) -> Unknown "system_f_call_or_t921"
 | TUPLE5(STRING("system_f_call_or_t922"), DLR_ceil, LPAREN, arg3, RPAREN) -> Unknown "system_f_call_or_t922"
 | TUPLE5(STRING("system_f_call_or_t923"), DLR_changed, LPAREN, arg3, RPAREN) -> Unknown "system_f_call_or_t923"
-| TUPLE5(STRING("system_f_call_or_t925"), DLR_clog2, LPAREN, arg3, RPAREN) -> Unknown "system_f_call_or_t925"
+| TUPLE5(STRING("system_f_call_or_t925"), DLR_clog2, LPAREN, arg3, RPAREN) -> Sys("$clog2", matchmly arg3)
 | TUPLE5(STRING("system_f_call_or_t926"), DLR_cos, LPAREN, arg3, RPAREN) -> Unknown "system_f_call_or_t926"
 | TUPLE5(STRING("system_f_call_or_t927"), DLR_cosh, LPAREN, arg3, RPAREN) -> Unknown "system_f_call_or_t927"
 | TUPLE5(STRING("system_f_call_or_t932"), DLR_countones, LPAREN, arg3, RPAREN) -> Unknown "system_f_call_or_t932"
@@ -705,7 +794,8 @@ let rec matchmly = function
 | TUPLE5(STRING("system_t_call844"), DLR_strobeb, LPAREN, arg3, RPAREN) -> Unknown "system_t_call844"
 | TUPLE5(STRING("system_t_call845"), DLR_strobeh, LPAREN, arg3, RPAREN) -> Unknown "system_t_call845"
 | TUPLE5(STRING("system_t_call846"), DLR_strobeo, LPAREN, arg3, RPAREN) -> Unknown "system_t_call846"
-| TUPLE5(STRING("system_t_call848"), DLR_write, LPAREN, arg3, RPAREN) -> Unknown "system_t_call848"
+| TUPLE5(STRING("system_t_call848"), DLR_write, LPAREN, arg3, RPAREN) ->
+    SysTaskCall("$write", match arg3 with TLIST lst -> List.rev_map matchmly lst | oth -> matchmly oth :: [])
 | TUPLE5(STRING("system_t_call850"), DLR_writeb, LPAREN, arg3, RPAREN) -> Unknown "system_t_call850"
 | TUPLE5(STRING("system_t_call852"), DLR_writeh, LPAREN, arg3, RPAREN) -> Unknown "system_t_call852"
 | TUPLE5(STRING("system_t_call854"), DLR_writeo, LPAREN, arg3, RPAREN) -> Unknown "system_t_call854"
@@ -741,7 +831,10 @@ let rec matchmly = function
 | TUPLE6(STRING("constraint_block_item2634"), Solve, arg2, Before, arg4, SEMICOLON) -> Unknown "constraint_block_item2634"
 | TUPLE6(STRING("constraint_expression2643"), If, LPAREN, arg3, RPAREN, arg5) -> Unknown "constraint_expression2643"
 | TUPLE6(STRING("constraint_expression2645"), Foreach, LPAREN, arg3, RPAREN, arg5) -> Unknown "constraint_expression2645"
-| TUPLE6(STRING("continuous_assign427"), Assign, arg2, arg3, arg4, SEMICOLON) -> Unknown "continuous_assign427"
+| TUPLE6(STRING("continuous_assign427"), Assign, arg2, arg3, arg4, SEMICOLON) ->
+(match arg2, arg3, arg4 with
+       | EMPTY_TOKEN, (EMPTY_TOKEN|TUPLE3(STRING "delay_control492",_,_)), TLIST lst -> ContAsgn(List.rev_map matchmly lst)
+       | oth -> othpat3 := Some oth; failwith "continuous_assign427")
 | TUPLE6(STRING("data_declarationVarFront354"), Const, Var, arg3, arg4, arg5) -> Unknown "data_declarationVarFront354"
 | TUPLE6(STRING("defparam_assignment545"), arg1, DOT, arg3, EQUALS, arg5) -> Unknown "defparam_assignment545"
 | TUPLE6(STRING("enumDecl323"), Enum, arg2, LBRACE, arg4, RBRACE) -> Unknown "enumDecl323"
@@ -828,19 +921,29 @@ let rec matchmly = function
 | TUPLE6(STRING("streaming_concatenation1368"), LBRACE, LT_LT, arg3, arg4, RBRACE) -> Unknown "streaming_concatenation1368"
 | TUPLE6(STRING("streaming_concatenation1369"), LBRACE, GT_GT, arg3, arg4, RBRACE) -> Unknown "streaming_concatenation1369"
 | TUPLE6(STRING("strengthSpec1462"), LPAREN_HYPHEN_for_HYPHEN_strength, arg2, COMMA, arg4, RPAREN) -> Unknown "strengthSpec1462"
-| TUPLE6(STRING("struct_unionDecl281"), Struct, arg2, LBRACE, arg4, RBRACE) -> Unknown "struct_unionDecl281"
+| TUPLE6(STRING("struct_unionDecl281"), Struct, arg2, LBRACE, arg4, RBRACE) ->
+  (match arg2,arg4 with
+	| TUPLE3 (STRING "packedSigningE322", Packed, EMPTY_TOKEN), TLIST lst -> Unknown "packed"
+        | oth -> othpat2 := Some oth; failwith "struct_unionDecl281")
 | TUPLE6(STRING("system_t_call801"), DLR_dumpports, LPAREN, COMMA, arg4, RPAREN) -> Unknown "system_t_call801"
 | TUPLE6(STRING("taskRef786"), arg1, arg2, LPAREN, arg4, RPAREN) -> Unknown "taskRef786"
 | TUPLE6(STRING("task_prototype1022"), Task, arg2, LPAREN, arg4, RPAREN) -> Unknown "task_prototype1022"
 | TUPLE6(STRING("task_subroutine_callNoMethod790"), arg1, With_HYPHEN_then_HYPHEN_LPAREN, LPAREN, arg4, RPAREN) -> Unknown "task_subroutine_callNoMethod790"
 | TUPLE6(STRING("task_subroutine_callNoMethod791"), arg1, With_HYPHEN_then_HYPHEN_LPAREN, LPAREN, arg4, RPAREN) -> Unknown "task_subroutine_callNoMethod791"
-| TUPLE6(STRING("tfGuts1052"), LPAREN, arg2, RPAREN, SEMICOLON, arg5) -> Unknown "tfGuts1052"
+| TUPLE6(STRING("tfGuts1052"), LPAREN, arg2, RPAREN, SEMICOLON, arg5) ->
+  (match arg2,arg5 with
+	| TLIST lst, TLIST lst' -> FunGuts(List.rev_map matchmly lst, List.rev_map matchmly lst')
+	| TLIST lst, TUPLE3 (STRING "tfBodyE1056", _, _) -> FunGuts(List.rev_map matchmly lst, matchmly arg5 :: [])
+        | oth -> othpat2 := Some oth; failwith "tfGuts1052")
 | TUPLE6(STRING("tf_port_declaration237"), arg1, Var, arg3, arg4, SEMICOLON) -> Unknown "tf_port_declaration237"
 | TUPLE6(STRING("tf_port_declaration239"), arg1, Var, arg3, arg4, SEMICOLON) -> Unknown "tf_port_declaration239"
 | TUPLE6(STRING("timeunits_declaration18"), Timeunit, TIME_NUMBER, SLASH, TIME_NUMBER, SEMICOLON) -> Unknown "timeunits_declaration18"
 | TUPLE6(STRING("type_declaration377"), Typedef, Interface, Class, arg4, SEMICOLON) -> Unknown "type_declaration377"
 | TUPLE6(STRING("value_range747"), LBRACK, arg2, COLON, arg4, RBRACK) -> Unknown "value_range747"
-| TUPLE6(STRING("variable_decl_assignment298"), arg1, arg2, arg3, EQUALS, arg5) -> Unknown "variable_decl_assignment298"
+| TUPLE6(STRING("variable_decl_assignment298"), arg1, arg2, arg3, EQUALS, arg5) ->
+  (match arg1,arg2,arg3,arg5 with
+	| IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN, expr -> VarDeclAsgn(id, matchmly expr)
+        | oth -> othpat4 := Some oth; failwith "variable_decl_assignment298")
 | TUPLE6(STRING("vltItem2662"), arg1, HYPHEN_HYPHEN_file, STRING arg3, HYPHEN_HYPHEN_lines, INTEGER_NUMBER arg5) -> Unknown "vltItem2662"
 | TUPLE6(STRING("vltItem2664"), arg1, HYPHEN_HYPHEN_file, STRING arg3, HYPHEN_HYPHEN_match, STRING arg5) -> Unknown "vltItem2664"
 | TUPLE6(STRING("vltItem2667"), arg1, HYPHEN_HYPHEN_file, STRING arg3, HYPHEN_HYPHEN_lines, INTEGER_NUMBER arg5) -> Unknown "vltItem2667"
@@ -959,7 +1062,13 @@ let rec matchmly = function
 | TUPLE8(STRING("expr1160"), LPAREN, arg2, COLON, arg4, COLON, arg6, RPAREN) -> Unknown "expr1160"
 | TUPLE8(STRING("exprNoStr1292"), LPAREN, arg2, COLON, arg4, COLON, arg6, RPAREN) -> Unknown "exprNoStr1292"
 | TUPLE8(STRING("fexpr1226"), LPAREN, arg2, COLON, arg4, COLON, arg6, RPAREN) -> Unknown "fexpr1226"
-| TUPLE8(STRING("function_declaration1024"), Function, arg2, arg3, arg4, arg5, Endfunction, arg7) -> Unknown "function_declaration1024"
+| TUPLE8(STRING("function_declaration1024"), Function, arg2, arg3, arg4, arg5, Endfunction, arg7) ->
+  (match arg2, arg3, arg4, arg5, arg7 with
+       | EMPTY_TOKEN,TUPLE3 (STRING "funcId1045", typ, IDENTIFIER fid), EMPTY_TOKEN, guts, (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", _, _)) ->
+           FunDecl(fid,matchmly typ,matchmly guts)
+       | Automatic,TUPLE3 (STRING "funcId1044", typ, IDENTIFIER fid), EMPTY_TOKEN, guts, (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", _, _)) ->
+           AutoFunDecl(fid,matchmly typ,matchmly guts)
+       | oth -> othpat5 := Some oth; failwith "function_declaration1024")
 | TUPLE8(STRING("function_declaration1025"), Function, arg2, arg3, arg4, arg5, Endfunction, arg7) -> Unknown "function_declaration1025"
 | TUPLE8(STRING("gateBufif01431"), arg1, arg2, COMMA, arg4, COMMA, arg6, RPAREN) -> Unknown "gateBufif01431"
 | TUPLE8(STRING("gateBufif11432"), arg1, arg2, COMMA, arg4, COMMA, arg6, RPAREN) -> Unknown "gateBufif11432"
@@ -1035,7 +1144,8 @@ let ports', itms = itemsf portlst itmlst in Modul (modid, parmf params, ports', 
 | TUPLE11(STRING("system_t_call898"), DLR_writememb, LPAREN, arg3, COMMA, arg5, COMMA, arg7, COMMA, arg9, RPAREN) -> Unknown "system_t_call898"
 | TUPLE11(STRING("system_t_call901"), DLR_writememh, LPAREN, arg3, COMMA, arg5, COMMA, arg7, COMMA, arg9, RPAREN) -> Unknown "system_t_call901"
 | TUPLE13(STRING("system_f_call_or_t931"), DLR_countbits, LPAREN, arg3, COMMA, arg5, COMMA, arg7, COMMA, arg9, COMMA, arg11, RPAREN) -> Unknown "system_f_call_or_t931"
-| oth -> othpat := Some oth; failwith "matchmly"
+| ELIST lst -> Elist(List.rev_map matchmly lst)
+| oth -> othpat1 := Some oth; failwith "matchmly"
 
 
 and parmf = function
@@ -1048,8 +1158,8 @@ and parmf = function
 	          TypParam(id, Logic([], []), match typ_expr with
                      | TUPLE3 (Logic, EMPTY_TOKEN, TLIST lst) -> List.rev_map matchmly lst
                      | TUPLE3 (Logic, EMPTY_TOKEN, EMPTY_TOKEN) -> Unknown "logic" :: []                         
-                     | oth -> othpat := Some oth; failwith "typ_param")
-	      | oth -> othpat := Some oth; failwith "param") plst
+                     | oth -> othpat1 := Some oth; failwith "typ_param")
+	      | oth -> othpat1 := Some oth; failwith "param") plst
      | oth -> []
 
 and itemsf portlst itmlst =	      
