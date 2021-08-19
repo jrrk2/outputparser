@@ -64,10 +64,15 @@ type rw =
   | StarStar of rw * rw
   | Ifelse of rw * rw * rw
   | Iff of rw * rw
+  | If1 of rw * rw
+  | If2 of rw * rw * rw
   | ForLoop of rw list * rw * rw * rw
+  | CaseStart of rw * rw list
+  | CaseStart1 of rw
   | CaseStmt of rw * rw list
   | CaseItm of rw list
   | AlwaysComb of rw list
+  | AlwaysComb2 of rw
   | AlwaysFF of rw * rw
   | Sentry of rw * rw
   | Latch of rw list
@@ -92,6 +97,7 @@ type rw =
   | Unsigned of rw
   | Signed of rw
   | Concat of rw list
+  | NetDecl of rw * rw list
   | DeclWire of rw list * rw list
   | WireExpr of string * rw
   | DeclIntf1 of string *rw list
@@ -113,6 +119,7 @@ type rw =
   | DeclLogic of rw list
   | DeclLogic2 of rw list * rw list
   | DeclTask of string * rw list * rw * rw
+  | TaskRef of string * rw list
   | Mem1 of string * rw list
   | Mem3 of rw * rw * rw * rw
   | PartSel of rw * rw * rw
@@ -122,17 +129,19 @@ type rw =
   | DepLst of string list
   | InsideCase of rw * rw
   | InsideRange of rw * rw
+  | AnyRange of rw * rw
   | TypParam of string * rw * rw list
   | Auto of rw list * rw list
   | QuoteLbrace of string * rw list * rw list
   | Import of rw list
   | InitPair of string * rw
+  | InitPat of rw list
+  | InitSig of string * rw
   | AutoInc of string * rw
   | PreInc of string
   | ColonColon of string * string
   | Deflt
   | ExprOKL of rw list
-  | InitPat of rw list
   | VarDeclAsgn of string * rw
   | ContAsgn of rw list
   | Sys of string * rw
@@ -147,3 +156,32 @@ type rw =
   | PortItem of rw * rw
   | PortFront of rw * rw
   | PrimTyp of rw * rw
+  | ItemAsgn of rw
+  | At of rw
+  | AtStar
+  | EventOr of rw * rw
+  | Seq of string * rw list
+  | Equate of string * rw
+  | EquateField of string * string * rw
+  | EquateArrayField of string * string * rw * rw * rw
+  | EquateSelect of string * rw * rw
+  | EquateSelect2 of rw * rw * rw
+  | EquateSlice of rw * rw * rw * rw
+  | ExprQuote1 of rw * rw
+  | IdArrayedColon of rw * rw * rw
+  | IdArrayedPlusColon of rw * rw * rw
+  | IdArrayed1 of rw * rw * rw
+  | IdArrayed2 of rw * rw
+  | VNum of string
+  | Stmt1 of rw
+  | FopAsgn of string * rw
+  | FopAsgnArray of string * rw * rw * rw
+  | LoopGen1 of string * string * rw * rw * rw list
+  | CondGen1 of string * string * string * rw list * rw list
+  | InstDecl1 of string * rw list * rw list
+  | InstNameParen of string * rw list
+  | CellPinItem1 of string * string
+  | CellPinItem2 of string * rw
+  | CellParamItem1 of string * string
+  | CellParamItem2 of string * rw
+  

@@ -57,4 +57,4 @@ let x = classify' v;;
 open Source_text
 open Source_text_rewrite_types
 open Matchmly;;
-let x = matchmly Ariane.ariane;;
+let x = mly Ariane.ariane;;
