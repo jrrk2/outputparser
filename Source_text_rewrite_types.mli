@@ -20,6 +20,7 @@ type rw =
   | RedAnd of rw
   | RedOr of rw
   | UMinus of rw
+  | UPlus of rw
   | Inc of rw
   | Dec of rw
   | Pling of rw
@@ -34,6 +35,7 @@ type rw =
   | Typ4 of string * rw list * rw list * rw list
   | Typ5 of rw * rw list
   | Typ6 of rw
+  | Typ7 of string * rw
   | Struct of string * rw list
   | TypEnum of string * rw list * rw list
   | TypEnum2 of rw list * rw list * rw list
@@ -43,14 +45,23 @@ type rw =
   | Comma of rw * rw * rw
   | Clog2 of rw
   | Equals of rw * rw
+  | Equals3 of rw * rw
+  | EqualsQuery of rw * rw
   | NotEq of rw * rw
+  | NotEq3 of rw * rw
+  | NotEqQuery of rw * rw
+  | HyphenGt of rw * rw
+  | LtGt of rw * rw
   | LtEq of rw * rw
   | GtEq of rw * rw
   | Less of rw * rw
   | Greater of rw * rw
   | And of rw * rw
+  | Nand of rw * rw
   | And2 of rw * rw
+  | And3 of rw * rw
   | Or of rw * rw
+  | Nor of rw * rw
   | Or2 of rw * rw
   | Xor of rw * rw
   | Xnor of rw * rw
@@ -61,6 +72,7 @@ type rw =
   | Sub of rw * rw
   | Mult of rw * rw
   | Div of rw * rw
+  | Mod of rw * rw
   | StarStar of rw * rw
   | Ifelse of rw * rw * rw
   | Iff of rw * rw
@@ -74,6 +86,8 @@ type rw =
   | AlwaysComb of rw list
   | AlwaysComb2 of rw
   | AlwaysFF of rw * rw
+  | AlwaysLatch of rw
+  | AlwaysLegacy of rw * rw
   | Sentry of rw * rw
   | Latch of rw list
   | Blocking of rw * rw
@@ -89,6 +103,8 @@ type rw =
   | BeginBlock of rw list
   | Bitlst of rw list
   | Dot of string * rw
+  | Dot0 of rw * rw
+  | Dot1 of rw * rw
   | Dot2 of string * rw list * string
   | Dot3 of string * string * string
   | Dot4 of rw list * string
@@ -105,6 +121,7 @@ type rw =
   | Hash of string * rw list * rw list
   | DeclIntf of string * rw list * rw list * rw list
   | DeclModPort of rw list
+  | IntfDecl of string * rw * rw
   | Repl of rw * rw list
   | Slice of string * rw * rw
   | Slice2 of string * rw * rw
@@ -115,7 +132,9 @@ type rw =
   | ParamAsgn1 of string * rw
   | ParamAsgn2 of string * rw list * rw
   | ParamDecl of rw * rw list
+  | ParamPort of rw list
   | LocalP of rw list * rw list
+  | LocalParamTyp of rw
   | DeclLogic of rw list
   | DeclLogic2 of rw list * rw list
   | DeclTask of string * rw list * rw * rw
@@ -124,11 +143,13 @@ type rw =
   | Mem3 of rw * rw * rw * rw
   | PartSel of rw * rw * rw
   | GenBlock of rw list
+  | GenItem of string * rw list
   | Cast of rw * rw
   | Package of string * rw list
   | DepLst of string list
   | InsideCase of rw * rw
   | InsideRange of rw * rw
+  | OpenRange of rw * rw
   | AnyRange of rw * rw
   | TypParam of string * rw * rw list
   | Auto of rw list * rw list
@@ -146,15 +167,19 @@ type rw =
   | ContAsgn of rw list
   | Sys of string * rw
   | SysTaskCall of string * rw list
+  | SysFuncCall of string * rw list
   | Asgn1 of rw * rw
   | Elist of rw list
   | String of string
   | Atom of string
   | AutoFunDecl of string * rw * rw
+  | FunRef of string * rw list
   | FunDecl of string * rw * rw
   | FunGuts of rw list * rw list
+  | PortDir of rw * rw
   | PortItem of rw * rw
   | PortFront of rw * rw
+  | PortsStar of rw list
   | PrimTyp of rw * rw
   | ItemAsgn of rw
   | At of rw
@@ -168,6 +193,7 @@ type rw =
   | EquateSelect2 of rw * rw * rw
   | EquateSlice of rw * rw * rw * rw
   | ExprQuote1 of rw * rw
+  | ExprQuoteUnsigned of rw
   | IdArrayedColon of rw * rw * rw
   | IdArrayedPlusColon of rw * rw * rw
   | IdArrayed1 of rw * rw * rw
@@ -175,13 +201,23 @@ type rw =
   | VNum of string
   | Stmt1 of rw
   | FopAsgn of string * rw
-  | FopAsgnArray of string * rw * rw * rw
+  | FopAsgnArray1 of string * rw * rw
+  | FopAsgnArray2 of string * rw * rw * rw
   | LoopGen1 of string * string * rw * rw * rw list
-  | CondGen1 of string * string * string * rw list * rw list
+  | CondGen1 of rw * rw * rw
   | InstDecl1 of string * rw list * rw list
-  | InstNameParen of string * rw list
+  | InstDecl2 of string * rw list
+  | InstRange of rw * rw
+  | InstNameParen1 of string * rw list
+  | InstNameParen2 of string * rw list
   | CellPinItem1 of string * string
   | CellPinItem2 of string * rw
+  | CellPinItemNC of string
+  | CellPinItemImplied of string
   | CellParamItem1 of string * string
   | CellParamItem2 of string * rw
+  | CellParamItem3 of string * rw
+  | Initial of rw list
+  | Final of rw list
+  | Assert of rw * rw
   
