@@ -30,18 +30,21 @@ type rw =
   | Caret of rw
   | Bits of rw
   | Typ of string * rw list * rw list
+  | Typ1 of string
   | Typ2 of string * rw list * rw list
   | Typ3 of string * rw list
   | Typ4 of string * rw list * rw list * rw list
   | Typ5 of rw * rw list
   | Typ6 of rw
   | Typ7 of string * rw
+  | Typ8 of rw * rw
   | Struct of string * rw list
   | TypEnum of string * rw list * rw list
   | TypEnum2 of rw list * rw list * rw list
   | TypEnum3 of rw list
   | TypEnum4 of rw * rw list * rw list
   | TypEnum5 of rw
+  | TypEnum6 of string * rw * rw list
   | Comma of rw * rw * rw
   | Clog2 of rw
   | Equals of rw * rw
@@ -80,6 +83,8 @@ type rw =
   | If2 of rw * rw * rw
   | ForLoop of rw list * rw * rw * rw
   | CaseStart of rw * rw list
+  | CaseStartUniq of rw * rw list
+  | CaseStartUniq2 of rw * rw list
   | CaseStart1 of rw
   | CaseStmt of rw * rw list
   | CaseItm of rw list
@@ -139,6 +144,7 @@ type rw =
   | DeclLogic2 of rw list * rw list
   | DeclTask of string * rw list * rw * rw
   | TaskRef of string * rw list
+  | TaskBody of rw list * rw list
   | Mem1 of string * rw list
   | Mem3 of rw * rw * rw * rw
   | PartSel of rw * rw * rw
@@ -150,6 +156,7 @@ type rw =
   | InsideCase of rw * rw
   | InsideRange of rw * rw
   | OpenRange of rw * rw
+  | ValueRange of rw * rw
   | AnyRange of rw * rw
   | TypParam of string * rw * rw list
   | Auto of rw list * rw list
@@ -174,6 +181,7 @@ type rw =
   | Atom of string
   | AutoFunDecl of string * rw * rw
   | FunRef of string * rw list
+  | FunRef2 of string * rw list * rw list
   | FunDecl of string * rw * rw
   | FunGuts of rw list * rw list
   | PortDir of rw * rw
@@ -198,12 +206,19 @@ type rw =
   | IdArrayedPlusColon of rw * rw * rw
   | IdArrayed1 of rw * rw * rw
   | IdArrayed2 of rw * rw
+  | IdArrayed3 of rw list * rw
   | VNum of string
   | Stmt1 of rw
   | FopAsgn of string * rw
-  | FopAsgnArray1 of string * rw * rw
-  | FopAsgnArray2 of string * rw * rw * rw
-  | LoopGen1 of string * string * rw * rw * rw list
+  | FopAsgnArraySel of string * rw * rw
+  | FopAsgnArrayMemSel of string * rw * rw * rw
+  | FopAsgnArrayRange of string * rw * rw * rw
+  | FopAsgnArrayRange2 of rw * rw * rw * rw
+  | FopAsgnArrayWid of string * rw * rw * rw
+  | FopAsgnArrayField of string * string * rw
+  | FopAsgnArrayField2 of string * rw * rw
+  | FopAsgnArrayField3 of string * rw * string * rw
+  | LoopGen1 of string * string * rw * rw * rw * rw list
   | CondGen1 of rw * rw * rw
   | InstDecl1 of string * rw list * rw list
   | InstDecl2 of string * rw list
@@ -219,5 +234,22 @@ type rw =
   | CellParamItem3 of string * rw
   | Initial of rw list
   | Final of rw list
-  | Assert of rw * rw
-  
+  | Assert (* of rw * rw *)
+  | AssertProperty (* of rw * rw *)
+  | PropertySpec (* of rw * rw *)
+  | Return of rw
+  | ElabTask of rw
+  | ElseStmt of rw
+  | Generate of rw
+  | PkgImport of rw
+  | PkgImportItm of string * rw
+  | AsgnPat of rw list
+  | PatMember1 of rw * rw
+  | PatMemberDflt of rw
+  | EnumInit of string * rw
+  | AndEq of rw * rw
+  | PlusEq of rw * rw
+  | MinusEq of rw * rw
+  | BreakSemi
+  | PortItemFront of rw * rw
+  | FopAsgnConcat of rw list * rw
