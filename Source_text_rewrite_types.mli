@@ -28,8 +28,6 @@ type rw =
   | TildeAnd of rw
   | TildeOr of rw
   | Caret of rw
-  | Bits of rw
-  | Typ of string * rw list * rw list
   | Typ1 of string
   | Typ2 of string * rw list * rw list
   | Typ3 of string * rw list
@@ -38,6 +36,8 @@ type rw =
   | Typ6 of rw
   | Typ7 of string * rw
   | Typ8 of rw * rw
+  | Typ9 of string * rw list * rw
+  | Typ10 of string * rw list * string
   | Struct of string * rw list
   | TypEnum of string * rw list * rw list
   | TypEnum2 of rw list * rw list * rw list
@@ -45,8 +45,6 @@ type rw =
   | TypEnum4 of rw * rw list * rw list
   | TypEnum5 of rw
   | TypEnum6 of string * rw * rw list
-  | Comma of rw * rw * rw
-  | Clog2 of rw
   | Equals of rw * rw
   | Equals3 of rw * rw
   | EqualsQuery of rw * rw
@@ -86,6 +84,7 @@ type rw =
   | CaseStartUniq of rw * rw list
   | CaseStartUniq2 of rw * rw list
   | CaseStart1 of rw
+  | CaseStart2 of rw * rw list
   | CaseStmt of rw * rw list
   | CaseItm of rw list
   | AlwaysComb of rw list
@@ -105,18 +104,20 @@ type rw =
   | DeclAsgn of string * rw list
   | DeclData of rw * rw list
   | Dim of rw * rw
+  | VarDim of rw
   | BeginBlock of rw list
   | Bitlst of rw list
   | Dot of string * rw
-  | Dot0 of rw * rw
   | Dot1 of rw * rw
   | Dot2 of string * rw list * string
   | Dot3 of string * string * string
   | Dot4 of rw list * string
   | Dot5 of string * rw list
   | DotBus of string * string * string * rw list
+(*
   | Unsigned of rw
   | Signed of rw
+*)  
   | Concat of rw list
   | NetDecl of rw * rw list
   | DeclWire of rw list * rw list
@@ -126,7 +127,8 @@ type rw =
   | Hash of string * rw list * rw list
   | DeclIntf of string * rw list * rw list * rw list
   | DeclModPort of rw list
-  | IntfDecl of string * rw * rw
+  | ModPortItm of string * rw list
+  | IntfDecl of string * rw * rw * rw
   | Repl of rw * rw list
   | Slice of string * rw * rw
   | Slice2 of string * rw * rw
@@ -165,8 +167,6 @@ type rw =
   | InitPair of string * rw
   | InitPat of rw list
   | InitSig of string * rw
-  | AutoInc of string * rw
-  | PreInc of string
   | ColonColon of string * string
   | Deflt
   | ExprOKL of rw list
@@ -188,7 +188,6 @@ type rw =
   | PortItem of rw * rw
   | PortFront of rw * rw
   | PortsStar of rw list
-  | PrimTyp of rw * rw
   | ItemAsgn of rw
   | At of rw
   | AtStar
@@ -201,15 +200,16 @@ type rw =
   | EquateSelect2 of rw * rw * rw
   | EquateSlice of rw * rw * rw * rw
   | ExprQuote1 of rw * rw
-  | ExprQuoteUnsigned of rw
   | IdArrayedColon of rw * rw * rw
   | IdArrayedPlusColon of rw * rw * rw
+  | IdArrayedHyphenColon of rw * rw * rw
   | IdArrayed1 of rw * rw * rw
   | IdArrayed2 of rw * rw
   | IdArrayed3 of rw list * rw
   | VNum of string
   | Stmt1 of rw
   | FopAsgn of string * rw
+  | FopAsgn1 of string * string * string * rw
   | FopAsgnArraySel of string * rw * rw
   | FopAsgnArrayMemSel of string * rw * rw * rw
   | FopAsgnArrayRange of string * rw * rw * rw
@@ -218,6 +218,10 @@ type rw =
   | FopAsgnArrayField of string * string * rw
   | FopAsgnArrayField2 of string * rw * rw
   | FopAsgnArrayField3 of string * rw * string * rw
+  | FopAsgnArrayField4 of string * rw * string * rw * rw * rw
+  | FopAsgnArrayField5 of string * rw * string * rw * rw
+  | FopAsgnArrayField6 of string * string * rw * rw * rw
+  | FopAsgnArrayField7 of string * rw * rw * string * rw
   | LoopGen1 of string * string * rw * rw * rw * rw list
   | CondGen1 of rw * rw * rw
   | InstDecl1 of string * rw list * rw list
@@ -247,9 +251,12 @@ type rw =
   | PatMember1 of rw * rw
   | PatMemberDflt of rw
   | EnumInit of string * rw
-  | AndEq of rw * rw
-  | PlusEq of rw * rw
-  | MinusEq of rw * rw
   | BreakSemi
   | PortItemFront of rw * rw
   | FopAsgnConcat of rw list * rw
+  | While of rw * rw list
+  | SideEffect of rw * rw
+  | ForEach of string * rw list
+  | Union of rw * rw list
+  | SUMember of rw * rw list
+  
