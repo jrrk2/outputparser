@@ -22,16 +22,17 @@ substr = pat
 
 let pred1 = function
   | TUPLE9 (STRING stmt, _, _, _, _, _, _, _, _) when g stmt "statement_item" -> true
+  | TUPLE8 (STRING stmt, _, _, _, _, _, _, _) when g stmt "statement_item" -> true
   | TUPLE7 (STRING stmt, _, _, _, _, _, _) when g stmt "statement_item" -> true
   | TUPLE6 (STRING stmt, _, _, _, _, _) when g stmt "statement_item" -> true
   | TUPLE5 (STRING stmt, _, _, _, _) when g stmt "statement_item" -> true
   | TUPLE4 (STRING stmt, _, _, _) when g stmt "statement_item" -> true
   | TUPLE3 (STRING stmt, _, _) when g stmt "statement_item" -> true
+  | TUPLE2 (STRING stmt, _) when g stmt "statement_item" -> true
   | TUPLE5 (STRING "seq_block615", _, _, _, _) -> true
   | _ -> false
 
 let canfail = ref true
-let mayfail oth msg = if !canfail then (othpat1 := Some oth; failwith msg) else Unknown msg
 
 let rec mly = function
 | Wire -> Atom "wire"
@@ -631,7 +632,7 @@ let rec mly = function
 | TUPLE4(STRING("loop_variables783"), arg1, COMMA, arg3) as oth -> mayfail oth  "loop_variables783"
 | TUPLE4(STRING("modFront54"), Module, arg2, modid) ->
     (match modid with IDENTIFIER id -> print_endline id | oth -> othpat1 := Some oth; failwith "modFront54");
-    Unknown "modFront54"
+    Unknown ("modFront54", mly arg2 :: [])
 | TUPLE4(STRING("modport_declaration156"), Modport, arg2, SEMICOLON) -> DeclModPort(match arg2 with TLIST lst -> rml lst | _ -> mly arg2 :: [])
 | TUPLE4(STRING("module_or_generate_item408"), Defparam, arg2, SEMICOLON) as oth -> mayfail oth  "module_or_generate_item408"
 | TUPLE4(STRING("mpInstnameParen555"), arg1, arg2, arg3) as oth -> mayfail oth  "mpInstnameParen555"
@@ -1450,6 +1451,18 @@ let ports', itms = itemsf portlst itmlst in Modul (modid, parmf params, ports', 
 | TLIST lst -> Itmlst(rml lst)
 | oth -> othpat1 := Some oth; failwith "mly"
 
+and other msg = function
+  | TUPLE9 (STRING stmt, a, b, c, d, e, f, g, h) -> Unknown(msg, rml [a;b;c;d;e;f;g;h])
+  | TUPLE8 (STRING stmt, a, b, c, d, e, f, g) -> Unknown(msg, rml [a;b;c;d;e;f;g])
+  | TUPLE7 (STRING stmt, a, b, c, d, e, f) -> Unknown(msg, rml [a;b;c;d;e;f])
+  | TUPLE6 (STRING stmt, a, b, c, d, e) -> Unknown(msg, rml [a;b;c;d;e])
+  | TUPLE5 (STRING stmt, a, b, c, d) -> Unknown(msg, rml [a;b;c;d])
+  | TUPLE4 (STRING stmt, a, b, c) -> Unknown(msg, rml [a;b;c])
+  | TUPLE3 (STRING stmt, a, b) -> Unknown(msg, rml [a;b])
+  | TUPLE2 (STRING stmt, a) -> Unknown(msg, rml [a])
+  | oth -> failwith msg
+
+and mayfail oth msg = if !canfail then (othpat1 := Some oth; failwith msg) else other msg oth
 
 and parmf = function
     | TUPLE4(HASH, LPAREN, TLIST plst, RPAREN) ->
@@ -1460,7 +1473,7 @@ and parmf = function
                                EMPTY_TOKEN, EQUALS, typ_expr)) -> 
 	          TypParam(id, Logic([], []), match typ_expr with
                      | TUPLE3 (Logic, EMPTY_TOKEN, TLIST lst) -> rml lst
-                     | TUPLE3 (Logic, EMPTY_TOKEN, EMPTY_TOKEN) -> Unknown "logic" :: []                         
+                     | TUPLE3 (Logic, EMPTY_TOKEN, EMPTY_TOKEN) -> mly Logic :: []                         
                      | oth -> othpat1 := Some oth; failwith "typ_param")
 	      | oth -> othpat1 := Some oth; failwith "param") plst
      | oth -> []

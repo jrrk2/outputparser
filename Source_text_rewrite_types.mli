@@ -297,7 +297,7 @@ type rw =
   | UMinus of rw
   | UPlus of rw
   | Union of rw * rw list
-  | Unknown of string
+  | Unknown of string * rw list
   | Unsigned of rw
   | VNum of string
   | ValueRange of rw * rw
