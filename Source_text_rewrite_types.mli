@@ -172,8 +172,7 @@ type rw =
   | Inout
   | InsideCase of rw * rw
   | InsideRange of rw * rw
-  | InstDecl1 of string * rw list * rw list
-  | InstDecl2 of string * rw list
+  | InstDecl of string * rw list * rw list
   | InstNameParen1 of string * rw list
   | InstNameParen2 of string * rw list
   | InstRange of rw * rw
@@ -215,7 +214,9 @@ type rw =
   | Or2 of rw * rw
   | Out
   | Package of string * rw list
-  | Param of string * rw
+  | PackageParam of rw list * rw
+  | PackageParam2 of string * string * rw list * rw
+  | Param of string * rw * rw list
   | ParamAsgn1 of string * rw
   | ParamAsgn2 of string * rw list * rw
   | ParamDecl of rw * rw list

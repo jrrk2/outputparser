@@ -21,6 +21,7 @@ open Source_text_rewrite
 open Source_text_lex
 open Source_text
 open Dump_vhdl
+open Matchmly
 ;;
 
 let v = "timer.v";;
@@ -36,11 +37,13 @@ let v = "uart.sv";;
 let v = "apb_uart.vsyn";;
 let v = "../cva6/verilate_preproc.sv";;
 
-let x = rw (parse v);;
-
 (*
-let modlst,x,p,p' = rewrite v;;
+let x = rw (parse v);;
 *)
+
+(* *)
+let modlst,x,p,p' = rewrite v;;
+(* *)
 
 (*
 let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;

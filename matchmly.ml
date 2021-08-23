@@ -2,6 +2,8 @@ open Source_text_rewrite_types
 open Source_text_lex
 open Source_text
 
+let modules = Hashtbl.create 255
+let mlst = ref []
 let othpat1 = ref None
 let othpat2 = ref None
 let othpat3 = ref None
@@ -11,8 +13,11 @@ let othpat5 = ref None
  let othpat6 = ref None
  *)
 let othpat7 = ref None
+let priorlst = ref None
 let remap = ref None
 let portlstref = ref []
+let missing = ref None
+let caseref = ref None
 
 let g str pat =
 let len = String.length pat in
@@ -33,6 +38,39 @@ let pred1 = function
   | _ -> false
 
 let canfail = ref true
+
+let widthnum (str:string) =
+let base = ref 10
+and width = ref 0
+and value = ref 0
+and basing = ref 0
+and converting = ref true in
+for idx = 0 to String.length(str)-1 do let ch = Char.lowercase_ascii(str.[idx]) in begin
+match ch with
+| '_' -> ()
+| '?' -> value := !value * !base
+| '\'' -> converting := false; basing := idx+1;
+| '0'..'9' -> if (!converting) then
+    width := (!width * !base) + int_of_char(ch) - int_of_char('0')
+else
+    value := (!value * !base) + int_of_char(ch) - int_of_char('0')
+| 'a'..'z' ->  if (!converting) then
+    width := (!width * !base) + int_of_char(ch) - int_of_char('a') + 10
+else if (!basing==idx) then begin match ch with
+  | 'b' -> base := 2
+  | 'd' -> base := 10
+  | 'h' -> base := 16
+  | _ -> value := int_of_char(ch) - int_of_char('a') + 10
+end else
+    value := (!value * !base) + int_of_char(ch) - int_of_char('a') + 10;
+| _ -> converting := false; width := 0
+end
+done;
+if (!basing == 0) then begin
+  value := !width;
+  width := 32;
+end;
+Number (!base, !width, !value, (String.sub str (1 + !basing) (String.length str - 1 - !basing)))
 
 let rec mly = function
 | Wire -> Atom "wire"
@@ -64,7 +102,7 @@ let rec mly = function
 | HYPHEN -> Atom "-"
 | SEMICOLON -> Atom ";"
 | AMPERSAND -> Atom "&"
-| INTEGER_NUMBER n -> VNum n
+| INTEGER_NUMBER n -> widthnum n
 | TUPLE3(STRING("assignment_pattern769"), QUOTE_LBRACE, RBRACE) as oth -> mayfail oth  "assignment_pattern769"
 | TUPLE3(STRING("attr_event_control592"), AT, STAR) as oth -> mayfail oth  "attr_event_control592"
 | TUPLE3(STRING("block_item_declaration637"), arg1, SEMICOLON) as oth -> mayfail oth  "block_item_declaration637"
@@ -818,8 +856,8 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE5(STRING("idArrayedForeach2508"), arg1, LBRACK, arg3, RBRACK) as oth -> mayfail oth  "idArrayedForeach2508"
 | TUPLE5(STRING("instDecl550"), arg1, arg2, arg3, SEMICOLON) ->
  (match arg1,arg2,arg3 with
-  | IDENTIFIER id, TUPLE5 (STRING "parameter_value_assignment60", HASH, LPAREN, TLIST lst, RPAREN), TLIST lst' -> InstDecl1(id, rml lst, rml lst')
-  | IDENTIFIER id, EMPTY_TOKEN, TLIST lst -> InstDecl2(id, rml lst)
+  | IDENTIFIER id, TUPLE5 (STRING "parameter_value_assignment60", HASH, LPAREN, TLIST lst, RPAREN), TLIST lst' -> InstDecl(id, rml lst, rml lst')
+  | IDENTIFIER id, EMPTY_TOKEN, TLIST lst -> InstDecl(id, [], rml lst)
   | oth -> othpat3 := Some oth; failwith "instDecl550")
 | TUPLE5(STRING("member_decl_assignment292"), arg1, arg2, EQUALS, arg4) as oth -> mayfail oth  "member_decl_assignment292"
 | TUPLE5(STRING("modport_item160"), arg1, LPAREN, arg3, RPAREN) -> 
@@ -1335,7 +1373,10 @@ CondGen1(mly arg3, mly arg5, mly arg7)
 (match arg1,arg3,arg7 with
        | TUPLE4(STRING("modFront54"), Module, arg2, IDENTIFIER modid), TUPLE4(STRING "portsStarE78", LPAREN, TLIST portlst, RPAREN), (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", COLON, IDENTIFIER _)) ->
 portlstref := portlst;
-let ports', itms = itemsf portlst itmlst in Modul (modid, parmf params, ports', itms)
+let ports', itms = itemsf portlst itmlst in
+let m = Modul (modid, parmf params, ports', itms) in
+Hashtbl.add modules modid m;
+m
 | oth -> othpat3 := Some oth; failwith "module_declaration51")
 | TUPLE8(STRING("module_declaration52"), arg1, arg2, arg3, SEMICOLON, arg5, Endprimitive, arg7) as oth -> mayfail oth  "module_declaration52"
 | TUPLE8(STRING("port84"), arg1, bus, dot, dir, member, arg6, arg7) ->
@@ -1465,18 +1506,45 @@ and other msg = function
 and mayfail oth msg = if !canfail then (othpat1 := Some oth; failwith msg) else other msg oth
 
 and parmf = function
-    | TUPLE4(HASH, LPAREN, TLIST plst, RPAREN) ->
+    | EMPTY_TOKEN -> []
+    | TUPLE5(STRING "parameter_port_listE69", HASH, LPAREN, TLIST plst, RPAREN) ->
         List.rev_map (function
-	      | TUPLE2 (_, TUPLE4 (IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN, TUPLE2 (EQUALS, expr))) -> Param(nam, mly expr)
-              | TUPLE2 (TUPLE2 (Parameter, Type),
-			       TUPLE4 ((TYPE_HYPHEN_IDENTIFIER id|IDENTIFIER id),
-                               EMPTY_TOKEN, EQUALS, typ_expr)) -> 
-	          TypParam(id, Logic([], []), match typ_expr with
-                     | TUPLE3 (Logic, EMPTY_TOKEN, TLIST lst) -> rml lst
-                     | TUPLE3 (Logic, EMPTY_TOKEN, EMPTY_TOKEN) -> mly Logic :: []                         
-                     | oth -> othpat1 := Some oth; failwith "typ_param")
-	      | oth -> othpat1 := Some oth; failwith "param") plst
-     | oth -> []
+              | TUPLE3 (STRING "paramPortDeclOrArg72", TUPLE3 (STRING "parameter_port_declarationFrontE180", (Parameter|Localparam), EMPTY_TOKEN),
+			       TUPLE5 (STRING "param_assignment537", IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN,
+					      TUPLE3 (STRING "exprOrDataTypeEqE1106", EQUALS, expr))) -> Param(nam, mly expr, [])
+	      | TUPLE3 (STRING "paramPortDeclOrArg72",
+                        TUPLE3 (STRING "parameter_port_declarationFrontE181", Parameter, TUPLE4 (STRING "data_typeBasic263", (Bit|Logic), EMPTY_TOKEN, dims)),
+                        TUPLE5 (STRING "param_assignment537", IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN,
+				       TUPLE3 (STRING "exprOrDataTypeEqE1106", EQUALS, expr))) ->
+				       Param(nam, mly expr, match dims with TLIST lst -> rml lst | EMPTY_TOKEN -> [] | oth -> othpat1 := Some oth; failwith "dim param1519")
+	      | TUPLE3 (STRING "paramPortDeclOrArg72",
+                        TUPLE3 (STRING "parameter_port_declarationFrontE181", (Parameter|Localparam),
+                        TUPLE3 (STRING "data_typeBasic264", (Int|Integer|Longint), (EMPTY_TOKEN|Unsigned))),
+                        TUPLE5 (STRING "param_assignment537", IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN,
+				       TUPLE3 (STRING "exprOrDataTypeEqE1106", EQUALS, expr))) -> Param(nam, mly expr, [])
+	      | TUPLE3 (STRING "paramPortDeclOrArg72",
+                  TUPLE3 (STRING "parameter_port_declarationFrontE181", (Parameter|Localparam), TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id_cc, EMPTY_TOKEN)),
+                  TUPLE5 (STRING "param_assignment537", IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN,
+				       TUPLE3 (STRING "exprOrDataTypeEqE1106", EQUALS, expr))) -> PackageParam2(id_cc, nam, [], mly expr)
+	      | TUPLE3 (STRING "paramPortDeclOrArg72",
+                  TUPLE3 (STRING "parameter_port_declarationFrontE181", (Parameter|Localparam), TUPLE4 (STRING "data_type261", TLIST pkglst, TYPE_HYPHEN_IDENTIFIER id_cc, EMPTY_TOKEN)),
+                  TUPLE5 (STRING "param_assignment537", IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN,
+				       TUPLE3 (STRING "exprOrDataTypeEqE1106", EQUALS, expr))) -> PackageParam2(id_cc, nam, rml pkglst, mly expr)
+              | TUPLE3 (STRING "paramPortDeclOrArg73",
+			TUPLE3 (STRING "parameter_port_declarationTypeFrontE184", Parameter, Type),
+			TUPLE5 (STRING "type_assignment540", (TYPE_HYPHEN_IDENTIFIER nam|IDENTIFIER nam), EMPTY_TOKEN, EQUALS,
+				       TUPLE4 (STRING "data_typeBasic263", (Logic as kind), EMPTY_TOKEN, typ_expr))) ->
+				       TypParam(nam, mly kind, match typ_expr with
+						     | TLIST lst -> rml lst | EMPTY_TOKEN -> [] | oth -> othpat1 := Some oth; failwith "typ_param1529")
+              | TUPLE3 (STRING "paramPortDeclOrArg73",
+			TUPLE3 (STRING "parameter_port_declarationTypeFrontE184", Parameter, Type),
+			TUPLE5 (STRING "type_assignment540", (TYPE_HYPHEN_IDENTIFIER nam|IDENTIFIER nam), EMPTY_TOKEN, EQUALS,
+			               TUPLE4 (STRING "data_type261", typ_expr, (TYPE_HYPHEN_IDENTIFIER typ_t|IDENTIFIER typ_t), EMPTY_TOKEN))) ->
+				       TypParam(nam, Id typ_t, match typ_expr with
+						     | TLIST lst -> rml lst | EMPTY_TOKEN -> [] | oth -> othpat1 := Some oth; failwith "typ_param1540")
+	      | oth -> othpat1 := Some oth; failwith "param1531") plst
+     | TUPLE3 (STRING "importsAndParametersE56", TLIST importlst, params) -> let pkg = rml importlst in List.map (fun itm -> PackageParam(pkg, itm)) (parmf params)
+     | oth -> othpat1 := Some oth; failwith "param1532"
 
 and itemsf portlst itmlst =	      
 	      let itms = match itmlst with TLIST itmlst -> rml itmlst | EMPTY_TOKEN -> [] | oth -> mly oth :: [] in
@@ -1491,5 +1559,109 @@ and itemsf portlst itmlst =
                                       | DotBus _ as x -> x (* placeholder *)
 				      | oth -> remap := Some oth; failwith "ports") ports in
 	      ports', itms
-
+	      
 and rml pat = List.rev_map mly pat
+
+and prior_all lst = prior12 (prior11 (prior10 (prior9 (prior8 (prior7 (prior6 (prior5 (prior4 (prior3 (prior2 (prior1 lst)))))))))))
+
+and priority explst =
+  let matched = prior_all (prior_all (prior_all (prior_all (prior_all explst)))) in
+  mlst := (explst,matched) :: !mlst; match matched with hd :: [] -> mly hd | oth -> priorlst := Some oth; failwith "priority"
+
+and prior1 = function
+| [] -> []
+| lhs :: (STAR_STAR as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior1 tl
+
+and prior2 = function
+| [] -> []
+| lhs :: (STAR|SLASH as op) :: rhs :: tl -> prior2 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior2 tl
+
+and prior3 = function
+| [] -> []
+| lhs :: (PLUS|HYPHEN as op) :: rhs :: tl -> prior3 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior3 tl
+
+and prior4 = function
+| [] -> []
+| lhs :: (LT_LT|GT_GT|GT_GT_GT (* |LT_LT_LT *) as op) :: rhs :: tl -> prior4 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior4 tl
+
+and prior5 = function
+| [] -> []
+| lhs :: (LESS|LT_EQ|GREATER|GT_EQ as op) :: rhs :: tl -> prior5 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior5 tl
+
+and prior6 = function
+| [] -> []
+| lhs :: (EQ_EQ|PLING_EQ as op) :: rhs :: tl -> prior6 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior6 tl
+
+and prior7 = function
+| [] -> []
+| lhs :: (AMPERSAND as op) :: rhs :: tl -> prior7 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior6 tl
+
+and prior8 = function
+| [] -> []
+| lhs :: (CARET|CARET_TILDE as op) :: rhs :: tl -> prior8 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior8 tl
+
+and prior9 = function
+| [] -> []
+| lhs :: (VBAR as op) :: rhs :: tl -> prior9 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior9 tl
+
+and prior10 = function
+| [] -> []
+| lhs :: (AMPERSAND_AMPERSAND as op) :: rhs :: tl -> prior10 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior10 tl
+
+and prior11 = function
+| [] -> []
+| lhs :: (VBAR_VBAR as op) :: rhs :: tl -> prior11 (TUPLE3(lhs, op, rhs) :: tl)
+| hd :: tl -> hd :: prior11 tl
+
+and prior12 = function
+| [] -> []
+| lhs :: QUERY :: tl -> (match prior_all tl with rhs :: COLON :: rhs' :: tl -> prior_all (TUPLE5(lhs, QUERY, rhs, COLON, rhs') :: tl) | oth -> failwith "query")
+| hd :: tl -> hd :: prior12 tl
+
+and wire_map = function
+| TUPLE2 (IDENTIFIER id, EMPTY_TOKEN) -> Id id
+| TUPLE4 (IDENTIFIER id, EMPTY_TOKEN, EQUALS, exp) -> WireExpr(id, mly exp)
+| oth -> missing := Some oth; failwith ("wire map fail: "^Source_text_types.getstr oth)
+
+and collapse_case lst' lstrf = function
+| COLON -> lst' := CaseItm !lstrf :: !lst'
+| TLIST [INTEGER_NUMBER n] -> lstrf := [widthnum n]
+| INTEGER_NUMBER n -> lstrf := [widthnum n]
+| IDENTIFIER s -> lstrf := [Id s]
+| TLIST [IDENTIFIER s] -> lstrf := [Id s]
+| Default -> lstrf := [Deflt]
+| SEMICOLON -> lstrf := []
+| TUPLE3 (TLIST [INTEGER_NUMBER n], COLON, body) ->  lstrf := [widthnum n]; lstrf := mly body :: !lstrf
+| TUPLE2 (TUPLE4 (IDENTIFIER id, EQUALS, EMPTY_TOKEN, expr), SEMICOLON) as oth -> lstrf := mly oth :: !lstrf
+| TUPLE3 (Default, COLON, body) ->  lstrf := [Deflt]; lstrf := mly body :: !lstrf
+| (TUPLE4 _ | TUPLE5 _) as oth -> lstrf := mly oth :: !lstrf
+| TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc, COLON_COLON)], IDENTIFIER id) as oth -> lstrf := mly oth :: !lstrf
+| TLIST [TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc, COLON_COLON)], IDENTIFIER id);
+    TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc', COLON_COLON)], IDENTIFIER  id')] as oth -> lstrf := mly oth :: !lstrf
+| TLIST [TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc, COLON_COLON)], IDENTIFIER id)] as oth -> lstrf := mly oth :: !lstrf
+| TUPLE2 (TUPLE4 (sel, EQUALS, EMPTY_TOKEN, expr), SEMICOLON) as oth -> lstrf := mly oth :: !lstrf
+| TLIST lst -> lstrf := List.map (function
+    | IDENTIFIER id -> Id id
+    | INTEGER_NUMBER n -> widthnum n
+(*
+    | TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc, COLON_COLON)], IDENTIFIER id) -> ColonColon (id_cc,id)
+*)
+    | oth ->  missing := Some oth; failwith "collapse case lst") lst
+| oth -> missing := Some oth; failwith "collapse case"
+
+and collapse_case' slice caselst =
+let lst' = ref [] in
+let lstrf = ref [] in
+caseref := Some caselst;
+List.iter (collapse_case lst' lstrf) (List.rev caselst);
+ CaseStmt(mly slice, List.rev ((CaseItm (BeginBlock [] :: !lstrf)) :: !lst'))
