@@ -33,9 +33,9 @@ let v = "process.v";;
 let v = "preprocess.sv";;
 let v = "blocking.v";;
 let v = "prec.sv";;
-let v = "uart.sv";;
+let v = "ariane_preproc.sv";;
 let v = "apb_uart.vsyn";;
-let v = "../cva6/verilate_preproc.sv";;
+let v = "apb_uart.sv";;
 
 (*
 let x = rw (parse v);;

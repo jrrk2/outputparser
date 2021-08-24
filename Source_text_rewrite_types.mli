@@ -12,27 +12,15 @@ type rw =
   | AnyRange of rw * rw
   | Asgn1 of rw * rw
   | AsgnPat of rw list
-(*
-  | Asgnlst of rw list
-*)
   | Assert (* of rw * rw *)
   | AssertProperty (* of rw * rw *)
   | At of rw
   | AtStar
   | Atom of string
-(*
-  | Auto of rw list * rw list
-*)
   | AutoFunDecl of string * rw * rw
   | BeginBlock of rw list
   | Bitlst of rw list
-(*
-  | Blocking of rw * rw
-*)
   | BreakSemi
-(*
-  | Caret of rw
-*)
   | CaseItm of rw list
   | CaseStart of rw * rw list
   | CaseStart1 of rw
@@ -48,58 +36,24 @@ type rw =
   | CellPinItem2 of string * rw
   | CellPinItemImplied of string
   | CellPinItemNC of string
-(*
-  | ColonColon of string * string
-*)
   | Concat of rw list
   | CondGen1 of rw * rw * rw
   | ContAsgn of rw list
-(*
-  | Dec of rw
-*)
   | DeclAsgn of string * rw list
   | DeclData of rw * rw list
-(*
-  | DeclGenvar of string list
-  | DeclInt of string list
-*)
   | DeclInt2 of rw list
-(*
-  | DeclIntf of string * rw list * rw list * rw list
-  | DeclIntf1 of string *rw list
-  | DeclIntf2 of string *rw list
-*)
   | DeclLogic of rw list
   | DeclLogic2 of rw list * rw list
   | DeclModPort of rw list
   | DeclReg of rw list * string list * rw list list
   | DeclReg2 of rw list * rw list
-(*
-  | DeclTask of string * rw list * rw * rw
-  | DeclWire of rw list * rw list
-*)
   | Deflt
-(*  
-  | DepLst of string list
-  | Dim of rw * rw
-*)
   | Div of rw * rw
-(*
-  | Dot of string * rw
-*)
   | Dot1 of rw * rw
-(*
-  | Dot2 of string * rw list * string
-*)
   | Dot3 of string * string * string
-(*
-  | Dot4 of rw list * string
-  | Dot5 of string * rw list
-*)
   | DotBus of string * string * string * rw list
   | Edge of rw * rw
   | ElabTask of rw
-  | Elist of rw list
   | ElseStmt of rw
   | EnumInit of string * rw
   | Equals of rw * rw
@@ -115,9 +69,6 @@ type rw =
   | ExprOKL of rw list
   | ExprQuote1 of rw * rw
   | Expression of rw
-(*
-  | Field of rw * rw
-*)
   | Final of rw list
   | FopAsgn of string * rw
   | FopAsgn1 of string * string * string * rw
@@ -145,9 +96,6 @@ type rw =
   | Generate of rw
   | Greater of rw * rw
   | GtEq of rw * rw
-(*
-  | Hash of string * rw list * rw list
-*)
   | HyphenGt of rw * rw
   | Id of string
   | IdArrayed1 of rw * rw * rw
@@ -158,9 +106,6 @@ type rw =
   | IdArrayedPlusColon of rw * rw * rw
   | If1 of rw * rw
   | If2 of rw * rw * rw
-(*
-  | Ifelse of rw * rw * rw
-*)
   | Iff of rw * rw
   | Import of rw list
   | In
@@ -180,22 +125,12 @@ type rw =
   | Intgr of int
   | ItemAsgn of rw
   | Itmlst of rw list
-(*
-  | Latch of rw list
-*)
   | Less of rw * rw
-(*
-  | LocalP of rw list * rw list
-*)
   | LocalParamTyp of rw
   | Logic of rw list * rw list
   | LoopGen1 of string * string * rw * rw * rw * rw list
   | LtEq of rw * rw
   | LtGt of rw * rw
-(*
-  | Mem1 of string * rw list
-  | Mem3 of rw * rw * rw * rw
-*)
   | Mod of rw * rw
   | ModPortItm of string * rw list
   | Modul of string * rw list * rw list * rw list
@@ -221,10 +156,6 @@ type rw =
   | ParamAsgn2 of string * rw list * rw
   | ParamDecl of rw * rw list
   | ParamPort of rw list
-(*
-  | Parenth of string * rw list
-  | PartSel of rw * rw * rw
-*)
   | PatMember1 of rw * rw
   | PatMemberDflt of rw
   | PkgImport of rw
@@ -239,34 +170,21 @@ type rw =
   | Pos of string
   | PropertySpec (* of rw * rw *)
   | Query of rw * rw * rw
-(*
-  | QuoteLbrace of string * rw list * rw list
   | RedAnd of rw
   | RedOr of rw
-*)
+  | RedXor of rw
   | Repl of rw * rw list
   | Return of rw
   | SUMember of rw * rw list
-(*
-  | Sel of rw * rw
-  | Sentry of rw * rw
-*)
   | Seq of string * rw list
   | Shiftl of rw * rw
   | Shiftr of rw * rw
   | Shiftr3 of rw * rw
   | SideEffect of rw * rw
   | Signed of rw
-(*
-  | Slice of string * rw * rw
-  | Slice2 of string * rw * rw
-*)
   | StarStar of rw * rw
   | Stmt1 of rw
   | String of string
-(*
-  | Struct of string * rw list
-*)
   | Sub of rw * rw
   | Sys of string * rw
   | SysFuncCall of string * rw list
@@ -286,10 +204,6 @@ type rw =
   | Typ8 of rw * rw
   | Typ9 of string * rw list * rw
   | Typ10 of string * rw list * string
-(*
-  | TypEnum of string * rw list * rw list
-  | TypEnum2 of rw list * rw list * rw list
-*)
   | TypEnum3 of rw list
   | TypEnum4 of rw * rw list * rw list
   | TypEnum5 of rw

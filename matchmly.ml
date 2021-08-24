@@ -25,6 +25,43 @@ if String.length str < len then false
 else let substr = String.sub str 0 len in
 substr = pat
 
+let enc_expr = function
+| AMPERSAND -> STRING "expr1136"
+| AMPERSAND_AMPERSAND -> STRING "expr1130"
+| AMPERSAND_AMPERSAND_AMPERSAND -> STRING "expr1172"
+| CARET -> STRING "expr1138"
+| CARET_TILDE -> STRING "expr1139"
+| DOT -> STRING "expr1157"
+(*
+ | DOT -> STRING "expr1158"
+*)
+| EQ_EQ -> STRING "expr1124"
+| EQ_EQ_EQ -> STRING "expr1126"
+| EQ_EQ_QUERY -> STRING "expr1128"
+| GREATER -> STRING "expr1134"
+| GT_EQ -> STRING "expr1135"
+| GT_GT -> STRING "expr1143"
+| GT_GT_GT -> STRING "expr1144"
+| HYPHEN -> STRING "expr1120"
+| HYPHEN_GT -> STRING "expr1146"
+| LESS -> STRING "expr1133"
+| LT_EQ -> STRING "expr1147"
+| LT_HYPHEN_GT -> STRING "expr1145"
+| LT_LT -> STRING "expr1142"
+| PERCENT -> STRING "expr1123"
+| PLING_EQ -> STRING "expr1125"
+| PLING_EQ_EQ -> STRING "expr1127"
+| PLING_EQ_QUERY -> STRING "expr1129"
+| PLUS -> STRING "expr1119"
+| SLASH -> STRING "expr1122"
+| STAR -> STRING "expr1121"
+| STAR_STAR -> STRING "expr1132"
+| TILDE_AMPERSAND -> STRING "expr1141"
+| TILDE_VBAR -> STRING "expr1140"
+| VBAR -> STRING "expr1137"
+| VBAR_VBAR -> STRING "expr1131"
+| oth -> STRING "expr????"
+
 let pred1 = function
   | TUPLE9 (STRING stmt, _, _, _, _, _, _, _, _) when g stmt "statement_item" -> true
   | TUPLE8 (STRING stmt, _, _, _, _, _, _, _) when g stmt "statement_item" -> true
@@ -97,11 +134,26 @@ let rec mly = function
 | PLUS_PLUS -> Atom "++"
 | HYPHEN_HYPHEN -> Atom "--"
 | STAR -> Atom "*"
+| SLASH -> Atom "/"
 | DOT_STAR -> Atom ".*"
 | COLON -> Atom ":"
 | HYPHEN -> Atom "-"
+| CARET -> Atom "^"
+| LESS -> Atom "<"
+| GREATER -> Atom ">"
 | SEMICOLON -> Atom ";"
 | AMPERSAND -> Atom "&"
+| EQ_EQ -> Atom "=="
+| LT_LT -> Atom "<<"
+| LT_EQ -> Atom "<="
+| GT_GT -> Atom ">>"
+| GT_EQ -> Atom ">="
+| STAR_STAR -> Atom "**"
+| PLING_EQ -> Atom "!="
+| VBAR_VBAR -> Atom "||"
+| GT_GT_GT -> Atom ">>>"
+| LT_LT_EQ -> Atom "<<="
+| AMPERSAND_AMPERSAND -> Atom "&&"
 | INTEGER_NUMBER n -> widthnum n
 | TUPLE3(STRING("assignment_pattern769"), QUOTE_LBRACE, RBRACE) as oth -> mayfail oth  "assignment_pattern769"
 | TUPLE3(STRING("attr_event_control592"), AT, STAR) as oth -> mayfail oth  "attr_event_control592"
@@ -158,10 +210,10 @@ let rec mly = function
 | TUPLE3(STRING("expr1108"), PLUS, arg2) -> UPlus (mly arg2)
 | TUPLE3(STRING("expr1109"), HYPHEN, arg2) -> UMinus (mly arg2)
 | TUPLE3(STRING("expr1110"), PLING, arg2) -> Pling (mly arg2)
-| TUPLE3(STRING("expr1111"), AMPERSAND, arg2) as oth -> mayfail oth  "expr1111"
+| TUPLE3(STRING("expr1111"), AMPERSAND, arg2) -> RedAnd(mly arg2)
 | TUPLE3(STRING("expr1112"), TILDE, arg2) -> Tilde (mly arg2)
-| TUPLE3(STRING("expr1113"), VBAR, arg2) as oth -> mayfail oth  "expr1113"
-| TUPLE3(STRING("expr1114"), CARET, arg2) as oth -> mayfail oth  "expr1114"
+| TUPLE3(STRING("expr1113"), VBAR, arg2) -> RedOr(mly arg2)
+| TUPLE3(STRING("expr1114"), CARET, arg2) -> RedXor(mly arg2)
 | TUPLE3(STRING("expr1115"), TILDE_AMPERSAND, arg2) -> TildeAnd(mly arg2)
 | TUPLE3(STRING("expr1116"), TILDE_VBAR, arg2) -> TildeOr(mly arg2)
 | TUPLE3(STRING("expr1117"), CARET_TILDE, arg2) as oth -> mayfail oth  "expr1117"
@@ -190,8 +242,8 @@ let rec mly = function
        | TUPLE4 (STRING "exprOkLvalue1307", LBRACE, TLIST lst, RBRACE) -> ExprOKL (rml lst)
        | TUPLE4 (STRING "assignment_pattern767", QUOTE_LBRACE, TLIST lst, RBRACE) -> InitPat (rml lst)
        | TUPLE4 (STRING "assignment_pattern768", QUOTE_LBRACE, TLIST lst, RBRACE) -> InitPat (rml lst)
-       | TUPLE3 (STRING "exprScope1328", _, _) -> mly arg2
-       | ELIST lst -> Elist (rml lst)
+       | TUPLE3 (STRING ("expr1109"|"exprScope1328"), _, _) -> mly arg2
+       | ELIST lst -> priority lst
        | oth -> othpat1 := Some oth; failwith "exprOrDataTypeEqE1106")
 | TUPLE3(STRING("exprScope1328"), arg1, arg2) ->
 (match arg1, arg2 with
@@ -1440,40 +1492,40 @@ m
 | TUPLE10(STRING("loop_generate_construct460"), For, LPAREN, arg3, SEMICOLON, arg5, SEMICOLON, arg7, RPAREN, arg9) ->
   ( match arg3, arg5, arg7, arg9 with
   |    TUPLE5 (STRING "genvar_initialization462", Genvar, TUPLE3 (STRING "genvar_identifierDecl174", IDENTIFIER k, EMPTY_TOKEN), EQUALS, strt),
-      TUPLE4 (STRING "expr1133", cond, LESS, limit),
+      ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER k'', PLUS_PLUS),
       TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(k, lbl, mly strt, mly cond, mly limit, rml body)
+      LoopGen1(k, lbl, mly strt, mly cond, mly (ELIST limit), rml body)
   |    TUPLE5 (STRING "genvar_initialization462", Genvar, TUPLE3 (STRING "genvar_identifierDecl174", IDENTIFIER k, EMPTY_TOKEN), EQUALS, strt),
-      TUPLE4 (STRING "expr1133", cond, LESS, limit),
+      ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration475", PLUS_PLUS, IDENTIFIER k''),
       TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(k, lbl, mly strt, mly cond, mly limit, rml body)
+      LoopGen1(k, lbl, mly strt, mly cond, mly (ELIST limit), rml body)
   |    TUPLE5 (STRING "genvar_initialization462", Genvar, TUPLE3 (STRING "genvar_identifierDecl174", IDENTIFIER k, EMPTY_TOKEN), EQUALS, strt),
-      TUPLE4 (STRING "expr1133", cond, LESS, limit),
+      ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER k'', PLUS_PLUS),
       TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) ->
-      LoopGen1(k, "", mly strt, mly cond, mly limit, rml body)
+      LoopGen1(k, "", mly strt, mly cond, mly (ELIST limit), rml body)
   |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
-      TUPLE4 (STRING "expr1133", cond, LESS, limit),
+      ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
       TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) ->
-      LoopGen1(i, "", mly strt, mly cond, mly limit, rml body)
+      LoopGen1(i, "", mly strt, mly cond,  mly (ELIST limit), rml body)
   |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
-      TUPLE4 (STRING "expr1133", cond, LESS, limit),
+      ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
       TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(i, "", mly strt, mly cond, mly limit, rml body)
+      LoopGen1(i, "", mly strt, mly cond,  mly (ELIST limit), rml body)
   |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
-      TUPLE4 (STRING "expr1147", cond, LT_EQ, limit),
+      ELIST (cond :: LT_EQ :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
       TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) ->
-      LoopGen1(i, "", mly strt, mly cond, mly limit, rml body)
+      LoopGen1(i, "", mly strt, mly cond,  mly (ELIST limit), rml body)
   |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
-      TUPLE4 (STRING "expr1133", cond, LESS, limit),
+      ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
       TUPLE6 (STRING "continuous_assign427", Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST body, SEMICOLON) ->
-      LoopGen1(i, "", mly strt, mly cond, mly limit, rml body)
+      LoopGen1(i, "", mly strt, mly cond,  mly (ELIST limit), rml body)
       
   | oth -> othpat4 := Some oth; failwith "loop_generate_construct460")
 	       
@@ -1488,7 +1540,7 @@ m
 | TUPLE11(STRING("system_t_call898"), DLR_writememb, LPAREN, arg3, COMMA, arg5, COMMA, arg7, COMMA, arg9, RPAREN) as oth -> mayfail oth  "system_t_call898"
 | TUPLE11(STRING("system_t_call901"), DLR_writememh, LPAREN, arg3, COMMA, arg5, COMMA, arg7, COMMA, arg9, RPAREN) as oth -> mayfail oth  "system_t_call901"
 | TUPLE13(STRING("system_f_call_or_t931"), DLR_countbits, LPAREN, arg3, COMMA, arg5, COMMA, arg7, COMMA, arg9, COMMA, arg11, RPAREN) as oth -> mayfail oth  "system_f_call_or_t931"
-| ELIST lst -> Elist(rml lst)
+| ELIST lst -> priority lst
 | TLIST lst -> Itmlst(rml lst)
 | oth -> othpat1 := Some oth; failwith "mly"
 
@@ -1509,6 +1561,10 @@ and parmf = function
     | EMPTY_TOKEN -> []
     | TUPLE5(STRING "parameter_port_listE69", HASH, LPAREN, TLIST plst, RPAREN) ->
         List.rev_map (function
+	      | TUPLE3 (STRING "paramPortDeclOrArg72", EMPTY_TOKEN,
+                        TUPLE5 (STRING "param_assignment537", IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN,
+				       TUPLE3 (STRING "exprOrDataTypeEqE1106", EQUALS, expr))) ->
+				       Param(nam, mly expr, [])
               | TUPLE3 (STRING "paramPortDeclOrArg72", TUPLE3 (STRING "parameter_port_declarationFrontE180", (Parameter|Localparam), EMPTY_TOKEN),
 			       TUPLE5 (STRING "param_assignment537", IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN,
 					      TUPLE3 (STRING "exprOrDataTypeEqE1106", EQUALS, expr))) -> Param(nam, mly expr, [])
@@ -1570,57 +1626,57 @@ and priority explst =
 
 and prior1 = function
 | [] -> []
-| lhs :: (STAR_STAR as op) :: rhs :: tl -> prior1 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (STAR_STAR as op) :: rhs :: tl -> prior1 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior1 tl
 
 and prior2 = function
 | [] -> []
-| lhs :: (STAR|SLASH as op) :: rhs :: tl -> prior2 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (STAR|SLASH as op) :: rhs :: tl -> prior2 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior2 tl
 
 and prior3 = function
 | [] -> []
-| lhs :: (PLUS|HYPHEN as op) :: rhs :: tl -> prior3 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (PLUS|HYPHEN as op) :: rhs :: tl -> prior3 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior3 tl
 
 and prior4 = function
 | [] -> []
-| lhs :: (LT_LT|GT_GT|GT_GT_GT (* |LT_LT_LT *) as op) :: rhs :: tl -> prior4 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (LT_LT|GT_GT|GT_GT_GT (* |LT_LT_LT *) as op) :: rhs :: tl -> prior4 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior4 tl
 
 and prior5 = function
 | [] -> []
-| lhs :: (LESS|LT_EQ|GREATER|GT_EQ as op) :: rhs :: tl -> prior5 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (LESS|LT_EQ|GREATER|GT_EQ as op) :: rhs :: tl -> prior5 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior5 tl
 
 and prior6 = function
 | [] -> []
-| lhs :: (EQ_EQ|PLING_EQ as op) :: rhs :: tl -> prior6 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (EQ_EQ|PLING_EQ as op) :: rhs :: tl -> prior6 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior6 tl
 
 and prior7 = function
 | [] -> []
-| lhs :: (AMPERSAND as op) :: rhs :: tl -> prior7 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (AMPERSAND as op) :: rhs :: tl -> prior7 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior6 tl
 
 and prior8 = function
 | [] -> []
-| lhs :: (CARET|CARET_TILDE as op) :: rhs :: tl -> prior8 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (CARET|CARET_TILDE as op) :: rhs :: tl -> prior8 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior8 tl
 
 and prior9 = function
 | [] -> []
-| lhs :: (VBAR as op) :: rhs :: tl -> prior9 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (VBAR as op) :: rhs :: tl -> prior9 (TUPLE4(STRING "expr1137", lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior9 tl
 
 and prior10 = function
 | [] -> []
-| lhs :: (AMPERSAND_AMPERSAND as op) :: rhs :: tl -> prior10 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (AMPERSAND_AMPERSAND as op) :: rhs :: tl -> prior10 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior10 tl
 
 and prior11 = function
 | [] -> []
-| lhs :: (VBAR_VBAR as op) :: rhs :: tl -> prior11 (TUPLE3(lhs, op, rhs) :: tl)
+| lhs :: (VBAR_VBAR as op) :: rhs :: tl -> prior11 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior11 tl
 
 and prior12 = function
