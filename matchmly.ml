@@ -4,6 +4,7 @@ open Source_text
 
 let modules = Hashtbl.create 255
 let mlst = ref []
+let attlst = ref []
 let othpat1 = ref None
 let othpat2 = ref None
 let othpat3 = ref None
@@ -11,13 +12,13 @@ let othpat4 = ref None
 let othpat5 = ref None
 (*
  let othpat6 = ref None
+let missing = ref None
+let caseref = ref None
  *)
 let othpat7 = ref None
 let priorlst = ref None
 let remap = ref None
 let portlstref = ref []
-let missing = ref None
-let caseref = ref None
 
 let g str pat =
 let len = String.length pat in
@@ -1224,7 +1225,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("statement_item651"), Force, arg2, EQUALS, arg4, SEMICOLON) as oth -> mayfail oth  "statement_item651"
 | TUPLE6(STRING("statement_item653"), arg1, arg2, arg3, arg4, Endcase) ->
 ( match arg1, arg2, arg3, arg4 with
-	| EMPTY_TOKEN, TUPLE5(STRING "caseStart721", _, _, _, _), EMPTY_TOKEN, TLIST lst -> CaseStart(mly arg2, rml lst)
+	| EMPTY_TOKEN, TUPLE5(STRING "caseStart721", _, _, _, _), EMPTY_TOKEN, TLIST lst -> CaseStart(mly arg2, rml (attach_lbl lst))
 	| Unique, TUPLE5(STRING "caseStart721", _, _, _, _), EMPTY_TOKEN, TLIST lst -> CaseStartUniq(mly arg2, rml lst)
 	| oth -> othpat4 := Some oth; failwith "statement_item653")
 | TUPLE6(STRING("statement_item669"), Repeat, LPAREN, arg3, RPAREN, arg5) as oth -> mayfail oth  "statement_item669"
@@ -1542,6 +1543,9 @@ m
 | TUPLE13(STRING("system_f_call_or_t931"), DLR_countbits, LPAREN, arg3, COMMA, arg5, COMMA, arg7, COMMA, arg9, COMMA, arg11, RPAREN) as oth -> mayfail oth  "system_f_call_or_t931"
 | ELIST lst -> priority lst
 | TLIST lst -> Itmlst(rml lst)
+| (TUPLE3 (lbl, COLON, TUPLE5 (STRING "seq_block615", Begin, TLIST lst, End, EMPTY_TOKEN))) ->
+    CaseStmt((match lbl with TLIST lst -> rml lst | oth -> mly oth :: []), rml lst)
+
 | oth -> othpat1 := Some oth; failwith "mly"
 
 and other msg = function
@@ -1684,40 +1688,9 @@ and prior12 = function
 | lhs :: QUERY :: tl -> (match prior_all tl with rhs :: COLON :: rhs' :: tl -> prior_all (TUPLE5(lhs, QUERY, rhs, COLON, rhs') :: tl) | oth -> failwith "query")
 | hd :: tl -> hd :: prior12 tl
 
-and wire_map = function
-| TUPLE2 (IDENTIFIER id, EMPTY_TOKEN) -> Id id
-| TUPLE4 (IDENTIFIER id, EMPTY_TOKEN, EQUALS, exp) -> WireExpr(id, mly exp)
-| oth -> missing := Some oth; failwith ("wire map fail: "^Source_text_types.getstr oth)
-
-and collapse_case lst' lstrf = function
-| COLON -> lst' := CaseItm !lstrf :: !lst'
-| TLIST [INTEGER_NUMBER n] -> lstrf := [widthnum n]
-| INTEGER_NUMBER n -> lstrf := [widthnum n]
-| IDENTIFIER s -> lstrf := [Id s]
-| TLIST [IDENTIFIER s] -> lstrf := [Id s]
-| Default -> lstrf := [Deflt]
-| SEMICOLON -> lstrf := []
-| TUPLE3 (TLIST [INTEGER_NUMBER n], COLON, body) ->  lstrf := [widthnum n]; lstrf := mly body :: !lstrf
-| TUPLE2 (TUPLE4 (IDENTIFIER id, EQUALS, EMPTY_TOKEN, expr), SEMICOLON) as oth -> lstrf := mly oth :: !lstrf
-| TUPLE3 (Default, COLON, body) ->  lstrf := [Deflt]; lstrf := mly body :: !lstrf
-| (TUPLE4 _ | TUPLE5 _) as oth -> lstrf := mly oth :: !lstrf
-| TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc, COLON_COLON)], IDENTIFIER id) as oth -> lstrf := mly oth :: !lstrf
-| TLIST [TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc, COLON_COLON)], IDENTIFIER id);
-    TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc', COLON_COLON)], IDENTIFIER  id')] as oth -> lstrf := mly oth :: !lstrf
-| TLIST [TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc, COLON_COLON)], IDENTIFIER id)] as oth -> lstrf := mly oth :: !lstrf
-| TUPLE2 (TUPLE4 (sel, EQUALS, EMPTY_TOKEN, expr), SEMICOLON) as oth -> lstrf := mly oth :: !lstrf
-| TLIST lst -> lstrf := List.map (function
-    | IDENTIFIER id -> Id id
-    | INTEGER_NUMBER n -> widthnum n
-(*
-    | TUPLE2 (TLIST [TUPLE2 (IDENTIFIER_HYPHEN_COLON_COLON id_cc, COLON_COLON)], IDENTIFIER id) -> ColonColon (id_cc,id)
-*)
-    | oth ->  missing := Some oth; failwith "collapse case lst") lst
-| oth -> missing := Some oth; failwith "collapse case"
-
-and collapse_case' slice caselst =
-let lst' = ref [] in
-let lstrf = ref [] in
-caseref := Some caselst;
-List.iter (collapse_case lst' lstrf) (List.rev caselst);
- CaseStmt(mly slice, List.rev ((CaseItm (BeginBlock [] :: !lstrf)) :: !lst'))
+and attach_lbl = function
+| [] -> []
+| Default :: COLON :: (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as x) :: tl -> TUPLE3 (Default, COLON, x) :: attach_lbl tl
+| (TLIST (IDENTIFIER id :: _) as l) :: COLON :: (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as x) :: tl -> TUPLE3 (l, COLON, x) :: attach_lbl tl
+| (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as x) :: (IDENTIFIER id as l) :: tl -> TUPLE3 (l, COLON, x) :: attach_lbl tl
+| oth -> attlst := oth; failwith "attach"

@@ -153,7 +153,7 @@ let rec descend' (attr:attr) = function
   | If1(rw, rw2) -> If1(descend_itm attr (rw), descend_itm attr (rw2))
   | ForLoop(rw_lst, rw2, rw3, rw4) ->
     ForLoop(descend_lst attr (rw_lst), descend_itm attr (rw2), descend_itm attr (rw3), descend_itm attr (rw4))
-  | CaseStmt(rw, rw_lst) -> CaseStmt(descend_itm attr (rw), descend_lst attr (rw_lst))
+  | CaseStmt(rw_lst, rw_lst') -> CaseStmt(descend_lst attr (rw_lst), descend_lst attr (rw_lst'))
   | CaseItm(rw_lst) -> CaseItm(descend_lst attr (rw_lst))
   | AlwaysComb(rw_lst) -> AlwaysComb(descend_lst attr (rw_lst))
   | BeginBlock(rw_lst) -> BeginBlock(descend_lst attr (rw_lst))

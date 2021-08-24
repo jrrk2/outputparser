@@ -36,6 +36,7 @@ let v = "prec.sv";;
 let v = "ariane_preproc.sv";;
 let v = "apb_uart.vsyn";;
 let v = "apb_uart.sv";;
+let v = "casetest.sv";;
 
 (*
 let x = rw (parse v);;
@@ -45,8 +46,10 @@ let x = rw (parse v);;
 let modlst,x,p,p' = rewrite v;;
 (* *)
 
+let u = Hashtbl.find modules "casetest";;
+
 (*
-let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;
+Let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;
 
 let y = unroll {subst=Hashtbl.create 255; fn=descend} x;;
 

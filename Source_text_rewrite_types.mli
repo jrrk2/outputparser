@@ -27,7 +27,7 @@ type rw =
   | CaseStart2 of rw * rw list
   | CaseStartUniq of rw * rw list
   | CaseStartUniq2 of rw * rw list
-  | CaseStmt of rw * rw list
+  | CaseStmt of rw list * rw list
   | Cast of rw * rw
   | CellParamItem1 of string * string
   | CellParamItem2 of string * rw

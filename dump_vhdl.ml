@@ -77,7 +77,7 @@ let rec recurs' (vhdl_attr:vhdl_attr) = function
   | If1(rw, rw2) -> If1(recurs_itm vhdl_attr (rw), recurs_itm vhdl_attr (rw2))
   | ForLoop(rw_lst, rw2, rw3, rw4) ->
     ForLoop(recurs_lst vhdl_attr (rw_lst), recurs_itm vhdl_attr (rw2), recurs_itm vhdl_attr (rw3), recurs_itm vhdl_attr (rw4))
-  | CaseStmt(rw, rw_lst) -> CaseStmt(recurs_itm vhdl_attr (rw), recurs_lst vhdl_attr (rw_lst))
+  | CaseStmt(rw_lst, rw_lst') -> CaseStmt(recurs_lst vhdl_attr rw_lst, recurs_lst vhdl_attr rw_lst')
   | CaseItm(rw_lst) -> CaseItm(recurs_lst vhdl_attr (rw_lst))
   | AlwaysComb(rw_lst) -> AlwaysComb(recurs_lst vhdl_attr (rw_lst))
   | BeginBlock(rw_lst) -> BeginBlock(recurs_lst vhdl_attr (rw_lst))
@@ -600,7 +600,10 @@ let rec decl_template fd typhash modules complst cnt = function
     | Final _ -> ()
     | Generate _ -> ()
     | DeclInt2 id_lst -> List.iter (function Id itm -> fprintf fd "    signal %s : std_logic;\n" itm | oth -> failwith "DeclInt2") id_lst
-    | InstDecl (typ, parm_lst, _) -> mod_template fd modules typhash complst (typ, parm_lst)
+    | InstDecl (typ, params, lst) -> List.iter (function
+        | (InstNameParen1 _ | InstNameParen2 _) -> mod_template fd modules typhash complst (typ, params)
+        | Id id -> fprintf fd "    signal %s: %s;\n" id typ
+        | oth -> unhand := Some oth; failwith "InstDecl") lst;
     | Typ2 ("bool_t", [], [Id "FALSE"; Id "TRUE"]) -> ()
     | Typ2 (nam, _, id :: []) ->  update typhash nam (Vtyp nam);
         let s = vexpr typhash id in update typhash s Vsigtyp; fprintf fd "    signal %s : %s;\n" s nam
@@ -651,10 +654,7 @@ let rec stmt_clause fd typhash = function
   fprintf fd "        end if;\n";
       | If1 _ as x -> iff_template fd typhash x
       | DeclLogic lst -> ()
-      | CaseStmt (state, itmlst) ->
-  fprintf fd "            case %s is\n" (vexpr typhash state);
-          List.iter (case_clause fd typhash) itmlst;
-  fprintf fd "            end case;\n";
+      | Seq (id, []) ->  fprintf fd "       null;\n"
       | Seq (id, lst) ->  List.iter (stmt_clause fd typhash) lst
       | Stmt1 (Asgn1 (Id id, expr)) -> fprintf fd "        %s <= %s;\n" id (vexpr typhash expr)
       | Stmt1 (FopAsgn (id, expr)) -> fprintf fd "        %s <= %s;\n" id (vexpr typhash expr)
@@ -688,14 +688,17 @@ let rec stmt_clause fd typhash = function
       | EquateSelect2 (id,ix,expr) -> fprintf fd "            %s(%s) <= %s;\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash expr);
       | EquateArrayField (id,id',ix,ix',expr) -> fprintf fd "            %s.%s(%s)(%s) <= %s;\n" id id' (vexpr typhash ix) (vexpr typhash ix') (vexpr typhash expr);
       | CaseStart (CaseStart1 (sel), lst) ->
-      fprintf fd "            case %s is\n" (vexpr typhash sel);
-      List.iter (case_clause fd typhash) lst
+        fprintf fd "            case %s is\n" (vexpr typhash sel);
+        List.iter (case_clause fd typhash) lst;
+        fprintf fd "            end case;\n";
       | CaseStartUniq (CaseStart1 (sel), lst) ->
-      fprintf fd "            unique case %s is\n" (vexpr typhash sel);
-      List.iter (case_clause fd typhash) lst
+        fprintf fd "            unique case %s is\n" (vexpr typhash sel);
+        List.iter (case_clause fd typhash) lst;
+        fprintf fd "            end case;\n";
       | CaseStartUniq2 (IdArrayedColon (Id arr, lft, rght) as sel, lst) ->
       fprintf fd "            unique case %s is\n" (vexpr typhash sel);
-      List.iter (case_clause fd typhash) lst
+        List.iter (case_clause fd typhash) lst;
+        fprintf fd "            end case;\n";
       | Stmt1 (SideEffect (Id id, Atom "++")) -> fprintf fd "            %s <= %s+1;\n" id id
       | Stmt1 (SideEffect (Id id, Atom "--")) -> fprintf fd "            %s <= %s-1;\n" id id
       | DeclData _ -> ()
@@ -706,25 +709,12 @@ let rec stmt_clause fd typhash = function
       | oth -> unhand := Some oth; failwith "stmt_clause"
 
 and case_clause fd typhash = function
-        | Id caseid ->
-            fprintf fd "                when %s       =>  " caseid;
-        | Number _ as x ->
-            fprintf fd "                when %s       =>  " (vexpr typhash x);
-        | Package (pkg, [Id caseid]) ->
-            fprintf fd "                when %s::%s   =>  " pkg caseid;
-        | Itmlst (caseidlst) ->
-            fprintf fd "                when %s       =>  " (String.concat ", " (List.map (vexpr typhash) caseidlst));
-        | ValueRange(lft, rght) ->
-            fprintf fd "                when %s       =>  " (vexpr typhash lft);
-        | Seq (lbl, body) ->
+        | CaseStmt (lbls, body) ->
+            List.iter (function
+               | Id lbl -> fprintf fd "                when %s       =>  " lbl
+               | Atom "default" -> fprintf fd "               when others       =>  "
+	       | oth -> unhand := Some oth; failwith "case_label") lbls;
             List.iter (stmt_clause fd typhash) body
-        | Stmt1 _ as stmt ->
-            stmt_clause fd typhash stmt
-        | Atom ("default") ->
-            fprintf fd "                when others       =>  ";
-        | Atom ":" -> ()
-        | Atom ";" -> ()
-	| Equate _ as x -> stmt_clause fd typhash x
 	| oth -> unhand := Some oth; failwith "case_item"
     
 and iff_template fd typhash = function
@@ -837,7 +827,7 @@ let rec proc_template fd typhash cnt = function
   fprintf fd "    end process;\n";
   fprintf fd "\n";
   (* elaboration case *)
-   | CaseStmt (Id id, (CaseItm (BeginBlock [] :: Unknown ("$error",_) :: Deflt :: []) :: [])) -> fprintf fd "-- elaboration case %s\n" id;
+   | CaseStart (Id id, (CaseItm (BeginBlock [] :: Unknown ("$error",_) :: Deflt :: []) :: [])) -> fprintf fd "-- elaboration case %s\n" id;
     | ContAsgn lst -> List.iter (function
       | Asgn1 (lhs, expr) -> asgn fd typhash expr lhs
       | oth -> unhand := Some oth; failwith "assign_template") lst
@@ -893,8 +883,11 @@ let template fd modules = function Modul(entnam, parm_lst, port_lst, body_lst') 
   fprintf fd "architecture rtl of %s is\n" entnam;
   fprintf fd "    -- Signals\n";
   let complst = ref [] in
-  List.iter (decl_template fd typhash modules complst cnt) (List.sort compare (List.filter (function InstDecl _ -> true | _ -> false) body_lst));
-  List.iter (decl_template fd typhash modules complst cnt) (List.filter (function InstDecl _ -> false | _ -> true) body_lst);
+  let typlst, othlst = List.partition (function TypEnum6 _ -> true | _ -> false) body_lst in
+  List.iter (decl_template fd typhash modules complst cnt) (typlst);
+  let components, othlst = List.partition (function InstDecl _ -> true | _ -> false) othlst in
+  List.iter (decl_template fd typhash modules complst cnt) (List.sort compare components);
+  List.iter (decl_template fd typhash modules complst cnt) othlst;
   fprintf fd "begin\n";
 List.iter (proc_template fd typhash cnt) body_lst;
   fprintf fd "\n";
