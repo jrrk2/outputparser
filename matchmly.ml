@@ -2,7 +2,7 @@ open Source_text_rewrite_types
 open Source_text_lex
 open Source_text
 
-let modules = Hashtbl.create 255
+let modules = ref []
 let mlst = ref []
 let attlst = ref []
 let othpat1 = ref None
@@ -248,7 +248,7 @@ let rec mly = function
        | oth -> othpat1 := Some oth; failwith "exprOrDataTypeEqE1106")
 | TUPLE3(STRING("exprScope1328"), arg1, arg2) ->
 (match arg1, arg2 with
-       | TLIST lst, IDENTIFIER member -> (match rml lst with Package(id_cc, []) :: [] -> Package(id_cc, Id member :: []) | _ -> failwith "exprScope1328")
+       | TLIST lst, IDENTIFIER member -> (match rml lst with PackageBody (id_cc, []) :: [] -> PackageBody (id_cc, Id member :: []) | _ -> failwith "exprScope1328")
        | TLIST lst, TUPLE7  (STRING "idArrayed2504", _, _, _, _, _, _) -> IdArrayed3(rml lst, mly arg2)
        | oth -> othpat2 := Some oth; failwith "exprScope1328")
 | TUPLE3(STRING("fIdScoped1051"), arg1, arg2) as oth -> mayfail oth  "fIdScoped1051"
@@ -340,7 +340,7 @@ let rec mly = function
 | TUPLE3(STRING("packageClassScope2588"), arg1, COLON_COLON) as oth -> mayfail oth  "packageClassScope2588"
 | TUPLE3(STRING("packageClassScopeItem2593"), arg1, COLON_COLON) ->
     (match arg1 with 
-        | IDENTIFIER_HYPHEN_COLON_COLON id_cc -> Package(id_cc, [])
+        | IDENTIFIER_HYPHEN_COLON_COLON id_cc -> PackageBody (id_cc, [])
         | oth -> othpat1 := Some oth; failwith "packageClassScopeItem2593")
 | TUPLE3(STRING("package_or_generate_item_declaration36"), arg1, SEMICOLON) ->
     (match arg1 with 
@@ -926,7 +926,8 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 (match arg1, arg2, arg4 with
        | TUPLE5 (STRING "packageFront21", Package, EMPTY_TOKEN, IDENTIFIER_HYPHEN_COLON_COLON pkg_cc, SEMICOLON),
          TLIST lst,
-         (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", COLON, IDENTIFIER_HYPHEN_COLON_COLON _)) -> Package(pkg_cc, rml lst)
+         (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", COLON, IDENTIFIER_HYPHEN_COLON_COLON _)) ->
+	 let p = PackageBody (pkg_cc, rml lst) in modules := (pkg_cc,p) :: !modules; p
        | oth -> othpat3 := Some oth; failwith "package_declaration20")
 | TUPLE5(STRING("par_block617"), arg1, arg2, Join, arg4) as oth -> mayfail oth  "par_block617"
 | TUPLE5(STRING("par_block618"), arg1, arg2, Join_any, arg4) as oth -> mayfail oth  "par_block618"
@@ -1428,7 +1429,7 @@ CondGen1(mly arg3, mly arg5, mly arg7)
 portlstref := portlst;
 let ports', itms = itemsf portlst itmlst in
 let m = Modul (modid, parmf params, ports', itms) in
-Hashtbl.add modules modid m;
+modules := (modid,m) :: !modules;
 m
 | oth -> othpat3 := Some oth; failwith "module_declaration51")
 | TUPLE8(STRING("module_declaration52"), arg1, arg2, arg3, SEMICOLON, arg5, Endprimitive, arg7) as oth -> mayfail oth  "module_declaration52"

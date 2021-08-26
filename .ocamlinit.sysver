@@ -20,7 +20,7 @@ open Source_text_rewrite_types
 open Source_text_rewrite
 open Source_text_lex
 open Source_text
-open Dump_vhdl
+open Dump_sysver
 open Matchmly
 ;;
 
@@ -43,7 +43,7 @@ let x = rw (parse v);;
 *)
 
 (* *)
-let modlst,x,p,p' = rewrite v;;
+let modlst,x,p,p' = rewrite_sysver v;;
 (* *)
 
 (*

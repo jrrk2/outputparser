@@ -148,7 +148,7 @@ type rw =
   | Or of rw * rw
   | Or2 of rw * rw
   | Out
-  | Package of string * rw list
+  | PackageBody of string * rw list
   | PackageParam of rw list * rw
   | PackageParam2 of string * string * rw list * rw
   | Param of string * rw * rw list

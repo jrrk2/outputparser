@@ -172,7 +172,7 @@ let rec descend' (attr:attr) = function
   | Param(str1, rw2, rw_lst2) -> Param(str1, descend_itm attr (rw2), descend_lst attr (rw_lst2))
   | DeclLogic(rw_lst) -> DeclLogic(descend_lst attr (rw_lst))
   | GenBlock(rw_lst) -> GenBlock(descend_lst attr (rw_lst))
-  | Package (id, rw_lst) -> Package(id, descend_lst attr rw_lst)
+  | PackageBody (id, rw_lst) -> PackageBody (id, descend_lst attr rw_lst)
   | Typ1 _ as x -> x
   | Cast (_, _) as x -> x
   | Deflt -> Deflt
@@ -276,16 +276,30 @@ let parse arg =
   close_in ch;
   rslt
 
-let rewrite v =
+let rewrite_vhdl v =
   let p = parse v in
   let p' = rw p in
   let x = Matchmly.mly p' in
   let fd = open_out (v^"_dump.vhd") in 
   let modlst = ref [] in
-  Hashtbl.iter (fun k x ->
+  List.iter (fun (k, x) ->
 		modlst := k :: !modlst;
 		Dump_vhdl.template fd Matchmly.modules x;
-		) Matchmly.modules;
+		) !(Matchmly.modules);
+  close_out fd;
+  let modlst = !modlst in
+  modlst, x, p, p'
+
+let rewrite_sysver v =
+  let p = parse v in
+  let p' = rw p in
+  let x = Matchmly.mly p' in
+  let fd = open_out (v^"_dump.sv") in 
+  let modlst = ref [] in
+  List.iter (fun (k, x) ->
+		modlst := k :: !modlst;
+		Dump_sysver.template fd Matchmly.modules x;
+		) !(Matchmly.modules);
   close_out fd;
   let modlst = !modlst in
   modlst, x, p, p'
