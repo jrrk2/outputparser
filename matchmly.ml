@@ -1543,9 +1543,11 @@ m
 | TUPLE13(STRING("system_f_call_or_t931"), DLR_countbits, LPAREN, arg3, COMMA, arg5, COMMA, arg7, COMMA, arg9, COMMA, arg11, RPAREN) as oth -> mayfail oth  "system_f_call_or_t931"
 | ELIST lst -> priority lst
 | TLIST lst -> Itmlst(rml lst)
-| (TUPLE3 (lbl, COLON, TUPLE5 (STRING "seq_block615", Begin, TLIST lst, End, EMPTY_TOKEN))) ->
+| TUPLE3 (lbl, COLON, TUPLE5 (STRING "seq_block615", Begin, TLIST lst, End, EMPTY_TOKEN)) ->
     CaseStmt((match lbl with TLIST lst -> rml lst | oth -> mly oth :: []), rml lst)
-
+| TUPLE3 (lbl, COLON, stmt) when pred1 stmt ->
+    CaseStmt((match lbl with TLIST lst -> rml lst | oth -> mly oth :: []), mly stmt :: [])
+| TUPLE3 (Default, COLON, SEMICOLON) -> CaseStmt(mly Default :: [], [])
 | oth -> othpat1 := Some oth; failwith "mly"
 
 and other msg = function
@@ -1690,7 +1692,21 @@ and prior12 = function
 
 and attach_lbl = function
 | [] -> []
-| Default :: COLON :: (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as x) :: tl -> TUPLE3 (Default, COLON, x) :: attach_lbl tl
-| (TLIST (IDENTIFIER id :: _) as l) :: COLON :: (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as x) :: tl -> TUPLE3 (l, COLON, x) :: attach_lbl tl
-| (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as x) :: (IDENTIFIER id as l) :: tl -> TUPLE3 (l, COLON, x) :: attach_lbl tl
+| (TLIST ((IDENTIFIER _ | INTEGER_NUMBER _) :: _) | Default) as l :: COLON :: (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as stmt) :: tl -> TUPLE3 (l, COLON, stmt) :: attach_lbl tl
+| (TLIST ((IDENTIFIER _ | INTEGER_NUMBER _) :: _) | Default) as l :: COLON :: stmt :: tl when pred1 stmt -> TUPLE3 (l, COLON, stmt) :: attach_lbl tl
+| (TLIST (TUPLE3 (STRING "exprScope1328", _, _) :: _) as l) :: COLON :: stmt :: tl when pred1 stmt -> TUPLE3 (l, COLON, stmt) :: attach_lbl tl
+| stmt :: ((IDENTIFIER _ | INTEGER_NUMBER _) as l) :: [] when pred1 stmt -> TUPLE3 (l, COLON, stmt) :: []
+| Default :: COLON :: SEMICOLON :: TLIST ( (IDENTIFIER _ | INTEGER_NUMBER _) :: _ as l) :: COLON :: stmt :: tl when pred1 stmt ->
+    TUPLE3 (TLIST (Default :: l), COLON, stmt) :: attach_lbl tl
+| (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as stmt) :: (TUPLE3 (STRING "exprScope1328", _, _) as l) :: [] ->
+ TUPLE3 (l, COLON, stmt) :: []
+| stmt :: ((IDENTIFIER _ | INTEGER_NUMBER _) as l) :: ((IDENTIFIER _ | INTEGER_NUMBER _) as l') :: [] when pred1 stmt -> TUPLE3 (TLIST (l::l'::[]), COLON, stmt) :: []
+| (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as stmt) :: tl when labels tl -> TUPLE3 (TLIST tl, COLON, stmt) :: []
+| Default :: COLON :: SEMICOLON :: tl -> TUPLE3 (Default, COLON, SEMICOLON) :: attach_lbl tl
+| stmt :: (TUPLE3 (STRING "exprScope1328", _, _) as l) :: [] when pred1 stmt -> TUPLE3(l, COLON, stmt) :: []
 | oth -> attlst := oth; failwith "attach"
+
+and labels = function
+| [] -> true
+| (IDENTIFIER _ | INTEGER_NUMBER _) :: tl -> labels tl
+| _ -> false
