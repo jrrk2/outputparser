@@ -132,7 +132,7 @@ ModPortItm (_, _)|Nand (_, _)|NetDecl (_, _)|Nor (_, _)|NotEq3 (_, _)|
 NotEqQuery (_, _)|OpenRange (_, _)|ParamAsgn1 (_, _)|ParamAsgn2 (_, _, _)|
 ParamDecl (_, _)|ParamPort _|PatMember1 (_, _)|PatMemberDflt _|PkgImport _|
 PkgImportItm (_, _)|PortDir (_, _)|PortFront (_, _)|PortItem (_, _)|
-PortItemFront (_, _)|PortsStar _|Return _|SUMember (_, _)|Seq (_, _)|
+PortItemFront (_, _)|PortsStar _|Return _|SUDecl (_, _)|SUMember (_, _)|Seq (_, _)|
 SideEffect (_, _)|Stmt1 _|String _|Sys (_, _)|SysFuncCall (_, _)|
 SysTaskCall (_, _)|TaskBody (_, _)|TaskRef (_, _)|Typ2 (_, _, _)|Typ3 (_, _)|
 Typ4 (_, _, _, _)|Typ5 (_, _)|Typ6 _|Typ7 (_, _)|Typ8 (_, _)|Typ9 (_, _, _)|

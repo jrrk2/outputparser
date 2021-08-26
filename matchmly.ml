@@ -1244,7 +1244,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("strengthSpec1462"), LPAREN_HYPHEN_for_HYPHEN_strength, arg2, COMMA, arg4, RPAREN) as oth -> mayfail oth  "strengthSpec1462"
 | TUPLE6(STRING("struct_unionDecl281"), Struct, arg2, LBRACE, arg4, RBRACE) ->
   (match arg2,arg4 with
-	| TUPLE3 (STRING "packedSigningE322", Packed, EMPTY_TOKEN), TLIST lst -> mly Packed
+	| TUPLE3 (STRING "packedSigningE322", Packed, EMPTY_TOKEN), TLIST lst -> SUDecl(mly Packed, rml lst)
         | EMPTY_TOKEN, TLIST lst -> Itmlst (rml lst)
         | oth -> othpat2 := Some oth; failwith "struct_unionDecl281")
 | TUPLE6(STRING("system_t_call801"), DLR_dumpports, LPAREN, COMMA, arg4, RPAREN) as oth -> mayfail oth  "system_t_call801"

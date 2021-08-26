@@ -175,6 +175,7 @@ type rw =
   | RedXor of rw
   | Repl of rw * rw list
   | Return of rw
+  | SUDecl of rw * rw list
   | SUMember of rw * rw list
   | Seq of string * rw list
   | Shiftl of rw * rw
