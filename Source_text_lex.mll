@@ -1219,12 +1219,12 @@ rule token = parse
         if Hashtbl.mem packhash s then IDENTIFIER_HYPHEN_COLON_COLON s else
         if !import_seen then ( Hashtbl.add packhash s (); IDENTIFIER_HYPHEN_COLON_COLON s) else IDENTIFIER s ) }
   | escaped as s
-      { let s = String.sub s 1 (String.length s - 1) in
+      { let s = String.sub s 1 (String.length s - 2) in
         tok ( if Hashtbl.mem typehash s then TYPE_HYPHEN_IDENTIFIER s else
         if Hashtbl.mem packhash s then IDENTIFIER_HYPHEN_COLON_COLON s else
         if !import_seen then ( Hashtbl.add packhash s (); IDENTIFIER_HYPHEN_COLON_COLON s) else IDENTIFIER s ) }
   | qstring as s
-      { tok ( STRING (String.sub s 1 (String.length s - 1)) ) }
+      { tok ( STRING (String.sub s 1 (String.length s - 2)) ) }
   | eof
       { tok ( EOF_TOKEN ) }
 

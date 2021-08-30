@@ -24,9 +24,9 @@ type rw =
   | CaseItm of rw list
   | CaseStart of rw * rw list
   | CaseStart1 of rw
-  | CaseStart2 of rw * rw list
+  | CaseStartInside of rw * rw list
   | CaseStartUniq of rw * rw list
-  | CaseStartUniq2 of rw * rw list
+  | CaseStartUniqInside of rw * rw list
   | CaseStmt of rw list * rw list
   | Cast of rw * rw
   | CellParamItem1 of string * string
@@ -65,7 +65,7 @@ type rw =
   | EquateSelect of string * rw * rw
   | EquateSelect2 of rw * rw * rw
   | EquateSlice of rw * rw * rw * rw
-  | EventOr of rw * rw
+  | EventOr of rw list
   | ExprOKL of rw list
   | ExprQuote1 of rw * rw
   | Expression of rw
@@ -144,7 +144,7 @@ type rw =
   | NotEq3 of rw * rw
   | NotEqQuery of rw * rw
   | Number of int * int * int * string
-  | OpenRange of rw * rw
+  | OpenRange of rw list
   | Or of rw * rw
   | Or2 of rw * rw
   | Out
@@ -184,7 +184,7 @@ type rw =
   | SideEffect of rw * rw
   | Signed of rw
   | StarStar of rw * rw
-  | Stmt1 of rw
+  | Blocking of rw
   | String of string
   | Sub of rw * rw
   | Sys of string * rw

@@ -186,8 +186,8 @@ let rec descend' (attr:attr) = function
   | (Assert|AssertProperty|AtStar|BreakSemi|PropertySpec|AlwaysComb2 _|
 AlwaysFF (_, _)|AlwaysLatch _|AlwaysLegacy (_, _)|And3 (_, _)|
 AnyRange (_, _)|Asgn1 (_, _)|AsgnPat _|At _|Atom _|AutoFunDecl (_, _, _)|
-CaseStart (_, _)|CaseStart1 _|CaseStart2 (_, _)|CaseStartUniq (_, _)|
-CaseStartUniq2 (_, _)|CellParamItem1 (_, _)|CellParamItem2 (_, _)|
+CaseStart (_, _)|CaseStart1 _|CaseStartInside (_, _)|CaseStartUniq (_, _)|
+CaseStartUniqInside (_, _)|CellParamItem1 (_, _)|CellParamItem2 (_, _)|
 CellParamItem3 (_, _)|CellPinItem1 (_, _)|CellPinItem2 (_, _)|
 CellPinItemImplied _|CellPinItemNC _|CondGen1 (_, _, _)|ContAsgn _|
 DeclAsgn (_, _)|DeclData (_, _)|DeclInt2 _|DeclLogic2 (_, _)|DeclReg2 (_, _)|
@@ -195,7 +195,7 @@ DotBus (_, _, _, _)|ElabTask _|ElseStmt _|EnumInit (_, _)|
 Equals3 (_, _)|EqualsQuery (_, _)|Equate (_, _)|
 EquateArrayField (_, _, _, _, _)|EquateField (_, _, _)|
 EquateSelect (_, _, _)|EquateSelect2 (_, _, _)|EquateSlice (_, _, _, _)|
-EventOr (_, _)|ExprOKL _|ExprQuote1 (_, _)|Final _|FopAsgn (_, _)|
+EventOr _|ExprOKL _|ExprQuote1 (_, _)|Final _|FopAsgn (_, _)|
 FopAsgn1 (_, _, _, _)|FopAsgnArrayField (_, _, _)|
 FopAsgnArrayField2 (_, _, _)|FopAsgnArrayField3 (_, _, _, _)|
 FopAsgnArrayField4 (_, _, _, _, _, _)|FopAsgnArrayField5 (_, _, _, _, _)|
@@ -212,11 +212,11 @@ InstNameParen1 (_, _)|InstNameParen2 (_, _)|
 InstRange (_, _)|IntfDecl (_, _, _, _)|ItemAsgn _|LocalParamTyp _|
 LoopGen1 (_, _, _, _, _, _)|LtGt (_, _)|Mod (_, _)|ModPortItm (_, _)|
 Nand (_, _)|NetDecl (_, _)|Nor (_, _)|NotEq3 (_, _)|NotEqQuery (_, _)|
-OpenRange (_, _)|ParamAsgn1 (_, _)|ParamAsgn2 (_, _, _)|ParamDecl (_, _)|
+OpenRange _|ParamAsgn1 (_, _)|ParamAsgn2 (_, _, _)|ParamDecl (_, _)|
 ParamPort _|PatMember1 (_, _)|PatMemberDflt _|PkgImport _|
 PkgImportItm (_, _)|PortDir (_, _)|PortFront (_, _)|PortItem (_, _)|
 PortItemFront (_, _)|PortsStar _|Return _|SUDecl (_, _)|SUMember (_, _)|Seq (_, _)|
-Stmt1 _|String _|Sys (_, _)|SysFuncCall (_, _)|SysTaskCall (_, _)|
+Blocking _|String _|Sys (_, _)|SysFuncCall (_, _)|SysTaskCall (_, _)|
 TaskBody (_, _)|TaskRef (_, _)|Typ2 (_, _, _)|Typ3 (_, _)|Typ4 (_, _, _, _)|
 Typ5 (_, _)|Typ6 _|Typ7 (_, _)|Typ8 (_, _)|Typ9 (_, _, _)|Typ10 (_, _, _)|
 TypEnum4 (_, _, _)|TypEnum5 _|TypEnum6 (_, _, _)|UPlus _|Union (_, _)|

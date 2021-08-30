@@ -64,6 +64,7 @@ let enc_expr = function
 | oth -> STRING "expr????"
 
 let pred1 = function
+  | TUPLE9 (STRING stmt, _, _, _, _, _, _, _, _) when g stmt "statementFor" -> true
   | TUPLE9 (STRING stmt, _, _, _, _, _, _, _, _) when g stmt "statement_item" -> true
   | TUPLE8 (STRING stmt, _, _, _, _, _, _, _) when g stmt "statement_item" -> true
   | TUPLE7 (STRING stmt, _, _, _, _, _, _) when g stmt "statement_item" -> true
@@ -73,6 +74,7 @@ let pred1 = function
   | TUPLE3 (STRING stmt, _, _) when g stmt "statement_item" -> true
   | TUPLE2 (STRING stmt, _) when g stmt "statement_item" -> true
   | TUPLE5 (STRING "seq_block615", _, _, _, _) -> true
+  | SEMICOLON -> true
   | _ -> false
 
 let canfail = ref true
@@ -109,6 +111,12 @@ if (!basing == 0) then begin
   width := 32;
 end;
 Number (!base, !width, !value, (String.sub str (1 + !basing) (String.length str - 1 - !basing)))
+
+let rec event_lst = function
+| EventOr lst, EventOr lst' -> EventOr (lst @ lst')
+| EventOr lst, oth -> EventOr (lst @ [ oth ] )
+| oth, EventOr lst -> EventOr (oth :: lst)
+| oth, oth' -> EventOr (oth :: [oth'])
 
 let rec mly = function
 | Wire -> Atom "wire"
@@ -393,8 +401,21 @@ let rec mly = function
     | TLIST lst, TYPE_HYPHEN_IDENTIFIER id_t -> Typ3(id_t, rml lst)
     | oth -> othpat2 := Some oth; failwith "simple_type259")
 | TUPLE3(STRING("specify_block1469"), Specify, Endspecify) as oth -> mayfail oth  "specify_block1469"
-| TUPLE3(STRING("statement_item645"), arg1, SEMICOLON) -> Stmt1(mly arg1)
-| TUPLE3(STRING("statement_item657"), arg1, SEMICOLON) -> Stmt1(mly arg1)
+| TUPLE3(STRING("statement_item645"), arg1, SEMICOLON) ->
+(match arg1 with
+       | TUPLE5 (STRING "foperator_assignment690", lhs, EQUALS, EMPTY_TOKEN, expr) -> Blocking(mly arg1)
+(* we assume these are blocking also for now, even though that may not always make much sense *)
+       | TUPLE9 (STRING "foperator_assignment692", lhs, EQUALS, _, _, _, _, _, _) -> Blocking(mly arg1)
+       | TUPLE4 (STRING "foperator_assignment693", lhs, PLUS_EQ, expr) -> Blocking(mly arg1)
+       | TUPLE4 (STRING "foperator_assignment694", lhs, HYPHEN_EQ, expr) -> Blocking(mly arg1)
+       | TUPLE4 (STRING "foperator_assignment698", lhs, AMPERSAND_EQ, expr) -> Blocking(mly arg1)
+       | TUPLE4 (STRING "foperator_assignment699", lhs, VBAR_EQ, expr) -> Blocking(mly arg1)
+       | oth -> othpat1 := Some oth; failwith "statement_item645")
+| TUPLE3(STRING("statement_item657"), arg1, SEMICOLON) -> 
+(match arg1 with
+       | TUPLE3 (STRING "finc_or_dec_expression708", IDENTIFIER _, PLUS_PLUS) -> Blocking(mly arg1)
+       | TUPLE3 (STRING "finc_or_dec_expression709", IDENTIFIER _, HYPHEN_HYPHEN) -> Blocking(mly arg1)
+       | oth -> othpat1 := Some oth; failwith "statement_item657")
 | TUPLE3(STRING("statement_item660"), arg1, SEMICOLON) ->
 (match arg1 with
        | TUPLE7(STRING str, _, _, _, _, _, _) when g str "system_t_call" -> mly arg1
@@ -560,8 +581,8 @@ let rec mly = function
        | IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN -> Id id
        | IDENTIFIER id, EMPTY_TOKEN, TUPLE3 (STRING "enumNameStartE338", EQUALS, expr) -> EnumInit(id, mly expr)
        | oth -> othpat3 := Some oth; failwith "enum_name_declaration333")
-| TUPLE4(STRING("event_expression598"), arg1, Or, arg3) -> EventOr(mly arg1, mly arg3)
-| TUPLE4(STRING("event_expression599"), arg1, COMMA, arg3) -> EventOr(mly arg1, mly arg3)
+| TUPLE4(STRING("event_expression598"), arg1, Or, arg3) -> event_lst (mly arg1, mly arg3)
+| TUPLE4(STRING("event_expression599"), arg1, COMMA, arg3) -> event_lst (mly arg1, mly arg3)
 | TUPLE4(STRING("expr1119"), arg1, PLUS, arg3) -> Add(mly arg1, mly arg3)
 | TUPLE4(STRING("expr1120"), arg1, HYPHEN, arg3) -> Sub(mly arg1, mly arg3)
 | TUPLE4(STRING("expr1121"), arg1, STAR, arg3) -> Mult(mly arg1, mly arg3)
@@ -733,7 +754,11 @@ let rec mly = function
   (match arg1, arg2 with
     | TUPLE6 (STRING "net_declarationFront187", EMPTY_TOKEN, (Wire as typ), EMPTY_TOKEN, EMPTY_TOKEN, dly), TLIST lst -> NetDecl(mly typ, rml lst)
     | oth -> othpat2 := Some oth; failwith "net_declaration186")
-| TUPLE4(STRING("open_range_list744"), arg1, COMMA, arg3) -> OpenRange(mly arg1, mly arg3)
+| TUPLE4(STRING("open_range_list744"), arg1, COMMA, arg3) -> OpenRange(match mly arg1, mly arg3 with
+     | OpenRange lst, OpenRange lst' -> lst @ lst'
+     | OpenRange lst, oth -> lst @ [oth]
+     | oth, OpenRange lst' -> oth :: lst'
+     | oth, oth' -> oth :: [oth'])
 | TUPLE4(STRING("packageClassScope2589"), arg1, COLON_COLON, arg3) as oth -> mayfail oth  "packageClassScope2589"
 | TUPLE4(STRING("packageClassScopeItem2595"), arg1, arg2, COLON_COLON) as oth -> mayfail oth  "packageClassScopeItem2595"
 | TUPLE4(STRING("package_export_declaration47"), Export, arg2, SEMICOLON) as oth -> mayfail oth  "package_export_declaration47"
@@ -834,7 +859,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE5(STRING("elaboration_system_task_guts1010"), DLR_warning, LPAREN, arg3, RPAREN) as oth -> mayfail oth  "elaboration_system_task_guts1010"
 | TUPLE5(STRING("elaboration_system_task_guts1012"), DLR_error, LPAREN, arg3, RPAREN) as oth -> mayfail oth  "elaboration_system_task_guts1012"
 | TUPLE5(STRING("elaboration_system_task_guts1014"), DLR_fatal, LPAREN, arg3, RPAREN) as oth -> mayfail oth  "elaboration_system_task_guts1014"
-| TUPLE5(STRING("event_control593"), AT, LPAREN, arg3, RPAREN) -> At(mly arg3)
+| TUPLE5(STRING("event_control593"), AT, LPAREN, arg3, RPAREN) -> At(match mly arg3 with EventOr _ as x -> x | oth -> EventOr [oth])
 | TUPLE5(STRING("event_control594"), AT, LPAREN, STAR, RPAREN) -> AtStar
 | TUPLE5(STRING("expr1161"), UNDERSCORE, LPAREN, arg3, RPAREN) as oth -> mayfail oth  "expr1161"
 | TUPLE5(STRING("exprNoStr1293"), UNDERSCORE, LPAREN, arg3, RPAREN) as oth -> mayfail oth  "exprNoStr1293"
@@ -1197,8 +1222,8 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("port85"), arg1, Interface, arg3, arg4, arg5) as oth -> mayfail oth  "port85"
 | TUPLE6(STRING("port87"), dir, typ, port, arg4, arg5) ->
     (match typ, port with
-      | TUPLE4 (STRING "data_typeBasic263", Logic, EMPTY_TOKEN, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, [], [])
-      | TUPLE4 (STRING "data_typeBasic263", Logic, (EMPTY_TOKEN|Signed), TLIST lst), IDENTIFIER port -> Port(mly dir, port, rml lst, [])
+      | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic as x), EMPTY_TOKEN, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, Typ6(mly x) :: [], [])
+      | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic), (EMPTY_TOKEN|Signed), TLIST lst), IDENTIFIER port -> Port(mly dir, port, rml lst, [])
       | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: [], [])
       | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, rml lst, []) :: [], [])
       | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: rml lst, [])
@@ -1227,7 +1252,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("statement_item653"), arg1, arg2, arg3, arg4, Endcase) ->
 ( match arg1, arg2, arg3, arg4 with
 	| EMPTY_TOKEN, TUPLE5(STRING "caseStart721", _, _, _, _), EMPTY_TOKEN, TLIST lst -> CaseStart(mly arg2, rml (attach_lbl lst))
-	| Unique, TUPLE5(STRING "caseStart721", _, _, _, _), EMPTY_TOKEN, TLIST lst -> CaseStartUniq(mly arg2, rml lst)
+	| Unique, TUPLE5(STRING "caseStart721", _, _, _, _), EMPTY_TOKEN, TLIST lst -> CaseStartUniq(mly arg2, rml (attach_lbl lst))
 	| oth -> othpat4 := Some oth; failwith "statement_item653")
 | TUPLE6(STRING("statement_item669"), Repeat, LPAREN, arg3, RPAREN, arg5) as oth -> mayfail oth  "statement_item669"
 | TUPLE6(STRING("statement_item670"), While, LPAREN, arg3, RPAREN, arg5) -> While (mly arg3, match arg5 with
@@ -1324,9 +1349,10 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE7(STRING("statement_item649"), Assign, arg2, EQUALS, arg4, arg5, SEMICOLON) as oth -> mayfail oth  "statement_item649"
 | TUPLE7(STRING("statement_item654"), arg1, arg2, arg3, Inside, arg5, Endcase) ->
 (match arg1, arg2, arg3, arg5 with
-       | Unique, TUPLE5 (STRING "caseStart721", Case, LPAREN, expr, RPAREN), EMPTY_TOKEN, TLIST lst -> CaseStartUniq2(mly expr, rml lst)
-       | EMPTY_TOKEN, TUPLE5 (STRING "caseStart721", Case, LPAREN, expr, RPAREN), EMPTY_TOKEN, TLIST lst -> CaseStart2(mly expr, rml lst)
-       
+       | Unique, TUPLE5 (STRING "caseStart721", Case, LPAREN, expr, RPAREN), EMPTY_TOKEN, TLIST lst ->
+           CaseStartUniqInside(mly expr, rml (attach_lbl lst))
+       | EMPTY_TOKEN, TUPLE5 (STRING "caseStart721", Case, LPAREN, expr, RPAREN), EMPTY_TOKEN, TLIST lst ->
+           CaseStartInside(mly expr, rml (attach_lbl lst))
        | oth -> othpat4 := Some oth; failwith "statement_item654")
 | TUPLE7(STRING("statement_item655"), arg1, If, LPAREN, arg4, RPAREN, arg6) ->
 (match arg1, arg4, arg6 with
@@ -1695,19 +1721,33 @@ and attach_lbl = function
 | [] -> []
 | (TLIST ((IDENTIFIER _ | INTEGER_NUMBER _) :: _) | Default) as l :: COLON :: (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as stmt) :: tl -> TUPLE3 (l, COLON, stmt) :: attach_lbl tl
 | (TLIST ((IDENTIFIER _ | INTEGER_NUMBER _) :: _) | Default) as l :: COLON :: stmt :: tl when pred1 stmt -> TUPLE3 (l, COLON, stmt) :: attach_lbl tl
+| (IDENTIFIER _ | INTEGER_NUMBER _) as l :: COLON :: stmt :: tl when pred1 stmt -> TUPLE3 (l, COLON, stmt) :: attach_lbl tl
 | (TLIST (TUPLE3 (STRING "exprScope1328", _, _) :: _) as l) :: COLON :: stmt :: tl when pred1 stmt -> TUPLE3 (l, COLON, stmt) :: attach_lbl tl
 | stmt :: ((IDENTIFIER _ | INTEGER_NUMBER _) as l) :: [] when pred1 stmt -> TUPLE3 (l, COLON, stmt) :: []
 | Default :: COLON :: SEMICOLON :: TLIST ( (IDENTIFIER _ | INTEGER_NUMBER _) :: _ as l) :: COLON :: stmt :: tl when pred1 stmt ->
     TUPLE3 (TLIST (Default :: l), COLON, stmt) :: attach_lbl tl
 | (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as stmt) :: (TUPLE3 (STRING "exprScope1328", _, _) as l) :: [] ->
  TUPLE3 (l, COLON, stmt) :: []
+| (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as stmt) :: (TUPLE6 (STRING "value_range747", LBRACK, lft, COLON, rght, RBRACK) as l) :: [] ->
+ TUPLE3 (l, COLON, stmt) :: []
 | stmt :: ((IDENTIFIER _ | INTEGER_NUMBER _) as l) :: ((IDENTIFIER _ | INTEGER_NUMBER _) as l') :: [] when pred1 stmt -> TUPLE3 (TLIST (l::l'::[]), COLON, stmt) :: []
 | (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as stmt) :: tl when labels tl -> TUPLE3 (TLIST tl, COLON, stmt) :: []
+| stmt :: tl when pred1 stmt && labels tl -> TUPLE3 (TLIST tl, COLON, stmt) :: []
 | Default :: COLON :: SEMICOLON :: tl -> TUPLE3 (Default, COLON, SEMICOLON) :: attach_lbl tl
 | stmt :: (TUPLE3 (STRING "exprScope1328", _, _) as l) :: [] when pred1 stmt -> TUPLE3(l, COLON, stmt) :: []
+| (TUPLE3 (STRING "exprScope1328", _, _) as l) :: stmt :: tl when pred1 stmt -> TUPLE3(l, COLON, stmt) :: attach_lbl tl
+| stmt :: (TUPLE4 (STRING "open_range_list744", _, _, _) as l) :: [] when pred1 stmt -> TUPLE3(l, COLON, stmt) :: []
+| TUPLE6 (STRING "value_range747", LBRACK, lft, COLON, rght, RBRACK) as l :: COLON :: (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as stmt) :: tl -> TUPLE3 (l, COLON, stmt) :: attach_lbl tl
+| SEMICOLON :: (TUPLE6 (STRING "value_range747", LBRACK, lft, COLON, rght, RBRACK) as l) :: COLON :: (TUPLE5(STRING "seq_block615", Begin, TLIST _, End, EMPTY_TOKEN) as stmt) :: tl -> TUPLE3 (l, COLON, stmt) :: attach_lbl tl
+| (TUPLE3 (STRING "exprScope1328", _, _) as l) :: COLON :: stmt :: tl when pred1 stmt -> TUPLE3(l, COLON, stmt) :: attach_lbl tl
+| SEMICOLON :: (TUPLE6 (STRING "value_range747", LBRACK, lft, COLON, rght, RBRACK) as l) :: [] -> TUPLE3(l, COLON, SEMICOLON) :: []
+| stmt :: Default :: [] -> TUPLE3(Default, COLON, stmt) :: []
+| (TLIST [TUPLE4 (STRING "exprOkLvalue1307", LBRACE, TLIST _, RBRACE)] as l) :: COLON :: stmt :: tl when pred1 stmt -> TUPLE3(l, COLON, stmt) :: attach_lbl tl
+| stmt :: (TUPLE4 (STRING "exprOkLvalue1307", LBRACE, TLIST _, RBRACE) as l) :: tl when pred1 stmt -> TUPLE3(l, COLON, stmt) :: attach_lbl tl
+| TLIST [TUPLE3 (STRING "exprScope1328", TLIST _, _) as l] :: COLON :: stmt :: tl when pred1 stmt -> TUPLE3(l, COLON, stmt) :: attach_lbl tl
 | oth -> attlst := oth; failwith "attach"
 
 and labels = function
 | [] -> true
-| (IDENTIFIER _ | INTEGER_NUMBER _) :: tl -> labels tl
+| (IDENTIFIER _ | INTEGER_NUMBER _ | TUPLE3 (STRING "exprScope1328", TLIST _, IDENTIFIER _)) :: tl -> labels tl
 | _ -> false

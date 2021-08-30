@@ -16,12 +16,22 @@ close_out fd
 ;;
 *)
 
+#directory "/Users/jonathan/.opam/default/lib/hardcaml"
+#directory "/Users/jonathan/.opam/default/lib/hardcaml_waveterm"
+#directory "/Users/jonathan/.opam/default/lib"
+
 open Source_text_rewrite_types
 open Source_text_rewrite
 open Source_text_lex
 open Source_text
 open Dump_sysver
 open Matchmly
+(*
+open Hardcaml
+open Hardcaml.Signal
+open Hardcaml_waveterm
+open Counter
+*)
 ;;
 
 let v = "timer.v";;
@@ -35,8 +45,9 @@ let v = "blocking.v";;
 let v = "prec.sv";;
 let v = "casetest.sv";;
 let v = "apb_uart.vsyn";;
-let v = "apb_uart.sv";;
+let v = "insider.sv";;
 let v = "ariane_preproc.sv";;
+let v = "apb_uart.sv";;
 
 (*
 let x = rw (parse v);;
@@ -46,9 +57,9 @@ let x = rw (parse v);;
 let modlst,x,p,p' = rewrite_sysver v;;
 (* *)
 
-(*
-let u = Hashtbl.find modules "uart_receiver";;
+let u= List.assoc  "uart_receiver" !modules;;
 
+(*
 Let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;
 
 let y = unroll {subst=Hashtbl.create 255; fn=descend} x;;

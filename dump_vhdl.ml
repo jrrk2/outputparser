@@ -102,8 +102,8 @@ let rec recurs' (vhdl_attr:vhdl_attr) = function
   | (Assert|AssertProperty|AtStar|BreakSemi|PropertySpec|AlwaysComb2 _|
 AlwaysFF (_, _)|AlwaysLatch _|AlwaysLegacy (_, _)|And3 (_, _)|
 AnyRange (_, _)|Asgn1 (_, _)|AsgnPat _|At _|Atom _|AutoFunDecl (_, _, _)|
-CaseStart (_, _)|CaseStart1 _|CaseStart2 (_, _)|CaseStartUniq (_, _)|
-CaseStartUniq2 (_, _)|CellParamItem1 (_, _)|CellParamItem2 (_, _)|
+CaseStart (_, _)|CaseStart1 _|CaseStartInside (_, _)|CaseStartUniq (_, _)|
+CaseStartUniqInside (_, _)|CellParamItem1 (_, _)|CellParamItem2 (_, _)|
 CellParamItem3 (_, _)|CellPinItem1 (_, _)|CellPinItem2 (_, _)|
 CellPinItemImplied _|CellPinItemNC _|CondGen1 (_, _, _)|ContAsgn _|
 DeclAsgn (_, _)|DeclInt2 _|DeclLogic2 (_, _)|DeclReg2 (_, _)|
@@ -111,7 +111,7 @@ DotBus (_, _, _, _)|ElabTask _|ElseStmt _|EnumInit (_, _)|
 Equals3 (_, _)|EqualsQuery (_, _)|Equate (_, _)|
 EquateArrayField (_, _, _, _, _)|EquateField (_, _, _)|
 EquateSelect (_, _, _)|EquateSelect2 (_, _, _)|EquateSlice (_, _, _, _)|
-EventOr (_, _)|ExprOKL _|ExprQuote1 (_, _)|Final _|FopAsgn (_, _)|
+EventOr _|ExprOKL _|ExprQuote1 (_, _)|Final _|FopAsgn (_, _)|
 FopAsgn1 (_, _, _, _)|FopAsgnArrayField (_, _, _)|
 FopAsgnArrayField2 (_, _, _)|FopAsgnArrayField3 (_, _, _, _)|
 FopAsgnArrayField4 (_, _, _, _, _, _)|FopAsgnArrayField5 (_, _, _, _, _)|
@@ -129,11 +129,11 @@ InstDecl (_, _, _)|InstNameParen1 (_, _)|
 InstNameParen2 (_, _)|InstRange (_, _)|IntfDecl (_, _, _, _)|ItemAsgn _|
 LocalParamTyp _|LoopGen1 (_, _, _, _, _, _)|LtGt (_, _)|Mod (_, _)|
 ModPortItm (_, _)|Nand (_, _)|NetDecl (_, _)|Nor (_, _)|NotEq3 (_, _)|
-NotEqQuery (_, _)|OpenRange (_, _)|ParamAsgn1 (_, _)|ParamAsgn2 (_, _, _)|
+NotEqQuery (_, _)|OpenRange _|ParamAsgn1 (_, _)|ParamAsgn2 (_, _, _)|
 ParamDecl (_, _)|ParamPort _|PatMember1 (_, _)|PatMemberDflt _|PkgImport _|
 PkgImportItm (_, _)|PortDir (_, _)|PortFront (_, _)|PortItem (_, _)|
 PortItemFront (_, _)|PortsStar _|Return _|SUDecl (_, _)|SUMember (_, _)|Seq (_, _)|
-SideEffect (_, _)|Stmt1 _|String _|Sys (_, _)|SysFuncCall (_, _)|
+SideEffect (_, _)|Blocking _|String _|Sys (_, _)|SysFuncCall (_, _)|
 SysTaskCall (_, _)|TaskBody (_, _)|TaskRef (_, _)|Typ2 (_, _, _)|Typ3 (_, _)|
 Typ4 (_, _, _, _)|Typ5 (_, _)|Typ6 _|Typ7 (_, _)|Typ8 (_, _)|Typ9 (_, _, _)|
 Typ10 (_, _, _)|TypEnum3 _|TypEnum4 (_, _, _)|TypEnum5 _|TypEnum6 (_, _, _)|
@@ -302,11 +302,11 @@ let rec vexpr typhash = function
 | AsgnPat [PatMemberDflt (Number _ as expr)] -> "others => "^(vexpr typhash expr)
 | Repl (expr', [expr]) -> "{{"^(vexpr typhash expr')^"}{"^(vexpr typhash expr)^"}}"
 | InsideRange (first, last) -> "inside_range("^(vexpr typhash first)^", "^(vexpr typhash last)^")"
-| OpenRange (first, last) -> "open_range("^(vexpr typhash first)^", "^(vexpr typhash last)^")"
+| OpenRange lst -> "open_range("^String.concat ", " (List.map (vexpr typhash) lst)^")"
 | ExprOKL lst -> String.concat ", " (List.map (vexpr typhash) lst)
 | PackageBody (pkg, [Id id]) -> pkg^"::"^id
 | ExprQuote1(lhs, rhs) -> vexpr typhash lhs^"'("^vexpr typhash rhs^")"
-| Sys (sys_id, expr) -> String.sub sys_id 1 (String.length sys_id - 1)^"("^vexpr typhash expr^")"
+| Sys (sys_id, expr) -> String.sub sys_id 1 (String.length sys_id - 2)^"("^vexpr typhash expr^")"
 | Typ3 (id_t, [PackageBody (pkg, [])]) -> pkg^"::"^id_t
 | PackageBody (pkg, []) -> pkg^"::"
 | Atom ".*" -> "" (* placeholder *)
@@ -796,27 +796,27 @@ let rec stmt_clause fd typhash = function
       | DeclLogic lst -> ()
       | Seq (id, []) ->  fprintf fd "       null;\n"
       | Seq (id, lst) ->  List.iter (stmt_clause fd typhash) lst
-      | Stmt1 (Asgn1 (Id id, expr)) -> fprintf fd "        %s <= %s;\n" id (vexpr typhash expr)
-      | Stmt1 (Asgn1 (Dot1(Id lft, Id rght), expr)) -> fprintf fd "        %s.%s <= %s;\n" lft rght (vexpr typhash expr)
-      | Stmt1 (FopAsgn (id, expr)) -> fprintf fd "        %s <= %s;\n" id (vexpr typhash expr)
-      | Stmt1 (FopAsgn1 (id, id', id'', expr)) -> fprintf fd "        %s <= %s;\n" id (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayMemSel (id, hi, lo, expr)) -> fprintf fd "        %s(%s downto %s) <= %s;\n" id (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
-      | Stmt1 (FopAsgnConcat (idlst, expr)) -> fprintf fd "        %s <= %s;\n" (String.concat ", " (List.map (vexpr typhash) idlst)) (vexpr typhash expr)
-      | Stmt1 (FopAsgnArraySel (id, ix, expr)) -> fprintf fd "        %s(%s) <= %s;\n" id (vexpr typhash ix) (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayWid (id, hi, lo, expr)) -> fprintf fd "        %s(%s down to %s) <= %s;\n" id (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayRange (id, hi, lo, expr)) -> fprintf fd "        %s(%s down to %s) <= %s;\n" id (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayRange2 (id, ix, ix', expr)) -> fprintf fd "        %s(%s)(%s) <= %s;\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash ix') (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayField (id, ix, expr)) -> fprintf fd "        %s.%s <= %s;\n" id ix (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayField2 (id, IdArrayedColon(Id ix, hi, lo), expr)) -> fprintf fd "        %s.%s(%s down to %s) <= %s;\n" id ix (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayField3 (id, sel, sel', expr)) ->
+      | Blocking (Asgn1 (Id id, expr)) -> fprintf fd "        %s <= %s;\n" id (vexpr typhash expr)
+      | Blocking (Asgn1 (Dot1(Id lft, Id rght), expr)) -> fprintf fd "        %s.%s <= %s;\n" lft rght (vexpr typhash expr)
+      | Blocking (FopAsgn (id, expr)) -> fprintf fd "        %s <= %s;\n" id (vexpr typhash expr)
+      | Blocking (FopAsgn1 (id, id', id'', expr)) -> fprintf fd "        %s <= %s;\n" id (vexpr typhash expr)
+      | Blocking (FopAsgnArrayMemSel (id, hi, lo, expr)) -> fprintf fd "        %s(%s downto %s) <= %s;\n" id (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
+      | Blocking (FopAsgnConcat (idlst, expr)) -> fprintf fd "        %s <= %s;\n" (String.concat ", " (List.map (vexpr typhash) idlst)) (vexpr typhash expr)
+      | Blocking (FopAsgnArraySel (id, ix, expr)) -> fprintf fd "        %s(%s) <= %s;\n" id (vexpr typhash ix) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayWid (id, hi, lo, expr)) -> fprintf fd "        %s(%s down to %s) <= %s;\n" id (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayRange (id, hi, lo, expr)) -> fprintf fd "        %s(%s down to %s) <= %s;\n" id (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayRange2 (id, ix, ix', expr)) -> fprintf fd "        %s(%s)(%s) <= %s;\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash ix') (vexpr typhash expr)
+      | Blocking (FopAsgnArrayField (id, ix, expr)) -> fprintf fd "        %s.%s <= %s;\n" id ix (vexpr typhash expr)
+      | Blocking (FopAsgnArrayField2 (id, IdArrayedColon(Id ix, hi, lo), expr)) -> fprintf fd "        %s.%s(%s down to %s) <= %s;\n" id ix (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayField3 (id, sel, sel', expr)) ->
           fprintf fd "        %s(%s).%s <= %s;\n" id (vexpr typhash sel) sel' (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayField4 (id, sel, id', sel', sel'', expr)) ->
+      | Blocking (FopAsgnArrayField4 (id, sel, id', sel', sel'', expr)) ->
           fprintf fd "        %s(%s).%s(%s) <= %s;\n" id (vexpr typhash sel) (id') (vexpr typhash sel') (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayField5 (id, sel, id', sel', expr)) ->
+      | Blocking (FopAsgnArrayField5 (id, sel, id', sel', expr)) ->
           fprintf fd "        %s(%s).%s(%s) <= %s;\n" id (vexpr typhash sel) (id') (vexpr typhash sel') (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayField6 (id, sel, sel', id', expr)) ->
+      | Blocking (FopAsgnArrayField6 (id, sel, sel', id', expr)) ->
           fprintf fd "        %s(%s)(%s).%s <= %s;\n" id (sel) (vexpr typhash sel') (vexpr typhash id') (vexpr typhash expr)
-      | Stmt1 (FopAsgnArrayField7 (id, sel, sel', id', expr)) ->
+      | Blocking (FopAsgnArrayField7 (id, sel, sel', id', expr)) ->
           fprintf fd "        %s(%s)(%s).%s <= %s;\n" id (vexpr typhash sel) (vexpr typhash sel') (id') (vexpr typhash expr)
       | ForLoop (Asgn1 (Id ix, strt) :: [], Less (Id ix', limit), SideEffect (Id xi'', Atom "++"), seq) ->
           fprintf fd "            for %s;\n" ix;
@@ -845,7 +845,7 @@ let rec stmt_clause fd typhash = function
         fprintf fd "            case %s is\n" (vexpr typhash sel);
         List.iter (case_clause fd typhash) lst;
         fprintf fd "            end case;\n";
-      | CaseStart2 (sel, lst) ->
+      | CaseStartInside (sel, lst) ->
         fprintf fd "            case %s is\n" (vexpr typhash sel);
         List.iter (case_clause fd typhash) lst;
         fprintf fd "            end case;\n";
@@ -853,18 +853,18 @@ let rec stmt_clause fd typhash = function
         fprintf fd "            unique case %s is\n" (vexpr typhash sel);
         List.iter (case_clause fd typhash) lst;
         fprintf fd "            end case;\n";
-      | CaseStartUniq2 (IdArrayedColon (Id arr, lft, rght) as sel, lst) ->
+      | CaseStartUniqInside (IdArrayedColon (Id arr, lft, rght) as sel, lst) ->
       fprintf fd "            unique case %s is\n" (vexpr typhash sel);
         List.iter (case_clause fd typhash) lst;
         fprintf fd "            end case;\n";
-      | CaseStartUniq2 (sel, lst) ->
+      | CaseStartUniqInside (sel, lst) ->
       fprintf fd "            unique case %s is\n" (vexpr typhash sel);
         List.iter (case_clause fd typhash) lst;
         fprintf fd "            end case;\n";
-      | Stmt1 (SideEffect (Id id, Atom "++")) -> fprintf fd "            %s <= %s+1;\n" id id
-      | Stmt1 (SideEffect (Id id, Atom "--")) -> fprintf fd "            %s <= %s-1;\n" id id
+      | Blocking (SideEffect (Id id, Atom "++")) -> fprintf fd "            %s <= %s+1;\n" id id
+      | Blocking (SideEffect (Id id, Atom "--")) -> fprintf fd "            %s <= %s-1;\n" id id
       | DeclData _ -> ()
-      | Stmt1 (BreakSemi) -> () (* placeholder *)
+      | Blocking (BreakSemi) -> () (* placeholder *)
       | BreakSemi -> () (* placeholder *)
       | Atom ";" -> ()
       | TaskRef (tid, lst) -> () (* placeholder *)
@@ -895,7 +895,7 @@ and case_clause fd typhash = function
 	       | oth -> unhand := Some oth; failwith "case_label'") lbls
         | PackageBody(pkg, Id id :: []) -> fprintf fd "                when %s::%s => " pkg id
         | Itmlst lst -> List.iter (case_clause fd typhash) lst
-        | (Seq _ | Stmt1 _ | If1 _ |If2 _ | ForLoop _ | CaseStartUniq _ ) as x -> stmt_clause fd typhash x
+        | (Seq _ | Blocking _ | If1 _ |If2 _ | ForLoop _ | CaseStartUniq _ ) as x -> stmt_clause fd typhash x
 	| oth -> unhand := Some oth; failwith "case_item"
     
 and iff_template fd typhash = function
@@ -950,17 +950,10 @@ let instance_template fd typhash typ params inst pinlst =
         if params <> [] then fprintf fd " generic map (%s)\n" (String.concat ", " (List.map (parm_map typhash) params));
         fprintf fd " port map (\n\t%s\n\t);\n" (String.concat ",\n\t" (List.map (vexpr typhash) pinlst))
 
-let rec event_lst = function
-| EventOr (Id id, Id id') -> id :: id' :: []	
-| EventOr (ev, Id id) -> event_lst ev @ [ id ]
-| EventOr (Id id, ev) -> id :: event_lst ev
-| EventOr (lft, rght) -> event_lst lft @ event_lst rght
-| _ -> []
-
 let rec proc_template fd typhash cnt = function
     | DeclReg _ -> ()
     | DeclLogic _ -> ()
-    | AlwaysFF (At (EventOr (Pos clk, (Pos rst|Neg rst))), sent_lst) ->
+    | AlwaysFF (At (EventOr (Pos clk :: (Pos rst|Neg rst) :: [])), sent_lst) ->
   fprintf fd "    -- clocked process %d description goes here\n" !cnt;
   fprintf fd "    SEQ%d: process (%s, %s)\n" !cnt clk rst;
   incr cnt;
@@ -976,7 +969,7 @@ let rec proc_template fd typhash cnt = function
   sent_template fd typhash clk sent_lst;       
   fprintf fd "    end process;\n";
   fprintf fd "\n";
-    | AlwaysLegacy (At (EventOr (Pos clk, (Pos rst|Neg rst))), sent_lst) ->
+    | AlwaysLegacy (At (EventOr (Pos clk :: (Pos rst|Neg rst) :: [])), sent_lst) ->
   fprintf fd "    -- clocked process %d description goes here\n" !cnt;
   fprintf fd "    SEQ%d: process (%s, %s)\n" !cnt clk rst;
   incr cnt;
@@ -992,9 +985,9 @@ let rec proc_template fd typhash cnt = function
   sent_template fd typhash clk sent_lst;       
   fprintf fd "    end process;\n";
   fprintf fd "\n";
-    | AlwaysLegacy (At (EventOr _ as expr), sent_lst) -> let dep_lst = event_lst expr in
+    | AlwaysLegacy (At (EventOr dep_lst), sent_lst) ->
   fprintf fd "    -- combinational process %d description goes here\n" !cnt;
-  fprintf fd "    COMB%d: process (%s)\n" !cnt (String.concat ", " dep_lst);
+  fprintf fd "    COMB%d: process (%s)\n" !cnt (String.concat ", " (List.map (vexpr typhash) dep_lst));
   incr cnt;
   fprintf fd "    begin\n";
   stmt_clause fd typhash sent_lst;
