@@ -24,14 +24,10 @@ open Source_text_rewrite_types
 open Source_text_rewrite
 open Source_text_lex
 open Source_text
-open Dump_sysver
+open Vxml_types
+open Dump_xml
 open Matchmly
-(*
-open Hardcaml
-open Hardcaml.Signal
-open Hardcaml_waveterm
-open Counter
-*)
+open Vxml
 ;;
 
 let v = "timer.v";;
@@ -54,10 +50,10 @@ let x = rw (parse v);;
 *)
 
 (* *)
-let modlst,x,p,p' = rewrite_sysver v;;
+let (modlst,errlst,rslt,xml,x,p,p') = rewrite_xml v "apb_uart";;
 (* *)
 
-let u= List.assoc  "uart_receiver" !modules;;
+let u = List.assoc "uart_receiver" modlst;;
 
 (*
 Let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;

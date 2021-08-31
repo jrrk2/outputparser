@@ -303,3 +303,24 @@ let rewrite_sysver v =
   close_out fd;
   let modlst = !modlst in
   modlst, x, p, p'
+
+open Vxml_types
+
+let topxml = ref None
+
+let rewrite_xml v top =
+  let p = parse v in
+  let p' = rw p in
+  let x = Matchmly.mly p' in
+  let modlst = ref [] in
+  let xml = List.map (fun (k, x) ->
+		let x' = Dump_xml.template Matchmly.modules x in
+		modlst := (k,x') :: !modlst;
+                x') !(Matchmly.modules) in
+  let top' = List.assoc "apb_uart" !modlst in
+  topxml := Some top';
+  let xml = Dump_xml.template_header top' xml in
+  let errlst = ref [] in
+  let (x:typetable_t) = (Vxml_types.BASDTYP, "logic", Vxml_types.TYPNONE, []) in
+  let rslt = Vxml.translate errlst (0,(0,0),xml,[]) top in
+  !modlst, !errlst, rslt, xml, x, p, p'

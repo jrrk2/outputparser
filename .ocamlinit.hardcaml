@@ -1,0 +1,22 @@
+#directory "/Users/jonathan/.opam/413/lib/hardcaml_waveterm"
+#directory "/Users/jonathan/.opam/413/lib/hardcaml"
+#directory "/Users/jonathan/.opam/413/lib/base"
+#directory "/Users/jonathan/.opam/413/lib"
+
+open Hardcaml
+open Hardcaml.Signal
+open Hardcaml_waveterm
+open Base
+open Hardcaml
+open Signal
+open Fibonacci_example
+
+let circuit =
+    let open Signal in
+    let foo = Signal.input "foo" 8 in
+    let bar = Signal.input "bar" 8 in
+    let baz = Signal.output "baz" (foo +: bar) in
+    Circuit.create_exn ~name:"adder" [ baz ]
+;;
+
+let () = Rtl.print Verilog circuit;;

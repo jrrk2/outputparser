@@ -20,6 +20,17 @@
 *.tmp
 *.sat
 *.liberty
+*.debug
+*.tok
+*_opt.v
+*.smt
+*.rej
+slib_*
+uart_*
+Extract*
+Pat*
+apb_uart.v
+install_hardcaml
 ord.ml
 output_lexer.ml
 output_parser
@@ -75,6 +86,7 @@ Source_text.mly.orig
 Source_text_lex.ml
 Source_text_top
 Source_text_types.ml
+Source_text.mly.edited
 mungelst.ml
 *_dump.v
 *.synth
