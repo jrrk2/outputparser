@@ -45,6 +45,7 @@ let v = "insider.sv";;
 let v = "ariane_preproc.sv";;
 let v = "apb_uart.sv";;
 let v = "examples/add.v";;
+let v = "examples/count.v";;
 
 (*
 let x = rw (parse v);;
