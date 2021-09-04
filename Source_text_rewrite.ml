@@ -304,6 +304,20 @@ let rewrite_sysver v =
   let modlst = !modlst in
   modlst, x, p, p'
 
+let rewrite_rtlil v =
+  let p = parse v in
+  let p' = rw p in
+  let x = Matchmly.mly p' in
+  let fd = open_out (v^"_dump.rtlil") in 
+  let modlst = ref [] in
+  List.iter (fun (k, x) ->
+		modlst := k :: !modlst;
+		Dump_rtlil.template fd Matchmly.modules x;
+		) !(Matchmly.modules);
+  close_out fd;
+  let modlst = !modlst in
+  modlst, x, p, p'
+
 open Vxml_types
 
 let topxml = ref None

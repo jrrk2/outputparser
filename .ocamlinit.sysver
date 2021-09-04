@@ -25,7 +25,7 @@ open Source_text_rewrite
 open Source_text_lex
 open Source_text
 open Vxml_types
-open Dump_xml
+open Dump_rtlil
 open Matchmly
 open Vxml
 ;;
@@ -44,18 +44,21 @@ let v = "apb_uart.vsyn";;
 let v = "insider.sv";;
 let v = "ariane_preproc.sv";;
 let v = "apb_uart.sv";;
+let v = "examples/add.v";;
 
 (*
 let x = rw (parse v);;
 *)
 
 (* *)
-let (modlst,errlst,rslt,xml,x,p,p') = rewrite_xml v "apb_uart";;
+let (modlst,x,p,p') = rewrite_rtlil v;;
 (* *)
 
-let u = List.assoc "uart_receiver" modlst;;
+let u = match List.assoc "add" !(Matchmly.modules) with Modul(_, _, ports, lst) -> lst;;
+let v = List.filter (function DeclReg _ -> false| _ -> true) u;;
 
 (*
+
 Let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;
 
 let y = unroll {subst=Hashtbl.create 255; fn=descend} x;;
