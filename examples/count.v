@@ -1,9 +1,15 @@
-module count(input clk, input rst, output reg [7:0] p);
+module count(input clk, input rst, output reg [7:0] q);
 
+   reg [7:0] nxt;
+   
    always @(posedge clk)
      if (rst)
-       p <= 8'b0;
+       q = 8'b0;
      else
-       p <= p + 8'b1;
+       begin
+	  nxt = q + 8'b1;
+	  q = nxt;
+	  
+       end
 
-endmodule // query
+endmodule // count

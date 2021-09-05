@@ -785,7 +785,9 @@ let buflst = ref []
 	
 let buffer buf' typhash expr lhs =
   let initlst = ref [] in
-  let rhs = match asgnexpr' buf' initlst typhash (max (width typhash (Id lhs)) (width typhash expr)) expr with Id rhs -> rhs | oth -> failwith "rhs" in
+  let rhs = match asgnexpr' buf' initlst typhash (max (width typhash (Id lhs)) (width typhash expr)) expr with
+     | Id rhs -> rhs
+     | oth -> unhand := Some oth; failwith "rhs" in
   buflst := !initlst;
   dump buf' typhash !initlst;
   rhs
@@ -825,7 +827,6 @@ let rec stmt_clause buf' typhash = function
       | Blocking (Asgn1 (Id id, expr)) -> bprintf buf' "        %s = %s; // 777	\n" id (vexpr typhash expr)
       | Blocking (Asgn1 (IdArrayed2(Id id, sel), expr)) -> bprintf buf' "        %s[%s] = %s; // 777	\n" id (vexpr typhash sel) (vexpr typhash expr)
       | Blocking (Asgn1 (Dot1(Id lft, Id rght), expr)) -> bprintf buf' "        %s.%s = %s; // 778	\n" lft rght (vexpr typhash expr)
-      | Blocking (FopAsgn (id, expr)) -> bprintf buf' "        %s = %s; // 779	\n" id (vexpr typhash expr)
       | Blocking (FopAsgn1 (id, id', id'', expr)) -> bprintf buf' "        %s = %s; // 780	\n" id (vexpr typhash expr)
       | Blocking (FopAsgnArrayMemSel (id, hi, lo, expr)) -> bprintf buf' "        %s[%s : %s] = %s; // 781	\n" id (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
       | Blocking (FopAsgnConcat (idlst, expr)) -> bprintf buf' "        %s = %s; // 782	\n" (String.concat ", " (List.map (vexpr typhash) idlst)) (vexpr typhash expr)
@@ -1169,6 +1170,32 @@ let rec sent_template buf' typhash clk = function
     | DeclData _ -> ()  
     | oth -> unhand := Some oth; failwith "sent_template"
 
+let dlymemo buf' bufd dhash typhash lhs =
+    if Hashtbl.mem dhash lhs then Hashtbl.find dhash lhs else
+        begin
+        let dly = match newid buf' typhash (width typhash (Id lhs)) with Id id -> id | oth -> failwith "newid'" in
+        bprintf bufd "    assign \\%s \\%s\n" dly lhs;
+        Hashtbl.add dhash lhs dly;
+        dly
+        end
+
+let rec rst_template dhash buf' bufd bufr typhash = function
+  | Seq(lbl, stmt_lst) -> List.iter (rst_template dhash buf' bufd bufr typhash) stmt_lst
+  | Blocking (FopAsgn (lhs, Number (b,w,n,_))) ->
+        let dly = dlymemo buf' bufd dhash typhash lhs in
+        bprintf bufr "        assign \\%s %d'%s\n" dly w (obin w n);
+  | oth -> unhand := Some oth; failwith "rst_template"
+				     
+let rec oper_template dhash buf' bufd buf'' buf''' typhash = function
+  | Seq(lbl, stmt_lst) -> List.iter (oper_template dhash buf' bufd buf'' buf''' typhash) stmt_lst
+  | Blocking (FopAsgn (lhs, Number (b,w,n,_))) -> failwith "oper_template'"
+  | Blocking (FopAsgn (lhs, expr)) ->
+        let dly = dlymemo buf' bufd dhash typhash lhs in
+        let rhs = buffer buf' typhash expr lhs in
+        bprintf buf'' "        assign \\%s \\%s\n" dly rhs;
+        bprintf buf''' "      update \\%s \\%s\n" lhs dly;
+  | oth -> unhand := Some oth; failwith "oper_template"
+				     
 let rec proc_template buf' typhash cnt = function
     | DeclReg _ -> ()
     | DeclLogic _ -> ()
@@ -1187,7 +1214,27 @@ let rec proc_template buf' typhash cnt = function
   bprintf buf' "    end\n";
   bprintf buf' "    sync posedge \\%s\n" clk;
   bprintf buf' "      update \\%s \\%s\n" lhs' dly;
-  bprintf buf' "  end\n";
+  bprintf buf' "  end\n"
+    | AlwaysLegacy (At (EventOr [Pos clk]), If2 (Id rst, rst_clause, oper_clause)) ->
+    let bufr = Buffer.create 10000 in
+    let bufd = Buffer.create 10000 in
+    let buf'' = Buffer.create 10000 in
+    let buf''' = Buffer.create 10000 in
+    let dhash = Hashtbl.create 255 in
+    rst_template dhash buf' bufd bufr typhash rst_clause;
+    oper_template dhash buf' bufd buf'' buf''' typhash oper_clause;
+    bprintf buf' "  process %s\n" (newnam());
+    Buffer.add_buffer buf' bufd;
+    bprintf buf' "    switch \\%s\n" rst;
+    bprintf buf' "      case 1'1\n";
+    Buffer.add_buffer buf' bufr;
+    bprintf buf' "      case \n";
+    Buffer.add_buffer buf' buf'';
+    bprintf buf' "    end\n";
+    bprintf buf' "    sync posedge \\%s\n" clk;
+    Buffer.add_buffer buf' buf''';
+    bprintf buf' "  end\n";
+
 (*
     | AlwaysFF (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
   bprintf buf' "    // clocked process %d description goes here\n" !cnt;

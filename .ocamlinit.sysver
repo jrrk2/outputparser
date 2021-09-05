@@ -55,10 +55,10 @@ let x = rw (parse v);;
 let (modlst,x,p,p') = rewrite_rtlil v;;
 (* *)
 
-(*
-let u = match List.assoc "add" !(Matchmly.modules) with Modul(_, _, ports, lst) -> lst;;
-let v = List.filter (function DeclReg _ -> false| _ -> true) u;;
+let u = match List.assoc "count" !(Matchmly.modules) with Modul(_, _, ports, lst) -> lst;;
+let u' = List.filter (function DeclReg _ -> false| _ -> true) u;;
 
+(*
 
 Let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;
 
