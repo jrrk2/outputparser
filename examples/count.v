@@ -1,4 +1,9 @@
-module count(input clk, input rst, output reg [7:0] q);
+module count(clk, rst, q);
+
+   input clk;
+   input rst;
+   output [7:0] q;
+   reg [7:0] q;
 
    reg [7:0] nxt;
    

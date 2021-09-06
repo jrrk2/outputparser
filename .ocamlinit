@@ -42,9 +42,9 @@
 #use ".ocamlinit.liberty"
 *)
 
-(* *)
+(*
 #use ".ocamlinit.sysver"
-(* *)
+*)
 
 (*
 #use ".ocamlinit.hardcaml"
@@ -53,6 +53,10 @@
 (*
 #use ".ocamlinit.pat"
 *)
+
+(* *)
+#use ".ocamlinit.ilang"
+(* *)
 
 (*
 let x = classify' v;;

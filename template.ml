@@ -15,6 +15,7 @@ let reserved = function
   | "then" -> "then_rule"
   | "else" -> "else_rule"
   | "initializer" -> "initializer_rule"
+  | "module" -> "module_rule"
   | oth -> oth
 
 let typ' str = try Sys.getenv str with _ -> "unit"
@@ -183,6 +184,7 @@ let template toklst gramlst =
     List.iter (fun (typ,itm) -> Hashtbl.add termhash itm (true, typ);
                if not (List.mem itm !toklst') then toklst' := itm :: !toklst')
       [
+      "string", "STRING";
       "token list", "ELIST";
       "string list", "SLIST";
       "token list", "TLIST"];

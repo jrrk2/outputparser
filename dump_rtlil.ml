@@ -1069,6 +1069,7 @@ let rec decl_template buf' typhash modules cnt = function
         let f' itm = let s = vexpr typhash itm in update typhash s kind; s in
         let f'' = function Id nam -> bprintf buf' "    typedef enum {%s} %s; // 711\n" (String.concat ", " (List.map f' id_lst)) nam | _ -> () in
         List.iter f'' id_lst'
+    | TypEnum4 (Deflt, id_lst, [Id nam]) -> List.iter (function Id itm -> update typhash itm (Venum nam) | _ -> failwith "Enum4") id_lst; ev' buf' typhash nam id_lst
     | TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), id_lst) -> update typhash nam (Venum nam);
         bprintf buf' "typedef enum logic [%s:%s] {\n\t%s\n} %s; // 714\n" (cexpr typhash lft) (cexpr typhash rght) (String.concat ",\n\t" (List.map (function
         | Id e -> e
@@ -1186,21 +1187,23 @@ let rec rst_template dhash buf' bufd bufr typhash = function
         bprintf bufr "        assign \\%s %d'%s\n" dly w (obin w n);
   | oth -> unhand := Some oth; failwith "rst_template"
 				     
-let rec oper_template dhash buf' bufd buf'' buf''' typhash = function
-  | Seq(lbl, stmt_lst) -> List.iter (oper_template dhash buf' bufd buf'' buf''' typhash) stmt_lst
+let rec oper_template dhash buf' bufd bufo bufs typhash = function
+  | Seq(lbl, stmt_lst) -> List.iter (oper_template dhash buf' bufd bufo bufs typhash) stmt_lst
   | Blocking (FopAsgn (lhs, Number (b,w,n,_))) -> failwith "oper_template'"
   | Blocking (FopAsgn (lhs, expr)) ->
         let dly = dlymemo buf' bufd dhash typhash lhs in
         let rhs = buffer buf' typhash expr lhs in
-        bprintf buf'' "        assign \\%s \\%s\n" dly rhs;
-        bprintf buf''' "      update \\%s \\%s\n" lhs dly;
+        bprintf bufo "        assign \\%s \\%s\n" dly rhs;
+        bprintf bufs "      update \\%s \\%s\n" lhs dly;
+  | CaseStart (CaseStart1 (Id "state"), lst)
   | oth -> unhand := Some oth; failwith "oper_template"
 				     
 let rec proc_template buf' typhash cnt = function
     | DeclReg _ -> ()
     | DeclLogic _ -> ()
+(*
     | AlwaysLegacy (At (EventOr [Pos clk]),
-   If2 (Id rst, Equate (lhs, Number (2, w, n, "0")),
+  If2 (Id rst, Equate (lhs, Number (2, w, n, "0")),
     Equate (lhs', expr))) ->
   let rhs = buffer buf' typhash expr lhs in
   let dly = match newid buf' typhash (width typhash (Id lhs')) with Id id -> id | oth -> failwith "newid" in
@@ -1215,24 +1218,25 @@ let rec proc_template buf' typhash cnt = function
   bprintf buf' "    sync posedge \\%s\n" clk;
   bprintf buf' "      update \\%s \\%s\n" lhs' dly;
   bprintf buf' "  end\n"
+*)
     | AlwaysLegacy (At (EventOr [Pos clk]), If2 (Id rst, rst_clause, oper_clause)) ->
     let bufr = Buffer.create 10000 in
     let bufd = Buffer.create 10000 in
-    let buf'' = Buffer.create 10000 in
-    let buf''' = Buffer.create 10000 in
+    let bufo = Buffer.create 10000 in
+    let bufs = Buffer.create 10000 in
     let dhash = Hashtbl.create 255 in
     rst_template dhash buf' bufd bufr typhash rst_clause;
-    oper_template dhash buf' bufd buf'' buf''' typhash oper_clause;
+    oper_template dhash buf' bufd bufo bufs typhash oper_clause;
     bprintf buf' "  process %s\n" (newnam());
     Buffer.add_buffer buf' bufd;
     bprintf buf' "    switch \\%s\n" rst;
     bprintf buf' "      case 1'1\n";
     Buffer.add_buffer buf' bufr;
     bprintf buf' "      case \n";
-    Buffer.add_buffer buf' buf'';
+    Buffer.add_buffer buf' bufo;
     bprintf buf' "    end\n";
     bprintf buf' "    sync posedge \\%s\n" clk;
-    Buffer.add_buffer buf' buf''';
+    Buffer.add_buffer buf' bufs;
     bprintf buf' "  end\n";
 
 (*

@@ -25,6 +25,9 @@
 *_opt.v
 *.smt
 *.rej
+*.rtlil
+*.ilang
+*.proc
 slib_*
 uart_*
 Extract*
@@ -39,11 +42,11 @@ output_parser.ml
 output_parser.mli
 outputparser
 outputparser.top
-File_top
-File.ml
-File.mli
-File_lex.ml
-File_ord.ml
+Input_top
+Input.ml
+Input.mli
+Input_lex.ml
+Input_ord.ml
 liberty_parser.y
 liberty_parser.tab.c
 liberty_parser.output

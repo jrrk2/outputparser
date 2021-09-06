@@ -18,7 +18,7 @@
 
 .PHONY: everything
 PARSER=ocamlyacc
-MENHIRFLAGS=#--trace
+MENHIRFLAGS=--trace
 PARSER=menhir $(MENHIRFLAGS)
 
 all: output_parser output_parser.top Source_text_top Source_text
@@ -66,6 +66,23 @@ Source_text.ml: Source_text.mly
 	menhir $(MENHIRFLAGS) $<
 
 dump.cmo: Source_text_rewrite_types.cmi
+
+############################################################################
+
+Input_top: Input.cmo Input_types.cmo Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_rewrite.ml
+	ocamlmktop -g -o $@ Input_types.cmo Input_rewrite_types.mli Input.cmo ord_input.ml Input_lex.ml Input_rewrite.ml
+
+Input.mly Input_types.ml: rtlil_parser.output
+	env OCAMLRUNPARAM=b TOK_STRING=string TOK_ID=string TOK_INT=int TOK_VALUE=string ./output_parser $<
+
+Input.cmo: Input_types.ml Input.ml Input.mli
+	ocamlc.opt -g -c Input.mli Input_types.ml Input.ml
+
+Input_lex.ml: Input_lex.mll
+	ocamllex $<
+
+Input.ml: Input.mly
+	menhir $(MENHIRFLAGS) $<
 
 ############################################################################
 
