@@ -491,7 +491,7 @@ let newid buf' typhash wid =
   let nam = newnam() in
   let rslt = Id nam in
   update typhash nam (Std_logic_vector(Intgr (wid-1),Intgr 0));
-  bprintf buf' "  wire width %d \\%s\n" wid nam;
+  buf' := Wire_stmt ([Wire_optionswidth wid], nam) :: !buf';
   rslt
 
 let rec asgnexpr' buf' initlst typhash wid = function
@@ -582,18 +582,20 @@ and dyadic buf' initlst typhash wid func args pnam =
 let sel_expr typhash x = match simplify x with Intgr _ -> "'0'" | oth -> vexpr typhash oth
 
 let vdir ix = function
-  | In -> sprintf "input %d " ix
-  | Out -> sprintf "output %d " ix
-  | Inout -> "inout"
+  | In -> Wire_optionsinput ix
+  | Out -> Wire_optionsoutput ix
+  | Inout -> Wire_optionsinout ix
   | _ -> failwith "vdir"
 
-let ports' typhash ix hi lo dir nam = sprintf "  wire width %d %s \\%s" (ceval typhash hi - ceval typhash lo +1)  (vdir ix dir) nam
+let ports' typhash ix hi lo dir nam =
+  let wid = ceval typhash hi - ceval typhash lo +1 in
+  Wire_stmt (Wire_optionswidth wid :: vdir ix dir :: [], nam)
   
 let ports typhash ix = function
     | Port((In|Out|Inout|Deflt) as dir, nam, [], []) -> update typhash nam Std_logic;
-        sprintf "  wire %s \\%s" (vdir ix dir) nam;
+        Wire_stmt (vdir ix dir :: [], nam)
     | Port(PortDir((In|Out|Inout) as dir, Atom "wire"), nam, [], []) -> update typhash nam Std_logic;
-        sprintf "  wire %s \\%s" (vdir ix dir) nam;
+        Wire_stmt (vdir ix dir :: [], nam)
     | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: [], []) -> update typhash nam (Std_logic_vector(hi,lo));
         ports' typhash ix hi lo dir nam              
     | Port (PortDir((In|Out|Inout) as dir, Atom "wire"), nam, AnyRange (hi, lo) :: [], []) -> update typhash nam (Std_logic_vector(hi,lo));
@@ -603,19 +605,21 @@ let ports typhash ix = function
     | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: AnyRange(hi', lo') :: AnyRange(hi'', lo'') :: [], []) -> update typhash nam (Std_logic_vector(hi,lo));
         ports' typhash ix hi lo dir nam              
     |  Port ((In|Out|Inout) as dir, nam, Typ2 (typ_e, (PackageBody (pkg, [])) :: [], []) :: [], []) -> update typhash nam (Vpkg(pkg, typ_e));
-        sprintf "  wire %s \\%s" (vdir ix dir) nam;
+        Wire_stmt (vdir ix dir :: [], nam)
     |  Port ((In|Out|Inout) as dir, nam, Typ2 (typ_e, (PackageBody (pkg, [])) :: [], []) :: AnyRange (hi, lo) :: [], []) -> update typhash nam (Std_logic_vector(hi, lo));
         ports' typhash ix hi lo dir nam              
     |  Port ((In|Out|Inout) as dir, nam, Typ2 (typ_t, [], []) :: [], []) -> update typhash nam (Vtyp(typ_t));
-        sprintf "  wire %s \\%s" (vdir ix dir) nam;
+        Wire_stmt (vdir ix dir :: [], nam)
     |  Port ((In|Out|Inout) as dir, nam, Typ2 (typ_t, [], []) :: AnyRange (hi, lo) :: [], []) -> update typhash nam (Vtyp(typ_t));
         ports' typhash ix hi lo dir nam              
     |  Port ((In|Out|Inout) as dir, nam, Typ6 (Atom primtyp) :: [], []) -> update typhash nam (Std_logic);
-        sprintf "  wire %s \\%s" (vdir ix dir) nam;
+        Wire_stmt (vdir ix dir :: [], nam)
     |  Port (Deflt, nam, Typ2 (typ_t, PackageBody (pkg, []) :: [], []) :: AnyRange (hi, lo) :: [], []) -> update typhash nam (Vtyp(typ_t));
         ports' typhash ix hi lo Inout nam              
+(*
     |  Dot3 (bus, dir, member) -> update typhash member (Vintf bus);
         sprintf "  wire %s %s \\%s" member bus dir
+*)
     |  DotBus (bus, dir, member, AnyRange(hi,lo) :: []) -> update typhash member (Vintf bus);
         ports' typhash ix hi lo Inout bus            
     | oth -> unhand := Some oth; failwith "component"
@@ -813,6 +817,7 @@ let struct_union buf' typhash = function
            | oth -> unhand := Some oth; failwith "SUMember"
 
 let fn_arg typhash = function
+(*
 		   | PortItem (Typ5 (Atom primtyp, AnyRange (lft, rght) :: []), ItemAsgn (Id id)) ->
                    sprintf "%s [%s:%s] %s" primtyp (cexpr typhash lft) (cexpr typhash rght) id
 		   | PortItem (Typ1 (id_t), ItemAsgn (Id id)) ->
@@ -825,6 +830,7 @@ let fn_arg typhash = function
                    sprintf "%s %s [%s:%s] %s" (vdir 0 dir) primtyp (cexpr typhash lft) (cexpr typhash rght) id
 		   | PortItem (Typ8 (Atom primtyp, kind'), ItemAsgn (Id id)) ->
                    sprintf "%s %s %s" (match kind' with Atom typ -> typ | oth -> "") primtyp id;
+		   *)
 		   | Deflt -> ""
                    | oth -> unhand := Some oth; failwith "fn_arg"		   
 
@@ -839,9 +845,9 @@ let instance_template buf' typhash typ params inst pinlst =
 
 let dump buf' typhash initlst =
   List.iter (function InstDecl (typ, params, lst) -> List.iter (function
-        | InstNameParen1 (inst, Itmlst pins :: []) -> Buffer.add_string buf' (dump_ilang "" (instance_template buf' typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst pins))
-        | InstNameParen2 (inst, InstRange(lft,rght) :: []) -> Buffer.add_string buf' (dump_ilang "" (instance_template buf' typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst []))
-        | Id id -> bprintf buf' "    // %s\n" id
+        | InstNameParen1 (inst, Itmlst pins :: []) -> buf' := (instance_template buf' typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst pins) :: !buf'
+        | InstNameParen2 (inst, InstRange(lft,rght) :: []) -> buf' := (instance_template buf' typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst []) :: !buf'
+        | Id id -> buf'  := Wire_stmt ([], id) :: !buf'
         | oth -> unhand := Some oth; failwith "InstDecl'") lst |  oth -> unhand := Some oth; failwith "InstDecl''") initlst
 
 let buflst = ref []
@@ -856,7 +862,7 @@ let buffer buf' typhash expr lhs =
   rhs
 
 let asgn buf' typhash expr = function
-| Id lhs -> let rhs = buffer buf' typhash expr lhs in bprintf buf' "  connect \\%s \\%s\n" lhs rhs
+| Id lhs -> let rhs = buffer buf' typhash expr lhs in buf' := Conn_stmt96([TokID lhs], [TokID rhs]) :: !buf'
 (*
 | Concat _ as lst -> bprintf buf' "            %s <= %s; // 385	\n" (vexpr typhash lst) (asgnexpr buf' typhash expr)
 | Dot1 (lft, rght) -> bprintf buf' "            %s.%s <= %s; // 386	\n" (vexpr typhash lft) (vexpr typhash rght) (asgnexpr buf' typhash expr)
@@ -1010,8 +1016,8 @@ let ev' buf' typhash nam id_lst =
         | EnumInit (e, expr) -> ev (ceval typhash expr) e
 	| oth -> unhand := Some oth; failwith "TypEnum6") id_lst
 
-    
-let rec decl_template buf' typhash modules cnt = function
+let rec decl_template (buf':ilang list ref) typhash modules cnt = function
+(*
     | NetDecl (Atom "wire", wire_lst) -> List.iter (function
           | Id nam -> update typhash nam Std_logic;
 	      bprintf buf' "  wire %s; // 610	\n" nam
@@ -1063,18 +1069,6 @@ let rec decl_template buf' typhash modules cnt = function
       | DeclAsgn (mem, AnyRange (lft, rght) :: []) ->
       bprintf buf' "  wire [%s : %s][%s : %s] %s; // 657\n" (cexpr typhash hi) (cexpr typhash lo) (cexpr typhash lft) (cexpr typhash rght) mem;
       | oth -> unhand := Some oth; failwith "DeclReg555") reg_lst;
-    | CaseStmt _ -> ()
-    | ContAsgn _ -> ()
-    | LoopGen1 _ -> ()
-    | CondGen1 _ -> ()
-    | GenItem _ -> ()
-    | AlwaysComb2 _ -> ()
-    | AlwaysFF _ -> ()
-    | AlwaysLatch _ -> ()
-    | AlwaysLegacy _ -> ()
-    | Initial _ -> ()
-    | Final _ -> ()
-    | Generate _ -> ()
     | DeclInt2 id_lst -> List.iter (function
 	| Id itm -> bprintf buf' "  wire %s; // 672	\n" itm
         | VarDeclAsgn (id, expr) -> bprintf buf' "  wire %s = %s\n" id (cexpr typhash expr)
@@ -1191,13 +1185,27 @@ let rec decl_template buf' typhash modules cnt = function
     | PkgImport (Itmlst lst) -> List.iter (decl_template buf' typhash modules cnt) lst
     | PkgImportItm (pkg, Atom "*") -> ()
     | DeclData (Typ5 (Atom "logic", AnyRange (lft, rght) :: AnyRange (lft', rght') :: []), VarDeclAsgn (mem, ExprOKL lst) :: []) -> () (* placeholder *)
+    *)
+    | CaseStmt _ -> ()
+    | ContAsgn _ -> ()
+    | LoopGen1 _ -> ()
+    | CondGen1 _ -> ()
+    | GenItem _ -> ()
+    | AlwaysComb2 _ -> ()
+    | AlwaysFF _ -> ()
+    | AlwaysLatch _ -> ()
+    | AlwaysLegacy _ -> ()
+    | Initial _ -> ()
+    | Final _ -> ()
+    | Generate _ -> ()
     | AssertProperty -> ()
     | oth -> unhand := Some oth; failwith "decl_template"
 
-let rec sent_template buf' typhash clk = function
+let rec sent_template (buf':ilang ref) typhash clk = function
     | BeginBlock lst -> List.iter (sent_template buf' typhash clk) lst
     | Seq (lbl, lst) -> List.iter (sent_template buf' typhash clk) lst
-    | If2 ((Equals (Id rst, lev)|Expression(Equals (Id rst, lev))), if_lst, else_lst) ->
+    (*
+     | If2 ((Equals (Id rst, lev)|Expression(Equals (Id rst, lev))), if_lst, else_lst) ->
   bprintf buf' "        if (%s = %s) then\n" rst (vexpr typhash lev);
     stmt_clause buf' typhash if_lst;
   bprintf buf' "        elsif (%s'event and %s = '1') then\n" clk clk;
@@ -1232,7 +1240,8 @@ let rec sent_template buf' typhash clk = function
     | Equate (lhs, rhs) ->
   bprintf buf' "        %s <= %s; // 922	\n" lhs (vexpr typhash rhs);
     | DeclData _ -> ()  
-    | oth -> unhand := Some oth; failwith "sent_template"
+    *)
+	   | oth -> unhand := Some oth; failwith "sent_template"
 
 let dlymemo buf' bufd dhash typhash lhs =
     if Hashtbl.mem dhash lhs then Hashtbl.find dhash lhs else
@@ -1276,7 +1285,7 @@ let proc1 inst bufd bufr bufo bufs rst clk =
      Switch_stmt ([TokID rst], [], [],
       Switch_bodycase ([TokVal "1'1"], [], !bufr) :: Switch_bodycase ([], [], !bufo) :: []) :: [], [sync])
 				     
-let rec proc_template buf' typhash cnt = function
+let rec proc_template (buf':ilang list ref) typhash cnt = function
     | DeclReg _ -> ()
     | DeclLogic _ -> ()
     | AlwaysLegacy (At (EventOr [Pos clk]), If2 (Id rst, rst_clause, oper_clause)) ->
@@ -1287,7 +1296,7 @@ let rec proc_template buf' typhash cnt = function
     let dhash = Hashtbl.create 255 in
     rst_template dhash buf' bufd bufr typhash rst_clause;
     oper_template dhash buf' bufd bufo bufs typhash oper_clause;
-    Buffer.add_string buf' (dump_ilang "" (proc1 (newnam()) bufd bufr bufo bufs rst clk));
+    buf' := (proc1 (newnam()) bufd bufr bufo bufs rst clk) :: !buf';
 
 (*
     | AlwaysFF (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
@@ -1329,15 +1338,15 @@ let rec proc_template buf' typhash cnt = function
   bprintf buf' "\n";
   *)
    (* elaboration case *)
-   | CaseStart (Id id, (CaseItm (BeginBlock [] :: Unknown ("$error",_) :: Deflt :: []) :: [])) -> bprintf buf' "// elaboration case %s\n" id;
+   | CaseStart (Id id, (CaseItm (BeginBlock [] :: Unknown ("$error",_) :: Deflt :: []) :: [])) -> buf' := Switch_bodycase([], [], []) :: !buf'
     | ContAsgn lst -> List.iter (function
       | Asgn1 (lhs, expr) -> asgn buf' typhash expr lhs
       | oth -> unhand := Some oth; failwith "assign_template") lst
     | Iff _ -> ()
     | InstDecl (typ, params, lst) -> List.iter (function
-        | InstNameParen1 (inst, Itmlst pins :: []) -> Buffer.add_string buf' (dump_ilang "" (instance_template buf' typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst pins))
-        | InstNameParen2 (inst, InstRange(lft,rght) :: []) -> Buffer.add_string buf' (dump_ilang "" (instance_template buf' typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst []))
-        | Id id -> bprintf buf' "    // %s\n" id
+        | InstNameParen1 (inst, Itmlst pins :: []) -> buf' := instance_template buf' typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst pins :: !buf'
+        | InstNameParen2 (inst, InstRange(lft,rght) :: []) -> buf' := instance_template buf' typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst [] :: !buf'
+        | Id id -> buf' := Wire_stmt ([], id) :: !buf'
         | oth -> unhand := Some oth; failwith "InstDecl") lst;
     | TypEnum4 _ -> ()
     | TypEnum6 _ -> ()
@@ -1358,8 +1367,8 @@ let rec proc_template buf' typhash cnt = function
     | ParamDecl _ -> ()
     | FunDecl (fn, Atom primtyp, FunGuts (PortItem _ :: [], lst)) -> () (* placeholder *)
     | AutoFunDecl (fn, typ, FunGuts (ports, lst)) -> () (* placeholder *)
-    | Initial _ -> bprintf buf' "// initial is not implemented\n"
-    | Final _ -> bprintf buf' "// final is not implemented\n"
+    | Initial _ -> buf' := TokStr "// initial is not implemented\n" :: !buf'
+    | Final _ -> buf' := TokStr "// final is not implemented\n" :: !buf'
     | Itmlst (Id _ :: _) -> ()
     | PkgImport _ -> ()
     | DeclData _ -> ()
@@ -1368,36 +1377,26 @@ let rec proc_template buf' typhash cnt = function
 
 let dbgtyp = ref (Hashtbl.create 1)
     
-let template fd modules = function
+let template buf' modules = function
   | Modul(nam, parm_lst, port_lst, body_lst') -> let cnt = ref 1 in
   let body_lst = List.map (recurs {fn=recurs}) body_lst' in
   let typhash = Hashtbl.create 255 in
-  let buf' = Buffer.create 10000 in
+  let bufm = ref [] in
   dbgtyp := typhash;
-  bprintf buf' "attribute \\cells_not_processed 1\n";
-  bprintf buf' "module \\%s\n" nam;
-  List.iteri (fun ix itm -> bprintf buf' "%s\n" (ports typhash (ix+1) itm)) port_lst;
+  buf' := Attr_stmt ("\\cells_not_processed", [TokInt 1]) :: !buf';
+  List.mapi (fun ix itm -> bufm := ports typhash (ix+1) itm :: !bufm) port_lst;
   let typlst, othlst = List.partition (function TypEnum6 _ -> true | _ -> false) body_lst in
-  List.iter (decl_template buf' typhash modules cnt) (typlst);
+  List.iter (decl_template bufm typhash modules cnt) (typlst);
   let components, othlst = List.partition (function InstDecl _ -> true | _ -> false) othlst in
-  List.iter (decl_template buf' typhash modules cnt) (List.sort compare components);
-  List.iter (decl_template buf' typhash modules cnt) othlst;
-  List.iter (proc_template buf' typhash cnt) body_lst;
-  bprintf buf' "\n";
-  bprintf buf' "end\n";
-  bprintf buf' "\n";
-  bprintf buf' "\n";
-  Buffer.output_buffer fd buf'
+  List.iter (decl_template bufm typhash modules cnt) (List.sort compare components);
+  List.iter (decl_template bufm typhash modules cnt) othlst;
+  List.iter (proc_template bufm typhash cnt) body_lst;
+  buf' := Module12 (nam, List.rev (!bufm)) :: !buf';
+  List.rev !buf'
   | PackageBody (pkg, body_lst') -> let cnt = ref 1 in
   let body_lst = List.map (recurs {fn=recurs}) body_lst' in
   let typhash = Hashtbl.create 255 in
-  let buf' = Buffer.create 10000 in
-  bprintf buf' "//\n";
-  bprintf buf' "// This converter does not currently preserve comments and license information\n";
-  bprintf buf' "//\n";
-  bprintf buf' "\n";
-  bprintf buf' "package %s; // 1065	\n" pkg;
+  let buf' = ref [] in
   List.iter (decl_template buf' typhash modules cnt) body_lst;
-  bprintf buf' "endpackage\n";
-  Buffer.output_buffer fd buf'
+  List.rev !buf'
   | oth -> unhand := Some oth; failwith "This template only handles modules/packages"

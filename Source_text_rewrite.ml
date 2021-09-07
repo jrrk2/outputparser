@@ -311,8 +311,10 @@ let rewrite_rtlil v =
   let fd = open_out (v^"_dump.rtlil") in 
   let modlst = ref [] in
   List.iter (fun (k, x) ->
-		modlst := k :: !modlst;
-		Dump_rtlil.template fd Matchmly.modules x;
+                let buf' = ref [] in
+                let rtl = Dump_rtlil.template buf' Matchmly.modules x in
+		modlst := (k, rtl) :: !modlst;
+                List.iter (fun itm -> output_string fd (Dump_rtlil.dump_ilang "" itm)) (List.rev !buf')
 		) !(Matchmly.modules);
   close_out fd;
   let modlst = !modlst in
