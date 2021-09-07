@@ -17,30 +17,29 @@ type ilang =
 | Design7 of ilang list * ilang list 
 | Design8 of ilang list * ilang list 
 | Input2 of ilang list * ilang list 
-| Memory_optionsoffset of ilang list * int
-| Memory_optionssize of ilang list * int
-| Memory_optionswidth of ilang list * int
+| Memory_optionsoffset of int
+| Memory_optionssize of int
+| Memory_optionswidth of int
 | Memory_stmt39 of ilang list * string
 | Module12 of string * ilang list
 | Module_body13 of ilang list * ilang list 
 | Param_defval_stmt24 of string * ilang list
 | Param_stmt23 of string * ilang list
 | Proc_stmt of string * ilang list * ilang list * ilang list
-| Signed of ilang list 
-| Sigspec90 of ilang list * int
+| Signed
+| Sigspec90 of string * int
 | Sigspec92 of ilang list 
 | Sigspec_list_reversed93 of ilang list * ilang list 
-| Sigspecrange of ilang list * int * int
+| Sigspecrange of string * int * int
 | Switch_bodycase of ilang list * ilang list * ilang list 
 | Switch_stmt of ilang list * ilang list * ilang list * ilang list
-| Sync_list69 of ilang list * ilang list * ilang list * ilang list * ilang list 
-| Sync_listalways of ilang list * ilang list * ilang list 
-| Sync_listglobal of ilang list * ilang list * ilang list 
-| Sync_listinit of ilang list * ilang list * ilang list 
-| To_lst of string * string
-| Update_list82 of ilang list * ilang list * ilang list
-| Update_listmemwr of ilang list * ilang list * string * ilang list * ilang list * ilang list * ilang list
-| Upto of ilang list 
+| Sync_list69 of ilang list * ilang list * ilang list * ilang list 
+| Sync_listalways of ilang list * ilang list 
+| Sync_listglobal of ilang list * ilang list 
+| Sync_listinit of ilang list * ilang list 
+| Update_list82 of ilang list * ilang list
+| Update_listmemwr of string * ilang list * ilang list * ilang list * ilang list
+| Upto
 | Wire_optionsinout of int
 | Wire_optionsinput of int
 | Wire_optionsinvalid

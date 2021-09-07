@@ -95,61 +95,61 @@ let rec rw' = function
 | TOK_VALUE v -> TokVal v :: []
 | TOK_STRING s -> TokStr s :: []
 | TLIST lst -> List.flatten (List.map rw' lst)
-| TUPLE3(STRING("EOL3"),arg1,TOK_EOL) -> rw' arg1
-| TUPLE3(STRING("attr_list56"),arg1,arg2) -> rw' arg1 @ rw' arg2
-| TUPLE3(STRING("case_body63"),arg1,arg2) -> Case_body63(rw' arg1, rw' arg2) :: []
-| TUPLE3(STRING("case_body64"),arg1,arg2) -> Case_body64(rw' arg1, rw' arg2) :: []
-| TUPLE3(STRING("case_body65"),arg1,arg2) -> Case_body65(rw' arg1, rw' arg2) :: []
-| TUPLE3(STRING("design6"),arg1,arg2) -> Design6(rw' arg1, rw' arg2) :: []
-| TUPLE3(STRING("design7"),arg1,arg2) -> Design7(rw' arg1, rw' arg2) :: []
-| TUPLE3(STRING("design8"),arg1,arg2) -> Design8(rw' arg1, rw' arg2) :: []
-| TUPLE3(STRING("input2"),EMPTY_TOKEN,arg2) -> rw' arg2
-| TUPLE3(STRING("ml_start0"),arg1,EOF_TOKEN) -> rw' arg1
-| TUPLE3(STRING("module_body13"),arg1,arg2) -> Module_body13(rw' arg1, rw' arg2) :: []
-| TUPLE3(STRING("optional_eol4"),arg1,TOK_EOL) -> rw' arg1
-| TUPLE3(STRING("sigspec_list_reversed93"),arg1,arg2) -> Sigspec_list_reversed93(rw' arg1, rw' arg2) :: []
-| TUPLE3(STRING("wire_options31"),arg1,TOK_UPTO) -> Upto(rw' arg1) :: []
-| TUPLE3(STRING("wire_options32"),arg1,TOK_SIGNED) -> Signed(rw' arg1) :: []
+| TUPLE3(STRING("EOL3"),arg1,TOK_EOL) -> rw'' arg1
+| TUPLE3(STRING("attr_list56"),arg1,arg2) -> rw'' arg1 @ rw'' arg2
+| TUPLE3(STRING("case_body63"),arg1,arg2) -> Case_body63(rw'' arg1, rw'' arg2) :: []
+| TUPLE3(STRING("case_body64"),arg1,arg2) -> Case_body64(rw'' arg1, rw'' arg2) :: []
+| TUPLE3(STRING("case_body65"),arg1,arg2) -> Case_body65(rw'' arg1, rw'' arg2) :: []
+| TUPLE3(STRING("design6"),arg1,arg2) -> Design6(rw'' arg1, rw'' arg2) :: []
+| TUPLE3(STRING("design7"),arg1,arg2) -> Design7(rw'' arg1, rw'' arg2) :: []
+| TUPLE3(STRING("design8"),arg1,arg2) -> Design8(rw'' arg1, rw'' arg2) :: []
+| TUPLE3(STRING("input2"),EMPTY_TOKEN,arg2) -> rw'' arg2
+| TUPLE3(STRING("ml_start0"),arg1,EOF_TOKEN) -> rw'' arg1
+| TUPLE3(STRING("module_body13"),arg1,arg2) -> Module_body13(rw'' arg1, rw'' arg2) :: []
+| TUPLE3(STRING("optional_eol4"),arg1,TOK_EOL) -> rw'' arg1
+| TUPLE3(STRING("sigspec_list_reversed93"),arg1,arg2) -> Sigspec_list_reversed93(rw'' arg1, rw'' arg2) :: []
+| TUPLE3(STRING("wire_options31"),arg1,TOK_UPTO) -> Upto :: rw'' arg1
+| TUPLE3(STRING("wire_options32"),arg1,TOK_SIGNED) -> Signed :: rw'' arg1
 | TUPLE4(TOK_CASE, value, EMPTY_TOKEN, lst) -> TokCase(rw' value, rw' lst) :: []
 | TUPLE3(TOK_CONNECT, value, value2) -> TokConn(rw' value, rw' value2) :: []
 | TUPLE3(TOK_PARAMETER, value, value2) -> TokParam(rw' value, rw' value2) :: []
 | TUPLE3(TOK_UPDATE, value, value2) -> TokUpdate(rw' value, rw' value2) :: []
 | TUPLE3(STRING("autoidx_stmt26"),TOK_AUTOIDX,TOK_INT arg2) -> Autoidx_stmt26(arg2) :: []
-| TUPLE4(STRING("compare_list61"),arg1,COMMA,arg3) -> Compare_list61(rw' arg1, rw' arg3) :: []
-| TUPLE4(STRING("memory_options40"),arg1,TOK_WIDTH,TOK_INT arg3) -> Memory_optionswidth(rw' arg1, arg3) :: []
-| TUPLE4(STRING("memory_options41"),arg1,TOK_SIZE,TOK_INT arg3) -> Memory_optionssize(rw' arg1, arg3) :: []
-| TUPLE4(STRING("memory_options42"),arg1,TOK_OFFSET,TOK_INT arg3) -> Memory_optionsoffset(rw' arg1,  arg3) :: []
-| TUPLE4(STRING("param_stmt23"),TOK_PARAMETER,TOK_ID arg2,arg3) -> Param_stmt23(arg2,rw' arg3) :: []
-| TUPLE4(STRING("sigspec92"),LBRACE,arg2,RBRACE) -> Sigspec92(rw' arg2) :: []
-| TUPLE4(STRING("wire_options29"),arg1,TOK_WIDTH,TOK_INT arg3) -> Wire_optionswidth(arg3) :: rw' arg1
-| TUPLE4(STRING("wire_options30"),arg1,TOK_WIDTH,TOK_INVALID) -> Wire_optionsinvalid :: rw' arg1
-| TUPLE4(STRING("wire_options33"),arg1,TOK_OFFSET,TOK_INT arg3) -> Wire_optionsoffset(arg3) :: rw' arg1
-| TUPLE4(STRING("wire_options34"),arg1,TOK_INPUT,TOK_INT arg3) -> Wire_optionsinput(arg3) :: rw' arg1
-| TUPLE4(STRING("wire_options35"),arg1,TOK_OUTPUT,TOK_INT arg3) -> Wire_optionsoutput(arg3) :: rw' arg1
-| TUPLE4(STRING("wire_options36"),arg1,TOK_INOUT,TOK_INT arg3) -> Wire_optionsinout(arg3) :: rw' arg1
-| TUPLE4(STRING("assign_stmt67"),TOK_ASSIGN,arg2,arg3) -> Assign_stmt67(rw' arg2,rw' arg3) :: []
-| TUPLE4(STRING("attr_stmt25"),TOK_ATTRIBUTE,TOK_ID arg2,arg3) -> Attr_stmt(arg2,rw' arg3) :: []
-| TUPLE4(STRING("conn_stmt96"),TOK_CONNECT,arg2,arg3) -> Conn_stmt96(rw' arg2, rw' arg3) :: []
-| TUPLE4(STRING("memory_stmt39"),TOK_MEMORY,arg2,TOK_ID arg3) -> Memory_stmt39(rw' arg2,arg3) :: []
-| TUPLE4(STRING("param_defval_stmt24"),TOK_PARAMETER,TOK_ID arg2,arg3) -> Param_defval_stmt24(arg2,rw' arg3) :: []
-| TUPLE5(STRING("sigspec90"),arg1,LBRACK,TOK_INT arg3,RBRACK) -> Sigspec90(rw' arg1, arg3) :: []
-| TUPLE4(STRING("wire_stmt28"),TOK_WIRE,arg2,TOK_ID arg3) -> Wire_stmt(rw' arg2,arg3) :: []
-| TUPLE6(STRING("cell_body46"),arg1,TOK_PARAMETER,TOK_ID arg3,arg4,arg5) -> Cell_bodyparam(rw' arg1, arg3, rw' arg4, rw' arg5) :: []
-| TUPLE6(STRING("cell_body49"),arg1,TOK_CONNECT,TOK_ID arg3,arg4,arg5) -> Cell_bodyconnect(rw' arg1, arg3,rw' arg4,rw' arg5) :: []
-| TUPLE6(STRING("switch_body58"),arg1,TOK_CASE,arg3,arg4,arg5) -> rw' arg1 @ Switch_bodycase(rw' arg3, rw' arg4, rw' arg5) :: []
-| TUPLE6(STRING("sync_list71"),arg1,TOK_SYNC,TOK_ALWAYS,arg4,arg5) -> Sync_listalways(rw' arg1, rw' arg4, rw' arg5) :: []
-| TUPLE6(STRING("sync_list73"),arg1,TOK_SYNC,TOK_GLOBAL,arg4,arg5) -> Sync_listglobal(rw' arg1, rw' arg4, rw' arg5) :: []
-| TUPLE6(STRING("sync_list75"),arg1,TOK_SYNC,TOK_INIT,arg4,arg5) -> Sync_listinit(rw' arg1, rw' arg4, rw' arg5) :: []
-| TUPLE5(STRING("update_list82"),arg1,TOK_UPDATE,arg3,arg4) -> Update_list82(rw' arg1, rw' arg3, rw' arg4) :: []
-| TUPLE7(STRING("cell_body47"),arg1,TOK_PARAMETER,TOK_SIGNED,TOK_ID arg4,arg5,arg6) -> Cell_bodypsigned(rw' arg1, arg4, rw' arg5, rw' arg6) :: []
-| TUPLE7(STRING("cell_body48"),arg1,TOK_PARAMETER,TOK_REAL,TOK_ID arg4,arg5,arg6) -> Cell_bodypreal(rw' arg1, arg4,rw' arg5,rw' arg6) :: []
+| TUPLE4(STRING("compare_list61"),arg1,COMMA,arg3) -> Compare_list61(rw'' arg1, rw'' arg3) :: []
+| TUPLE4(STRING("memory_options40"),arg1,TOK_WIDTH,TOK_INT arg3) -> Memory_optionswidth(arg3) :: rw'' arg1
+| TUPLE4(STRING("memory_options41"),arg1,TOK_SIZE,TOK_INT arg3) -> Memory_optionssize(arg3) :: rw'' arg1
+| TUPLE4(STRING("memory_options42"),arg1,TOK_OFFSET,TOK_INT arg3) -> Memory_optionsoffset(arg3) :: rw'' arg1
+| TUPLE4(STRING("param_stmt23"),TOK_PARAMETER,TOK_ID arg2,arg3) -> Param_stmt23(arg2,rw'' arg3) :: []
+| TUPLE4(STRING("sigspec92"),LBRACE,arg2,RBRACE) -> Sigspec92(rw'' arg2) :: []
+| TUPLE4(STRING("wire_options29"),arg1,TOK_WIDTH,TOK_INT arg3) -> Wire_optionswidth(arg3) :: rw'' arg1
+| TUPLE4(STRING("wire_options30"),arg1,TOK_WIDTH,TOK_INVALID) -> Wire_optionsinvalid :: rw'' arg1
+| TUPLE4(STRING("wire_options33"),arg1,TOK_OFFSET,TOK_INT arg3) -> Wire_optionsoffset(arg3) :: rw'' arg1
+| TUPLE4(STRING("wire_options34"),arg1,TOK_INPUT,TOK_INT arg3) -> Wire_optionsinput(arg3) :: rw'' arg1
+| TUPLE4(STRING("wire_options35"),arg1,TOK_OUTPUT,TOK_INT arg3) -> Wire_optionsoutput(arg3) :: rw'' arg1
+| TUPLE4(STRING("wire_options36"),arg1,TOK_INOUT,TOK_INT arg3) -> Wire_optionsinout(arg3) :: rw'' arg1
+| TUPLE4(STRING("assign_stmt67"),TOK_ASSIGN,arg2,arg3) -> Assign_stmt67(rw'' arg2,rw'' arg3) :: []
+| TUPLE4(STRING("attr_stmt25"),TOK_ATTRIBUTE,TOK_ID arg2,arg3) -> Attr_stmt(arg2,rw'' arg3) :: []
+| TUPLE4(STRING("conn_stmt96"),TOK_CONNECT,arg2,arg3) -> Conn_stmt96(rw'' arg2, rw'' arg3) :: []
+| TUPLE4(STRING("memory_stmt39"),TOK_MEMORY,arg2,TOK_ID arg3) -> Memory_stmt39(rw'' arg2,arg3) :: []
+| TUPLE4(STRING("param_defval_stmt24"),TOK_PARAMETER,TOK_ID arg2,arg3) -> Param_defval_stmt24(arg2,rw'' arg3) :: []
+| TUPLE5(STRING("sigspec90"),TOK_ID arg1,LBRACK,TOK_INT arg3,RBRACK) -> Sigspec90(arg1, arg3) :: []
+| TUPLE4(STRING("wire_stmt28"),TOK_WIRE,arg2,TOK_ID arg3) -> Wire_stmt(rw'' arg2,arg3) :: []
+| TUPLE6(STRING("cell_body46"),arg1,TOK_PARAMETER,TOK_ID arg3,arg4,arg5) -> Cell_bodyparam(rw'' arg1, arg3, rw'' arg4, rw'' arg5) :: []
+| TUPLE6(STRING("cell_body49"),arg1,TOK_CONNECT,TOK_ID arg3,arg4,arg5) -> Cell_bodyconnect(rw'' arg1, arg3,rw'' arg4,rw'' arg5) :: []
+| TUPLE6(STRING("switch_body58"),arg1,TOK_CASE,arg3,arg4,arg5) -> Switch_bodycase(rw'' arg3, rw'' arg4, rw'' arg5) :: rw' arg1
+| TUPLE6(STRING("sync_list71"),arg1,TOK_SYNC,TOK_ALWAYS,arg4,arg5) -> Sync_listalways(rw'' arg4, rw'' arg5) :: rw'' arg1
+| TUPLE6(STRING("sync_list73"),arg1,TOK_SYNC,TOK_GLOBAL,arg4,arg5) -> Sync_listglobal(rw'' arg4, rw'' arg5) :: rw'' arg1
+| TUPLE6(STRING("sync_list75"),arg1,TOK_SYNC,TOK_INIT,arg4,arg5) -> Sync_listinit(rw'' arg4, rw'' arg5) :: rw'' arg1
+| TUPLE5(STRING("update_list82"),arg1,TOK_UPDATE,arg3,arg4) -> Update_list82(rw'' arg3, rw'' arg4) :: rw'' arg1
+| TUPLE7(STRING("cell_body47"),arg1,TOK_PARAMETER,TOK_SIGNED,TOK_ID arg4,arg5,arg6) -> Cell_bodypsigned(rw'' arg1, arg4, rw'' arg5, rw'' arg6) :: []
+| TUPLE7(STRING("cell_body48"),arg1,TOK_PARAMETER,TOK_REAL,TOK_ID arg4,arg5,arg6) -> Cell_bodypreal(rw'' arg1, arg4,rw'' arg5,rw'' arg6) :: []
 | TUPLE6(STRING("module12"),TOK_MODULE,TOK_ID arg2,(EMPTY_TOKEN|TUPLE3(STRING("EOL3"),_,_)),arg4,TOK_END) -> Module12(arg2, rw'' arg4) :: []
-| TUPLE7(STRING("sigspec91"),arg1,LBRACK,TOK_INT arg3,COLON,TOK_INT arg5,RBRACK) -> Sigspecrange(rw' arg1, arg3, arg5) :: []
-| TUPLE7(STRING("sync_list69"),arg1,TOK_SYNC,arg3,arg4,arg5,arg6) -> Sync_list69(rw' arg1, rw' arg3, rw' arg4,rw' arg5, rw' arg6) :: []
-| TUPLE7(STRING("cell_stmt45"),TOK_CELL,TOK_ID arg2,TOK_ID arg3,arg4,arg5,TOK_END) -> Cell_stmt(arg2,arg3,rw' arg4, rw'' arg5) :: []
-| TUPLE7(STRING("proc_stmt52"),TOK_PROCESS,TOK_ID arg2,arg3,arg4,arg5,TOK_END) -> Proc_stmt(arg2,rw' arg3,rw' arg4,rw' arg5) :: []
-| TUPLE7(STRING("switch_stmt54"),TOK_SWITCH,arg2,arg3,arg4,arg5,TOK_END) -> Switch_stmt(rw' arg2,rw' arg3,rw' arg4,rw' arg5) :: []
-| TUPLE9(STRING("update_list83"),arg1,arg2,TOK_MEMWR,TOK_ID arg4,arg5,arg6,arg7,arg8) -> Update_listmemwr(rw' arg1, rw' arg2,arg4, rw' arg5, rw' arg6,rw' arg7,rw' arg8) :: []
+| TUPLE7(STRING("sigspec91"),TOK_ID arg1,LBRACK,TOK_INT arg3,COLON,TOK_INT arg5,RBRACK) -> Sigspecrange(arg1, arg3, arg5) :: []
+| TUPLE7(STRING("sync_list69"),arg1,TOK_SYNC,arg3,arg4,arg5,arg6) -> Sync_list69(rw'' arg3, rw'' arg4,rw'' arg5, rw'' arg6) :: rw' arg1
+| TUPLE7(STRING("cell_stmt45"),TOK_CELL,TOK_ID arg2,TOK_ID arg3,arg4,arg5,TOK_END) -> Cell_stmt(arg2,arg3,rw'' arg4, rw'' arg5) :: []
+| TUPLE7(STRING("proc_stmt52"),TOK_PROCESS,TOK_ID arg2,arg3,arg4,arg5,TOK_END) -> Proc_stmt(arg2,rw'' arg3,rw'' arg4,rw'' arg5) :: []
+| TUPLE7(STRING("switch_stmt54"),TOK_SWITCH,arg2,arg3,arg4,arg5,TOK_END) -> Switch_stmt(rw'' arg2,rw'' arg3,rw'' arg4,rw'' arg5) :: []
+| TUPLE9(STRING("update_list83"),arg1,arg2,TOK_MEMWR,TOK_ID arg4,arg5,arg6,arg7,arg8) -> Update_listmemwr(arg4, rw'' arg5, rw'' arg6,rw'' arg7,rw'' arg8) :: rw' arg2 @ rw' arg1
 | oth -> unhand := Some oth; failwith ("rw' fail: "^Ord_input.getstr oth)
 
 and rw'' lst = List.rev (rw' lst)
@@ -174,7 +174,8 @@ let parse arg =
 let keyword = function
 | oth -> false
 
-let op v =
+let op fd v =
     let p = parse v in
-    List.rev (rw' (rw p))
-    
+    let p' = List.rev (rw' (rw p)) in
+    output_string fd (dump_ilst "\n" p');
+    p'

@@ -42,9 +42,37 @@
 #use ".ocamlinit.liberty"
 *)
 
+(*                                            *)
+(*                                                                        *)
+(*  This software is distributed in the hope that it will be useful,      *)
+(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
+(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                  *)
+(*                                                                        *)
+(**************************************************************************)
+
 (*
-#use ".ocamlinit.sysver"
+#use ".ocamlinit.output"
 *)
+
+(*
+#use ".ocamlinit.lef"
+*)
+
+(*
+#use ".ocamlinit.program"
+*)
+
+(*
+#use ".ocamlinit.ansic"
+*)
+
+(*
+#use ".ocamlinit.liberty"
+*)
+
+(* *)
+#use ".ocamlinit.sysver"
+(* *)
 
 (*
 #use ".ocamlinit.hardcaml"
@@ -54,9 +82,9 @@
 #use ".ocamlinit.pat"
 *)
 
-(* *)
+(*
 #use ".ocamlinit.ilang"
-(* *)
+*)
 
 (*
 let x = classify' v;;

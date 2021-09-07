@@ -48,6 +48,7 @@ let v = "examples/add.v";;
 let v = "examples/count.v";;
 let v = "examples/count0.v";;
 let v = "examples/count3.v";;
+let v = "examples/count1.v";;
 
 (*
 let x = rw (parse v);;
@@ -57,7 +58,7 @@ let x = rw (parse v);;
 let (modlst,x,p,p') = rewrite_rtlil v;;
 (* *)
 
-let u = match List.assoc "count" !(Matchmly.modules) with Modul(_, _, ports, lst) -> lst;;
+let u = match List.assoc "count" !(Matchmly.modules) with Modul(_, _, ports, lst) -> lst | _ -> failwith "Modul";;
 let u' = List.filter (function DeclReg _ -> false| _ -> true) u;;
 
 (*

@@ -1,7 +1,0 @@
-read_ilang always.ilang
-write_ilang always_ref.ilang
-proc
-write_ilang always_ref.ilang.proc
-write_verilog -noattr always_ref.proc
-synth
-write_verilog -noattr always_ref.synth
