@@ -177,5 +177,5 @@ let keyword = function
 let op fd v =
     let p = parse v in
     let p' = List.rev (rw' (rw p)) in
-    output_string fd (dump_ilst "\n" p');
+    output_string fd (Input_dump.dump_ilst "\n" p');
     p'

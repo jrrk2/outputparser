@@ -22,6 +22,7 @@ close_out fd
 
 open Source_text_rewrite_types
 open Source_text_rewrite
+open Source_text_main
 open Source_text_lex
 open Source_text
 open Input_rewrite_types
@@ -46,9 +47,16 @@ let v = "ariane_preproc.sv";;
 let v = "apb_uart.sv";;
 let v = "examples/count.v";;
 let v = "examples/count0.v";;
-let v = "examples/count3.v";;
 let v = "examples/count1.v";;
 let v = "examples/add.v";;
+let v = "examples/count3.v";;
+let v = "examples/count.v";;
+let v = "examples/count6.v";;
+let v = "examples/count7.v";;
+let v = "examples/concat1.v";;
+let v = "examples/picorv32_ref.v";;
+let v = "examples/array.v";;
+let v = "examples/array2.v";;
 
 (*
 let x = rw (parse v);;
@@ -58,8 +66,16 @@ let x = rw (parse v);;
 let (modlst,x,p,p') = rewrite_rtlil v;;
 (* *)
 
+let u = snd (List.hd modlst);;
+let m = List.assoc (fst (List.hd modlst)) !(Matchmly.modules);;
+let e = sub' !dbgtyp [m];;
+let (dhash1, dhash2, inst, clk, body) = match !dbgproc with Some (dhash1, dhash2, inst, clk, body) -> (dhash1, dhash2, inst, clk, body) | _ -> failwith "dbg'"
+
+let dlst = ref [];;
+Hashtbl.iter (fun k x -> dlst := (k,x) :: !dlst) dhash2;;
+let dlst = !dlst;;
+
 (*
-let u = match List.assoc (List.hd modlst) !(Matchmly.modules) with Modul(_, _, ports, lst) -> lst | _ -> failwith "Modul";;
 let u' = List.filter (function DeclReg _ -> false| _ -> true) u;;
 
 Let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;

@@ -61,6 +61,7 @@ type rw =
   | EqualsQuery of rw * rw
   | Equate of string * rw
   | EquateArrayField of string * string * rw * rw * rw
+  | EquateConcat of rw list * rw
   | EquateField of string * string * rw
   | EquateSelect of string * rw * rw
   | EquateSelect2 of rw * rw * rw
@@ -191,7 +192,9 @@ type rw =
   | SysFuncCall of string * rw list
   | SysTaskCall of string * rw list
   | TaskBody of rw list * rw list
+  | TaskDecl of string * rw * rw * rw
   | TaskRef of string * rw list
+  | SysTaskRef of rw * rw list
   | Tilde of rw
   | TildeAnd of rw
   | TildeOr of rw
@@ -223,3 +226,4 @@ type rw =
   | WireExpr of string * rw
   | Xnor of rw * rw
   | Xor of rw * rw
+  

@@ -183,46 +183,158 @@ let rec descend' (attr:attr) = function
   | Import _ as x -> x
   | InitPair (_, _) as x -> x
   | SideEffect _ as x -> x
-  | (Assert|AssertProperty|AtStar|BreakSemi|PropertySpec|AlwaysComb2 _|
-AlwaysFF (_, _)|AlwaysLatch _|AlwaysLegacy (_, _)|And3 (_, _)|
-AnyRange (_, _)|Asgn1 (_, _)|AsgnPat _|At _|Atom _|AutoFunDecl (_, _, _)|
-CaseStart (_, _)|CaseStart1 _|CaseStartInside (_, _)|CaseStartUniq (_, _)|
-CaseStartUniqInside (_, _)|CellParamItem1 (_, _)|CellParamItem2 (_, _)|
-CellParamItem3 (_, _)|CellPinItem1 (_, _)|CellPinItem2 (_, _)|
-CellPinItemImplied _|CellPinItemNC _|CondGen1 (_, _, _)|ContAsgn _|
-DeclAsgn (_, _)|DeclData (_, _)|DeclInt2 _|DeclLogic2 (_, _)|DeclReg2 (_, _)|
-DotBus (_, _, _, _)|ElabTask _|ElseStmt _|EnumInit (_, _)|
-Equals3 (_, _)|EqualsQuery (_, _)|Equate (_, _)|
-EquateArrayField (_, _, _, _, _)|EquateField (_, _, _)|
-EquateSelect (_, _, _)|EquateSelect2 (_, _, _)|EquateSlice (_, _, _, _)|
-EventOr _|ExprOKL _|ExprQuote1 (_, _)|Final _|FopAsgn (_, _)|
-FopAsgn1 (_, _, _, _)|FopAsgnArrayField (_, _, _)|
-FopAsgnArrayField2 (_, _, _)|FopAsgnArrayField3 (_, _, _, _)|
-FopAsgnArrayField4 (_, _, _, _, _, _)|FopAsgnArrayField5 (_, _, _, _, _)|
-FopAsgnArrayField6 (_, _, _, _, _)|FopAsgnArrayField7 (_, _, _, _, _)|
-FopAsgnArrayMemSel (_, _, _, _)|FopAsgnArrayRange (_, _, _, _)|
-FopAsgnArrayRange2 (_, _, _, _)|FopAsgnArraySel (_, _, _)|
-FopAsgnArrayWid (_, _, _, _)|FopAsgnConcat (_, _)|ForEach (_, _)|
-FunDecl (_, _, _)|FunGuts (_, _)|FunRef (_, _)|FunRef2 (_, _, _)|
-GenItem (_, _)|Generate _|HyphenGt (_, _)|IdArrayed1 (_, _, _)|
-IdArrayed2 (_, _)|IdArrayed3 (_, _)|IdArrayedColon (_, _, _)|
-IdArrayedHyphenColon (_, _, _)|IdArrayedPlusColon (_, _, _)|Iff (_, _)|
-Inc _|InitPat _|InitSig (_, _)|Initial _|InstDecl (_, _, _)|
-InstNameParen1 (_, _)|InstNameParen2 (_, _)|
-InstRange (_, _)|IntfDecl (_, _, _, _)|ItemAsgn _|LocalParamTyp _|
-LoopGen1 (_, _, _, _, _, _)|LtGt (_, _)|Mod (_, _)|ModPortItm (_, _)|
-Nand (_, _)|NetDecl (_, _)|Nor (_, _)|NotEq3 (_, _)|NotEqQuery (_, _)|
-OpenRange _|ParamAsgn1 (_, _)|ParamAsgn2 (_, _, _)|ParamDecl (_, _)|
-ParamPort _|PatMember1 (_, _)|PatMemberDflt _|PkgImport _|
-PkgImportItm (_, _)|PortDir (_, _)|PortFront (_, _)|PortItem (_, _)|
-PortItemFront (_, _)|PortsStar _|Return _|SUDecl (_, _)|SUMember (_, _)|Seq (_, _)|
-Blocking _|String _|Sys (_, _)|SysFuncCall (_, _)|SysTaskCall (_, _)|
-TaskBody (_, _)|TaskRef (_, _)|Typ2 (_, _, _)|Typ3 (_, _)|Typ4 (_, _, _, _)|
-Typ5 (_, _)|Typ6 _|Typ7 (_, _)|Typ8 (_, _)|Typ9 (_, _, _)|Typ10 (_, _, _)|
-TypEnum4 (_, _, _)|TypEnum5 _|TypEnum6 (_, _, _)|UPlus _|Union (_, _)|
-VNum _|ValueRange (_, _)|VarDeclAsgn (_, _)|VarDim _|While (_, _)|
-WireExpr (_, _)|PackageParam _|PackageParam2 _) as x -> x
-
+  | Assert as x -> x
+  | AssertProperty as x -> x
+  | AtStar as x -> x
+  | BreakSemi as x -> x
+  | PropertySpec as x -> x
+  | AlwaysComb2 _ as x -> x
+  | AlwaysFF (_, _) as x -> x
+  | AlwaysLatch _ as x -> x
+  | AlwaysLegacy (rw, rw') -> AlwaysLegacy (descend_itm attr rw, descend_itm attr rw')
+  | And3 (_, _) as x -> x
+  | AnyRange (_, _) as x -> x
+  | Asgn1 (_, _) as x -> x
+  | AsgnPat _ as x -> x
+  | At _ as x -> x
+  | Atom _ as x -> x
+  | AutoFunDecl (_, _, _) as x -> x
+  | CaseStart (_, _) as x -> x
+  | CaseStart1 _ as x -> x
+  | CaseStartInside (_, _) as x -> x
+  | CaseStartUniq (_, _) as x -> x
+  | CaseStartUniqInside (_, _) as x -> x
+  | CellParamItem1 (_, _) as x -> x
+  | CellParamItem2 (_, _) as x -> x
+  | CellParamItem3 (_, _) as x -> x
+  | CellPinItem1 (_, _) as x -> x
+  | CellPinItem2 (_, _) as x -> x
+  | CellPinItemImplied _ as x -> x
+  | CellPinItemNC _ as x -> x
+  | CondGen1 (_, _, _) as x -> x
+  | ContAsgn _ as x -> x
+  | DeclAsgn (_, _) as x -> x
+  | DeclData (_, _) as x -> x
+  | DeclInt2 _ as x -> x
+  | DeclLogic2 (_, _) as x -> x
+  | DeclReg2 (_, _) as x -> x
+  | DotBus (_, _, _, _) as x -> x
+  | ElabTask _ as x -> x
+  | ElseStmt _ as x -> x
+  | EnumInit (_, _) as x -> x
+  | Equals3 (_, _) as x -> x
+  | EqualsQuery (_, _) as x -> x
+  | Equate (_, _) as x -> x
+  | EquateArrayField (_, _, _, _, _) as x -> x
+  | EquateField (_, _, _) as x -> x
+  | EquateSelect (_, _, _) as x -> x
+  | EquateSelect2 (_, _, _) as x -> x
+  | EquateSlice (_, _, _, _) as x -> x
+  | EventOr _ as x -> x
+  | ExprOKL _ as x -> x
+  | ExprQuote1 (_, _) as x -> x
+  | Final _ as x -> x
+  | FopAsgn (_, _) as x -> x
+  | FopAsgn1 (_, _, _, _) as x -> x
+  | FopAsgnArrayField (_, _, _) as x -> x
+  | FopAsgnArrayField2 (_, _, _) as x -> x
+  | FopAsgnArrayField3 (_, _, _, _) as x -> x
+  | FopAsgnArrayField4 (_, _, _, _, _, _) as x -> x
+  | FopAsgnArrayField5 (_, _, _, _, _) as x -> x
+  | FopAsgnArrayField6 (_, _, _, _, _) as x -> x
+  | FopAsgnArrayField7 (_, _, _, _, _) as x -> x
+  | FopAsgnArrayMemSel (_, _, _, _) as x -> x
+  | FopAsgnArrayRange (_, _, _, _) as x -> x
+  | FopAsgnArrayRange2 (_, _, _, _) as x -> x
+  | FopAsgnArraySel (_, _, _) as x -> x
+  | FopAsgnArrayWid (_, _, _, _) as x -> x
+  | FopAsgnConcat (_, _) as x -> x
+  | ForEach (_, _) as x -> x
+  | FunDecl (_, _, _) as x -> x
+  | FunGuts (_, _) as x -> x
+  | FunRef (_, _) as x -> x
+  | FunRef2 (_, _, _) as x -> x
+  | GenItem (_, _) as x -> x
+  | Generate _ as x -> x
+  | HyphenGt (_, _) as x -> x
+  | IdArrayed1 (_, _, _) as x -> x
+  | IdArrayed2 (_, _) as x -> x
+  | IdArrayed3 (_, _) as x -> x
+  | IdArrayedColon (_, _, _) as x -> x
+  | IdArrayedHyphenColon (_, _, _) as x -> x
+  | IdArrayedPlusColon (_, _, _) as x -> x
+  | Iff (_, _) as x -> x
+  | Inc _ as x -> x
+  | InitPat _ as x -> x
+  | InitSig (_, _) as x -> x
+  | Initial _ as x -> x
+  | InstDecl (_, _, _) as x -> x
+  | InstNameParen1 (_, _) as x -> x
+  | InstNameParen2 (_, _) as x -> x
+  | InstRange (_, _) as x -> x
+  | IntfDecl (_, _, _, _) as x -> x
+  | ItemAsgn _ as x -> x
+  | LocalParamTyp _ as x -> x
+  | LoopGen1 (_, _, _, _, _, _) as x -> x
+  | LtGt (_, _) as x -> x
+  | Mod (_, _) as x -> x
+  | ModPortItm (_, _) as x -> x
+  | Nand (_, _) as x -> x
+  | NetDecl (_, _) as x -> x
+  | Nor (_, _) as x -> x
+  | NotEq3 (_, _) as x -> x
+  | NotEqQuery (_, _) as x -> x
+  | OpenRange _ as x -> x
+  | ParamAsgn1 (_, _) as x -> x
+  | ParamAsgn2 (_, _, _) as x -> x
+  | ParamDecl (_, _) as x -> x
+  | ParamPort _ as x -> x
+  | PatMember1 (_, _) as x -> x
+  | PatMemberDflt _ as x -> x
+  | PkgImport _ as x -> x
+  | PkgImportItm (_, _) as x -> x
+  | PortDir (_, _) as x -> x
+  | PortFront (_, _) as x -> x
+  | PortItem (_, _) as x -> x
+  | PortItemFront (_, _) as x -> x
+  | PortsStar _ as x -> x
+  | Return _ as x -> x
+  | SUDecl (_, _) as x -> x
+  | SUMember (_, _) as x -> x
+  | Seq (lbl, lst) -> Seq(lbl, descend_lst attr lst)
+  | Blocking _ as x -> x
+  | String _ as x -> x
+  | Sys (_, _) as x -> x
+  | SysFuncCall (_, _) as x -> x
+  | SysTaskCall (_, _) as x -> x
+  | TaskBody (_, _) as x -> x
+  | TaskRef (_, _) as x -> x
+  | Typ2 (_, _, _) as x -> x
+  | Typ3 (_, _) as x -> x
+  | Typ4 (_, _, _, _) as x -> x
+  | Typ5 (_, _) as x -> x
+  | Typ6 _ as x -> x
+  | Typ7 (_, _) as x -> x
+  | Typ8 (_, _) as x -> x
+  | Typ9 (_, _, _) as x -> x
+  | Typ10 (_, _, _) as x -> x
+  | TypEnum4 (_, _, _) as x -> x
+  | TypEnum5 _ as x -> x
+  | TypEnum6 (_, _, _) as x -> x
+  | UPlus _ as x -> x
+  | Union (_, _) as x -> x
+  | VNum _ as x -> x
+  | ValueRange (_, _) as x -> x
+  | VarDeclAsgn (_, _) as x -> x
+  | VarDim _ as x -> x
+  | While (_, _) as x -> x
+  | WireExpr (_, _) as x -> x
+  | PackageParam _ as x -> x
+  | PackageParam2 _ as x -> x
+  | EquateConcat _ as x -> x
+  | TaskDecl _ as x -> x
+  | SysTaskRef _ as x -> x
+  
 and descend_lst attr x = List.map (attr.fn attr) x
 
 and descend_itm attr x = attr.fn attr x
@@ -275,68 +387,3 @@ let parse arg =
   let rslt = parse_output_ast_from_chan ch in
   close_in ch;
   rslt
-
-let rewrite_vhdl v =
-  let p = parse v in
-  let p' = rw p in
-  let x = Matchmly.mly p' in
-  let fd = open_out (v^"_dump.vhd") in 
-  let modlst = ref [] in
-  List.iter (fun (k, x) ->
-		modlst := k :: !modlst;
-		Dump_vhdl.template fd Matchmly.modules x;
-		) !(Matchmly.modules);
-  close_out fd;
-  let modlst = !modlst in
-  modlst, x, p, p'
-
-let rewrite_sysver v =
-  let p = parse v in
-  let p' = rw p in
-  let x = Matchmly.mly p' in
-  let fd = open_out (v^"_dump.sv") in 
-  let modlst = ref [] in
-  List.iter (fun (k, x) ->
-		modlst := k :: !modlst;
-		Dump_sysver.template fd Matchmly.modules x;
-		) !(Matchmly.modules);
-  close_out fd;
-  let modlst = !modlst in
-  modlst, x, p, p'
-
-let rewrite_rtlil v =
-  let p = parse v in
-  let p' = rw p in
-  let x = Matchmly.mly p' in
-  let fd = open_out (v^"_dump.rtlil") in 
-  let modlst = ref [] in
-  List.iter (fun (k, x) ->
-                let buf' = ref [] in
-                let rtl = Dump_rtlil.template buf' Matchmly.modules x in
-		modlst := (k, rtl) :: !modlst;
-                List.iter (fun itm -> output_string fd (Dump_rtlil.dump_ilang "" itm)) (List.rev !buf')
-		) !(Matchmly.modules);
-  close_out fd;
-  let modlst = !modlst in
-  modlst, x, p, p'
-
-open Vxml_types
-
-let topxml = ref None
-
-let rewrite_xml v top =
-  let p = parse v in
-  let p' = rw p in
-  let x = Matchmly.mly p' in
-  let modlst = ref [] in
-  let xml = List.map (fun (k, x) ->
-		let x' = Dump_xml.template Matchmly.modules x in
-		modlst := (k,x') :: !modlst;
-                x') !(Matchmly.modules) in
-  let top' = List.assoc "apb_uart" !modlst in
-  topxml := Some top';
-  let xml = Dump_xml.template_header top' xml in
-  let errlst = ref [] in
-  let (x:typetable_t) = (Vxml_types.BASDTYP, "logic", Vxml_types.TYPNONE, []) in
-  let rslt = Vxml.translate errlst (0,(0,0),xml,[]) top in
-  !modlst, !errlst, rslt, xml, x, p, p'

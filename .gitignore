@@ -94,4 +94,8 @@ mungelst.ml
 *_dump.v
 *.synth
 work-obj93.cf
-
+examples/*.ml
+examples/*.ref
+examples/*.verilog
+junk.v
+.DS_Store
