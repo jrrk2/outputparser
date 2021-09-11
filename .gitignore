@@ -45,6 +45,7 @@ outputparser.top
 Input_top
 Input.ml
 Input.mli
+Input.mly
 Input_lex.ml
 Input_ord.ml
 liberty_parser.y

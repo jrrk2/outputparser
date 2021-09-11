@@ -1,4 +1,4 @@
-module count(clk, rst, q);
+module count7(clk, rst, q);
 
    input clk;
    input rst;

@@ -15,7 +15,7 @@ let rec dump_ilang ind = function
 | Cell_bodyparam(ilang_lst,string,ilang_lst',ilang_lst2) -> "Cell_bodyparam("^dump_ilst ind ilang_lst^", "^esc string^", "^dump_ilst ind ilang_lst'^", "^dump_ilst ind ilang_lst2 ^")"
 | Cell_bodypreal(ilang_lst,string,ilang_lst',ilang_lst2) -> "Cell_bodypreal("^dump_ilst ind ilang_lst^", "^esc string^", "^dump_ilst ind ilang_lst'^", "^dump_ilst ind ilang_lst2 ^")"
 | Cell_bodypsigned(ilang_lst,string,ilang_lst',ilang_lst2) -> "Cell_bodypsigned("^dump_ilst ind ilang_lst^", "^esc string^", "^dump_ilst ind ilang_lst'^", "^dump_ilst ind ilang_lst2^")"
-| Cell_stmt(string,string',ilang_lst,ilang_lst') -> "cell "^esc string^" "^esc string'^"\n"^(dump_ilst "\n  " ilang_lst)^(dump_ilst "\n  " ilang_lst')^"\nend\n"
+| Cell_stmt(string,string',ilang_lst,ilang_lst') -> "cell "^string^" "^esc string'^"\n"^(dump_ilst "\n  " ilang_lst)^(dump_ilst "\n  " ilang_lst')^"\nend\n"
 | Compare_list61(ilang_lst,ilang_lst') -> " "^dump_ilst ind ilang_lst^" , "^dump_ilst ind ilang_lst'^" "
 | Conn_stmt96(ilang_lst,ilang_lst') -> "connect "^dump_ilst ind ilang_lst^" "^dump_ilst ind ilang_lst'^"\n"
 | Design6(ilang_lst,ilang_lst') -> "Design6("^dump_ilst ind ilang_lst^", "^dump_ilst ind ilang_lst'^")"
@@ -61,5 +61,7 @@ let rec dump_ilang ind = function
 | TokVal(string) -> string
 | TokStr(string) -> "\""^string^"\""
 | TokPos -> "posedge"
+| TokNeg -> "negedge"
+| TokEdge -> "edge"
 
 and dump_ilst ind lst = String.concat ind (List.map (dump_ilang "") lst)

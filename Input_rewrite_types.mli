@@ -56,4 +56,6 @@ type ilang =
 | TokVal of string
 | TokStr of string
 | TokPos
+| TokNeg
+| TokEdge
 

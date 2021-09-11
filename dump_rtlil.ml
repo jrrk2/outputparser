@@ -127,6 +127,7 @@ let rec width typhash = function
 | NotEq (lhs, rhs) -> 1
 | GtEq (lhs, rhs) -> 1
 | Greater (lhs, rhs) -> 1
+| Atom "default" -> 1
 | Query (lhs, rhs, rhs') -> max (width typhash rhs) (width typhash rhs')
 | StarStar (lhs, rhs) -> (width typhash lhs) + ceval typhash rhs
 | Sys ("$clog2", x) -> clog2 (width typhash x)
@@ -521,9 +522,10 @@ and asgnexpr bufh typhash x = asgnexpr' bufh typhash (width typhash x) x
 
 and addprim bufh typhash typ params args templ = 
   print_endline ("addprim: "^typ);
-  let ex' arg = (asgnexpr bufh typhash arg, width typhash arg) in
-  let widths = List.mapi (fun ix itm -> CellParamItem2 (String.make 1 templ.[ix]^"_WIDTH", Number(10, 32, snd(ex' itm), ""))) args in
-  dumpi bufh typhash (typ, [Itmlst (params@widths)], (InstNameParen1 (newnam(), Itmlst (List.mapi (fun ix itm -> CellPinItem2(String.make 1 templ.[ix], itm)) args) :: []) :: []))
+  let wid' ix arg = CellParamItem2 (String.make 1 templ.[ix]^"_WIDTH", Number(10, 32, width typhash arg, "")) in
+  let conn' ix arg = let itm = asgnexpr bufh typhash arg in CellPinItem2(String.make 1 templ.[ix], itm) in
+  let widths = List.mapi wid' args in
+  dumpi bufh typhash (typ, [Itmlst (params@widths)], (InstNameParen1 (newnam(), Itmlst (List.mapi conn' args) :: []) :: []))
 
 and dyadic bufh typhash wid func args pnam =
   let rslt = newid bufh typhash wid in
@@ -1161,6 +1163,7 @@ let restrict' typhash wid = function
 let restrict typhash wid = function
   | Number(b,w,n,_) -> Number(b,min w wid,n mod (1 lsl wid),"")
   | Id s -> (match Hashtbl.find_opt typhash s with Some x -> restrict' typhash wid x | None -> Id s)
+  | Atom "default" as x -> x
 
   | oth -> unhand := Some oth; failwith "restrict"
 
@@ -1230,15 +1233,20 @@ let rec cnv' bufh dhash typhash inst = function
 
 let dbgproc = ref None
 
+let mapedge sync_lst = function
+  | Pos signal -> Sync_list69 ([TokPos], [TokID signal], [], sync_lst)
+  | Neg signal -> Sync_list69 ([TokNeg], [TokID signal], [], sync_lst)
+
 let rec proc_template bufh typhash cnt = function
     | DeclReg _ -> ()
     | DeclLogic _ -> ()
-    | AlwaysLegacy (At (EventOr [Pos clk]), body) ->
+    | AlwaysLegacy (At (EventOr ((Pos _|Neg _) :: _ as edglst)), body) ->
     let dhash = Hashtbl.create 255 in
     let inst = newnam() in
-    dbgproc := Some (typhash, dhash, inst, clk, body);
+    dbgproc := Some (typhash, dhash, inst, edglst, body);
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
-    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, [Sync_list69 ([TokPos], [TokID clk], [], (List.sort_uniq compare s))]) :: !(bufh.l)
+    let sync_lst = List.sort_uniq compare s in
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.map (mapedge sync_lst) edglst) :: !(bufh.l)
 (*
     | AlwaysFF (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
   bprintf buf' "    // clocked process %d description goes here\n" !cnt;

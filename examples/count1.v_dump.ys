@@ -1,0 +1,5 @@
+read_ilang examples/count1.v_dump.rtlil
+proc
+write_verilog examples/count1.v_dump.proc
+synth
+write_verilog examples/count1.v_dump.synth

@@ -48,8 +48,6 @@ let v = "apb_uart.sv";;
 let v = "examples/count.v";;
 let v = "examples/count0.v";;
 let v = "examples/add.v";;
-let v = "examples/count6.v";;
-let v = "examples/count7.v";;
 let v = "examples/picorv32_ref.v";;
 let v = "examples/array.v";;
 let v = "examples/array2.v";;
@@ -59,6 +57,10 @@ let v = "examples/count1.v";;
 let v = "examples/count2.v";;
 let v = "examples/count3.v";;
 let v = "examples/count4.v";;
+let v = "examples/count5.v";;
+let v = "examples/count6.v";;
+let v = "examples/count7.v";;
+let v = "../yosys/tests/simple/process.v";;
 
 (*
 let x = rw (parse v);;

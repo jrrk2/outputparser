@@ -1,9 +1,10 @@
-
+open Printf
 open Source_text
 open Source_text_lex
 open Source_text_rewrite
 
 let rewrite_vhdl v =
+  Matchmly.modules := [];
   let p = parse v in
   let p' = rw p in
   let x = Matchmly.mly p' in
@@ -18,6 +19,7 @@ let rewrite_vhdl v =
   modlst, x, p, p'
 
 let rewrite_sysver v =
+  Matchmly.modules := [];
   let p = parse v in
   let p' = rw p in
   let x = Matchmly.mly p' in
@@ -34,6 +36,7 @@ let rewrite_sysver v =
 let dbgx = ref None
 
 let rewrite_rtlil v =
+  Matchmly.modules := [];
   let p = parse v in
   let p' = rw p in
   let x = Matchmly.mly p' in
@@ -47,14 +50,33 @@ let rewrite_rtlil v =
                 List.iter (fun itm -> output_string fd (Input_dump.dump_ilang "" itm)) rtl
 		) !(Matchmly.modules);
   close_out fd;
-  let modlst = !modlst in
-  modlst, x, p, p'
+  let fnam = v^"_dump.ys" in
+  let fd = open_out fnam in
+  print_endline ("File: "^fnam);
+  fprintf fd "read_ilang %s_dump.rtlil\n" v;
+  fprintf fd "proc\n";
+  fprintf fd "write_verilog %s_dump.proc\n" v;
+  fprintf fd "synth\n";
+  fprintf fd "write_verilog %s_dump.synth\n" v;
+  close_out fd;
+  let err = match Unix.system("yosys "^fnam) with
+  | WEXITED errno -> if errno <> 0 then
+    printf "yosys failed with error code %d\n" errno;
+    errno
+  | WSIGNALED signal ->
+    printf "yosys killed by signal %d\n" signal;
+    signal
+  | WSTOPPED signal ->
+    printf "yosys killed by signal %d\n" signal;
+    signal in
+  !modlst, x, p, p'
 
 open Vxml_types
 
 let topxml = ref None
 
 let rewrite_xml v top =
+  Matchmly.modules := [];
   let p = parse v in
   let p' = rw p in
   let _ = Matchmly.mly p' in
