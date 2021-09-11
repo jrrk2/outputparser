@@ -797,8 +797,8 @@ let rec mly = function
 | TUPLE4(STRING("pexpr2559"), arg1, VBAR_EQ_GT, arg3) as oth -> mayfail oth  "pexpr2559"
 | TUPLE4(STRING("pgmFront135"), Program, arg2, arg3) as oth -> mayfail oth  "pgmFront135"
 | TUPLE4(STRING("port_declaration231"), arg1, arg2, arg3) -> 
-    let dir, port = match (mly arg1, mly arg2, mly arg3) with dir, Deflt, Itmlst [Id id] -> dir, id | oth -> othport3 := Some oth; failwith "n231" in
-    Port(dir, port,[], [])
+    let dir, lst = match (mly arg1, mly arg2, mly arg3) with dir, Deflt, Itmlst lst -> dir, lst | oth -> othport3 := Some oth; failwith "n231" in
+    Itmlst (List.map (function Id port -> Port(dir, port,[], []) | oth -> othport := Some oth; failwith "n231'") lst)
 | TUPLE4(STRING("portsStarE78"), LPAREN, arg2, RPAREN) ->
 (match arg2 with
        | TLIST lst ->  PortsStar(rml lst)
@@ -999,7 +999,17 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
     (match arg3, arg4, port with
       | EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(mly dir, port, [], [])
       | oth -> othpat3 := Some oth; failwith "port92")
-| TUPLE5(STRING("port_declaration221"), arg1, arg2, arg3, arg4) as oth -> mayfail oth  "port_declaration221"
+| TUPLE5(STRING("port_declaration221"), dir, arg2, arg3, arg4) ->
+    (match arg3, arg4 with
+      | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic as x), EMPTY_TOKEN, TLIST rng), TLIST [TUPLE4
+         (STRING "variable_decl_assignment297", IDENTIFIER port,
+          EMPTY_TOKEN, EMPTY_TOKEN)] ->
+	   Port(PortDir(mly dir, mly x), port, rml rng, [])
+      | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic as x), EMPTY_TOKEN, EMPTY_TOKEN), TLIST [TUPLE4
+         (STRING "variable_decl_assignment297", IDENTIFIER port,
+          EMPTY_TOKEN, EMPTY_TOKEN)] ->
+	   Port(PortDir(mly dir, mly x), port, [], [])
+      | oth -> othpat2 := Some oth; failwith "port_declaration221")
 | TUPLE5(STRING("port_declaration229"), arg1, arg2, arg3, arg4) as oth -> mayfail oth  "port_declaration229"
 | TUPLE5(STRING("senitemEdge611"), Posedge, LPAREN, arg3, RPAREN) -> Pos (match arg3 with IDENTIFIER id -> id | oth -> othpat1 := Some oth; failwith "senitemEdge611")
 | TUPLE5(STRING("senitemEdge612"), Negedge, LPAREN, arg3, RPAREN) -> Neg (match arg3 with IDENTIFIER id -> id | oth -> othpat1 := Some oth; failwith "senitemEdge612")

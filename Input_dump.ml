@@ -36,7 +36,7 @@ let rec dump_ilang ind = function
 | Sigspec92(ilang_lst') -> "{ "^dump_ilst " " ilang_lst'^" }"
 | Sigspec_list_reversed93(ilang_lst,ilang_lst') -> "Sigspec_list_reversed93("^dump_ilst ind ilang_lst^", "^dump_ilst ind ilang_lst ^")"
 | Sigspecrange(string,int,int') -> esc string^" ["^string_of_int int^":"^string_of_int int'^"]"
-| Switch_bodycase(ilang_lst,ilang_lst',ilang_lst2) -> "case "^dump_ilst ind ilang_lst^"\n  "^dump_ilst ind ilang_lst'^"\n  "^dump_ilst ind ilang_lst2^"\n"
+| Switch_bodycase(ilang_lst,ilang_lst',ilang_lst2) -> "case "^dump_ilst " , " ilang_lst^"\n  "^dump_ilst ind ilang_lst'^"\n  "^dump_ilst ind ilang_lst2^"\n"
 | Switch_stmt(ilang_lst,ilang_lst',ilang_lst2,ilang_lst3) -> "switch "^dump_ilst ind ilang_lst^"\n"^dump_ilst ind ilang_lst'^"\n"^dump_ilst ind ilang_lst2^"\n"^dump_ilst ind ilang_lst3^"\nend\n"
 | Sync_list69(ilang_lst',ilang_lst2,ilang_lst3,ilang_lst4) -> "sync "^dump_ilst ind ilang_lst'^" "^dump_ilst ind ilang_lst2^" "^dump_ilst ind ilang_lst3^"\n    "^dump_ilst ind ilang_lst4^"\n"
 | Sync_listalways(ilang_lst',ilang_lst2) -> "sync always\n  "^dump_ilst ind ilang_lst'^" "^dump_ilst ind ilang_lst2^"\n"

@@ -135,6 +135,8 @@ let rec width typhash = function
 | PackageBody (pkg, [id]) -> width typhash id (* placeholder *)
 | Sys ("$bits", Typ1 id_t) -> csiz' typhash (match Hashtbl.find_opt typhash id_t with Some x -> x | None -> print_endline ("Not found: "^id_t); Std_logic)
 | Sys ("$size", Dot1 _) -> 1 (* placeholder *)
+| ExprOKL [] -> 0
+| ExprOKL (hd::tl) -> width typhash hd + width typhash (ExprOKL tl)
 | oth -> unhand := Some oth; failwith "width"
 
 let rec recurs t (attr: Source_text_rewrite.attr) = function
@@ -466,6 +468,7 @@ let rec asgnexpr' bufh typhash wid = function
   | Id s as x -> let oldw = width typhash x in if oldw < wid then Concat (Number(2,wid-oldw,0,"") :: Id s :: []) else Id s
   | Expression x -> asgnexpr bufh typhash x
   | Tilde expr -> let rhs = asgnexpr bufh typhash expr and rslt = newid bufh typhash wid in addprim bufh typhash "$tilde" [] [rhs;rslt] "AY"; rslt
+  | Pling expr -> let rhs = asgnexpr bufh typhash expr and rslt = newid bufh typhash wid in addprim bufh typhash "$not" [] [rhs;rslt] "AY"; rslt
   | IdArrayed2 (id, ix) as x -> x
   | Query (cond', ctrue', cfalse') -> ternary bufh typhash wid "mux" [cfalse'; ctrue'; cond'] "ABSY"
 (*
@@ -735,6 +738,7 @@ let rec tran' = function
    | Number (b,w,n,_) -> TokVal (sprintf "%d'%s" w (obin w n)) :: []
    | Atom "default" -> []
    | Concat lst -> List.flatten (List.map tran' lst)
+   | ExprOKL lst -> List.flatten (List.map tran' lst)
    | oth -> unhand := Some oth; failwith "tran'"
 
 let asgn bufh typhash expr = function
@@ -905,8 +909,14 @@ let elabenum typhash nam id_lst = update typhash nam (Venum nam);
 	| oth -> unhand := Some oth; failwith "TypEnum6") id_lst
 
 let rec decl_template bufh typhash modules cnt = function
-    | Port(dir, nam, [], []) -> 
-        addwire bufh ([vdir (portpos typhash nam) dir], nam)
+    | Port(PortDir(dir, Atom kind), nam, [], []) -> addwire bufh ([vdir (portpos typhash nam) dir], nam)
+    | Port(dir, nam, [], []) -> addwire bufh ([vdir (portpos typhash nam) dir], nam)
+    | Itmlst (Port(dir, nam, [], []) :: _ as lst) ->
+        List.iter (function
+		   | Port(PortDir(dir, Atom kind), nam, [], []) -> addwire bufh ([vdir (portpos typhash nam) dir], nam)
+		   | Port(dir, nam, [], []) -> addwire bufh ([vdir (portpos typhash nam) dir], nam)
+                   | oth -> unhand := Some oth; failwith "Port Itmlst") lst
+    | Port(PortDir(dir, Atom kind), nam, [AnyRange _ as x], []) -> addwire bufh (range typhash nam x :: [vdir (portpos typhash nam) dir], nam)
     | Port(dir, nam, [AnyRange _ as x], []) -> addwire bufh (range typhash nam x :: [vdir (portpos typhash nam) dir], nam)
     | DeclReg (reg_lst, [], []) -> List.iter (function
       | Id nam -> addwire bufh ([], nam);
@@ -1215,18 +1225,18 @@ let rec cnv' bufh dhash typhash inst = function
         (Assign_stmt67 (tran' dly, [TokID lhs]) :: [],
          Assign_stmt67 (tran' dly, tran' rhs) :: [],
          TokUpdate ([TokID lhs], tran' dly) :: [])
-    | CaseStmt ([caseval], itm_stmts) ->
-        let dly = dlymemo bufh dhash typhash caseval in
+    | CaseStmt (caselbl, itm_stmts) ->
         let lst' = List.map (cnv' bufh dhash typhash inst) itm_stmts in
 	let wid = width typhash inst in
         (List.flatten (List.map (fun (p,u,d) -> p) lst'),
-         Switch_bodycase (tran' (restrict typhash wid caseval), [], List.flatten (List.map (fun (p,u,d) -> u) lst')) :: [],
+         Switch_bodycase (List.flatten(List.map (fun itm -> tran' (restrict typhash wid itm)) caselbl), [], List.flatten (List.map (fun (p,u,d) -> u) lst')) :: [],
          List.flatten (List.map (fun (p,u,d) -> d) lst'))
     | CaseStart (CaseStart1 expr, stmts) ->
+        let dly = dlymemo bufh dhash typhash expr in
         let lst' = List.map (cnv' bufh dhash typhash expr) stmts in
         dbgcase := lst';
         (List.flatten (List.map (fun (p,u,d) -> p) lst'),
-         Switch_stmt (tran' expr, [], [], (List.flatten (List.map (fun (p,u,d) -> u) lst'))) :: [],
+         Switch_stmt (tran' dly, [], [], (List.flatten (List.map (fun (p,u,d) -> u) lst'))) :: [],
          List.flatten (List.map (fun (p,u,d) -> d) lst'))
     | Id t when Hashtbl.mem typhash t -> print_endline t; ([],[],[])
     | oth -> unhand := Some oth; failwith "cnv'"
@@ -1241,6 +1251,13 @@ let rec proc_template bufh typhash cnt = function
     | DeclReg _ -> ()
     | DeclLogic _ -> ()
     | AlwaysLegacy (At (EventOr ((Pos _|Neg _) :: _ as edglst)), body) ->
+    let dhash = Hashtbl.create 255 in
+    let inst = newnam() in
+    dbgproc := Some (typhash, dhash, inst, edglst, body);
+    let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
+    let sync_lst = List.sort_uniq compare s in
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.map (mapedge sync_lst) edglst) :: !(bufh.l)
+    | AlwaysLegacy (AtStar, body) -> let edglst = [] in 
     let dhash = Hashtbl.create 255 in
     let inst = newnam() in
     dbgproc := Some (typhash, dhash, inst, edglst, body);
@@ -1319,7 +1336,7 @@ let rec proc_template bufh typhash cnt = function
     | AutoFunDecl (fn, typ, FunGuts (ports, lst)) -> () (* placeholder *)
     | Initial _ -> bufh.l := TokStr "// initial is not implemented\n" :: !(bufh.l)
     | Final _ -> bufh.l := TokStr "// final is not implemented\n" :: !(bufh.l)
-    | Itmlst (Id _ :: _) -> ()
+    | Itmlst ((Id _|Port _) :: _) -> ()
     | PkgImport _ -> ()
     | DeclData _ -> ()
     | AssertProperty -> ()
