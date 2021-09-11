@@ -1,4 +1,4 @@
-module count(input clk, input rst, input en, output reg [7:0] q);
+module count2(input clk, input rst, input en, output reg [7:0] q);
 
    always @(posedge clk)
      if (rst)

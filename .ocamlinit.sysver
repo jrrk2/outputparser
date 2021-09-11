@@ -47,16 +47,18 @@ let v = "ariane_preproc.sv";;
 let v = "apb_uart.sv";;
 let v = "examples/count.v";;
 let v = "examples/count0.v";;
-let v = "examples/count1.v";;
 let v = "examples/add.v";;
-let v = "examples/count3.v";;
-let v = "examples/count.v";;
 let v = "examples/count6.v";;
 let v = "examples/count7.v";;
-let v = "examples/concat1.v";;
 let v = "examples/picorv32_ref.v";;
 let v = "examples/array.v";;
 let v = "examples/array2.v";;
+let v = "examples/concat1.v";;
+let v = "examples/count.v";;
+let v = "examples/count1.v";;
+let v = "examples/count2.v";;
+let v = "examples/count3.v";;
+let v = "examples/count4.v";;
 
 (*
 let x = rw (parse v);;
@@ -68,12 +70,19 @@ let (modlst,x,p,p') = rewrite_rtlil v;;
 
 let u = snd (List.hd modlst);;
 let m = List.assoc (fst (List.hd modlst)) !(Matchmly.modules);;
-let e = sub' !dbgtyp [m];;
-let (dhash1, dhash2, inst, clk, body) = match !dbgproc with Some (dhash1, dhash2, inst, clk, body) -> (dhash1, dhash2, inst, clk, body) | _ -> failwith "dbg'"
+let p u = output_string stdout (Input_dump.dump_ilst "\n" u);;
+
+let (typhash, dhash, inst, clk, body) = match !dbgproc with Some (typhash, dhash, inst, clk, body) -> (typhash, dhash, inst, clk, body) | _ -> failwith "dbg'"
+
+let e = sub' typhash [m];;
 
 let dlst = ref [];;
-Hashtbl.iter (fun k x -> dlst := (k,x) :: !dlst) dhash2;;
+Hashtbl.iter (fun k x -> dlst := (k,x) :: !dlst) dhash;;
 let dlst = !dlst;;
+
+let tlst = ref [];;
+Hashtbl.iter (fun k x -> tlst := (k,x) :: !tlst) typhash;;
+let tlst = !tlst;;
 
 (*
 let u' = List.filter (function DeclReg _ -> false| _ -> true) u;;

@@ -21,12 +21,16 @@ type vtyp =
   | Task of rw * rw * rw
 
 type bufh = {c:ilang list ref;
+(*
     d:ilang list ref;
+*)
     i:ilang list ref;
     l:ilang list ref;
+(*
     o:ilang list ref;
     r:ilang list ref;
     s:ilang list ref;
+*)
     w:ilang list ref}
 
 let unhand = ref None
@@ -72,8 +76,12 @@ and csiz' typhash = function
 | Vint n -> 32
 | Std_logic -> 1
 | Std_logic_vector(hi,lo) -> ceval typhash hi - ceval typhash lo + 1
-| Vtyp s -> print_endline ("Type "^s^" evaluated to zero"); 0
-| oth -> coth := Some oth; failwith "ceval'"
+| Vtyp s -> print_endline ("Sizeof type "^s^" evaluated to zero"); 0
+| MaybePort n -> print_endline ("Sizeof type MaybePort "^string_of_int n^" evaluated to one"); 1
+| Venum s -> 8
+| Vemember(s, _, _) -> csiz' typhash (match Hashtbl.find_opt typhash s with Some x -> x | None -> print_endline ("Not found: "^s); Std_logic)
+
+| oth -> coth := Some oth; failwith "csiz'"
 
 let is_const' = function
 | Vint n -> true
@@ -128,25 +136,27 @@ let rec width typhash = function
 | Sys ("$size", Dot1 _) -> 1 (* placeholder *)
 | oth -> unhand := Some oth; failwith "width"
 
-let rec recurs typhash (attr: Source_text_rewrite.attr) = function
+let rec recurs t (attr: Source_text_rewrite.attr) = function
   | If2(cond, if_clause, else_clause) ->
       CaseStart (CaseStart1 (cond),
        (CaseStmt ([Number(2,1,1,"")],
-         if_clause :: []) ::
+         recurs t attr if_clause :: []) ::
         CaseStmt ([Number(2,1,0,"")],
-         else_clause :: []) ::
+         recurs t attr else_clause :: []) ::
         []))
   | If1(cond, if_clause) ->
       CaseStart (CaseStart1 (cond),
        (CaseStmt ([Number(2,1,1,"")],
-         if_clause :: []) ::
+         recurs t attr if_clause :: []) ::
          []))
   | EquateSelect(lhs, sel, expr) as x ->
-      let wid = width typhash (Id lhs) in
-      printf "wid=%d\n" wid;
+      let wid = width t (Id lhs) in
+      print_endline ("wid="^string_of_int wid);
       let foreach = List.init wid (fun ix -> let sel = Number(2,clog2 wid,ix,"") in CaseStmt ([], EquateSelect(lhs, sel, expr) :: [])) in
       CaseStart (CaseStart1 (sel), foreach)
-  | oth -> Source_text_rewrite.descend' {attr with fn=recurs typhash} oth
+  | oth -> rfn t attr oth
+
+and rfn t attr x = print_endline (Source_text_rewrite.getstr x); Source_text_rewrite.descend' {attr with fn=recurs t} x
 
 let sub' typhash = List.map (recurs typhash {fn=recurs typhash; subst=Hashtbl.create 255})
 
@@ -335,7 +345,7 @@ let newnam () =
 let addwire bufh = function
 | (options, nam) ->
   if List.filter (function Wire_stmt (_, id) -> id=nam | _ -> false) !(bufh.w) <> [] then
-    print_endline ("Wire: "^nam^" is already defined")
+    print_endline ("Warning: "^nam^" is already defined, could be obsolete syntax")
   else
     bufh.w := Wire_stmt(options, nam) :: !(bufh.w)
 
@@ -456,6 +466,7 @@ let rec asgnexpr' bufh typhash wid = function
   | Expression x -> asgnexpr bufh typhash x
   | Tilde expr -> let rhs = asgnexpr bufh typhash expr and rslt = newid bufh typhash wid in addprim bufh typhash "$tilde" [] [rhs;rslt] "AY"; rslt
   | IdArrayed2 (id, ix) as x -> x
+  | Query (cond', ctrue', cfalse') -> ternary bufh typhash wid "mux" [cfalse'; ctrue'; cond'] "ABSY"
 (*
   | Pling expr -> "not " ^ (asgnexpr bufh typhash) expr
   | Concat lst -> String.concat " & " (List.map (asgnexpr bufh typhash) lst)
@@ -470,7 +481,6 @@ let rec asgnexpr' bufh typhash wid = function
   | CellPinItemImplied (port) -> port ^ " => " ^ port
   | CellPinItemNC (port) -> port ^ " => open"
   | Query (Id cond', ctrue', cfalse') -> sprintf "%s ? %s : %s" cond' (asgnexpr bufh typhash ctrue') (asgnexpr bufh typhash cfalse')
-  | Query (cond', ctrue', cfalse') -> sprintf "%s ? %s : %s" (asgnexpr bufh typhash cond') (asgnexpr bufh typhash ctrue') (asgnexpr bufh typhash cfalse')
   | Deflt -> "open"
   | Dot1(lft, rght) -> asgnexpr bufh typhash lft^"."^asgnexpr bufh typhash rght
   | RedOr (lhs) -> " or (" ^ asgnexpr bufh typhash lhs ^ ")"
@@ -520,6 +530,11 @@ and dyadic bufh typhash wid func args pnam =
   addprim bufh typhash func (List.map (fun itm -> CellParamItem2 (itm^"_SIGNED", Number (10, 32, 0, ""))) ["A";"B"]) (args@[rslt]) pnam;
   rslt
 
+and ternary bufh typhash wid func args pnam =
+  let rslt = newid bufh typhash wid in
+  addprim bufh typhash func (List.map (fun itm -> CellParamItem2 (itm^"_SIGNED", Number (10, 32, 0, ""))) ["A";"B";"S"]) (args@[rslt]) pnam;
+  rslt
+
 and dumpi bufh typhash (typ, params, lst) = List.iter (function
         | InstNameParen1 (inst, Itmlst pins :: []) ->
 	    bufh.i := (instance_template bufh typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst pins) :: !(bufh.i)
@@ -544,7 +559,8 @@ let ports' typhash ix hi lo dir nam =
 
 let maybe_port typhash nam ix dir = 
   let dir' = vdir ix dir in
-  if dir' <> Wire_optionsinvalid then [Wire_stmt (dir' :: [], nam)] else (update typhash nam (MaybePort ix); [])
+  if dir' <> Wire_optionsinvalid then (update typhash nam Std_logic; [Wire_stmt (dir' :: [], nam)])
+  else (update typhash nam (MaybePort ix); [])
 
 let ports typhash ix = function
     | Port((In|Out|Inout|Deflt) as dir, nam, [], []) -> maybe_port typhash nam ix dir
@@ -710,7 +726,7 @@ let buffer' bufh typhash expr wid =
 
 let buffer bufh typhash expr lhs = buffer' bufh typhash expr (width typhash (Id lhs))
 
-let vsel' lhs n = [Sigspec90 (lhs, n)]
+let vsel' n = function Id lhs -> [Sigspec90 (lhs, n)] | oth -> unhand := Some oth; failwith "vsel'"
 
 let rec tran' = function
    | Id id -> TokID id :: []
@@ -1115,133 +1131,101 @@ let rec sent_template (buf':ilang ref) typhash clk = function
 	   | oth -> unhand := Some oth; failwith "sent_template"
 
 let dlymemo bufh dhash typhash lhs =
-    match Hashtbl.find_opt (fst dhash) lhs with Some x -> x | None ->
-        begin
+    match Hashtbl.find_opt dhash lhs with Some x -> x | None ->
         let dly = newid bufh typhash (width typhash lhs) in
-        bufh.d := Assign_stmt67 (tran' dly, tran' lhs) :: !(bufh.d);
-        Hashtbl.add (fst dhash) lhs dly;
+        Hashtbl.add dhash lhs dly;
         dly
-        end
+	
+let bufhash () = {c=ref[];i=ref[];l=ref[];w=ref[]}
 
-let bufrecall dhash lhs = Hashtbl.find (fst dhash) lhs
-
-let bufmemo bufh dhash typhash lhs =
-    if not (Hashtbl.mem (fst dhash) lhs) then
-        begin
-        let buf = newid bufh typhash (width typhash lhs) in
-        Hashtbl.add (fst dhash) lhs buf;
-        end
-    
-let proc1 inst bufh clk =
-   let sync = Sync_list69 ([TokPos], [TokID clk], [], !(bufh.s)) in
-   let proc = Proc_stmt (inst, [], !(bufh.d) @ !(bufh.l), [sync]) in
-   bufh.s := [];
-   bufh.d := [];
-   bufh.l := [];
-   proc
-
-let rec tran bufh = function
-   | Blocking (FopAsgn (lhs, (Number _))) -> let rslt = !(bufh.r) in bufh.r := []; rslt
-   | Blocking (FopAsgn (lhs, expr)) -> let rslt = !(bufh.o) in bufh.o := []; rslt
-   | Equate (lhs, Number _) -> let rslt = !(bufh.r) in bufh.r := []; rslt
-   | Equate (lhs, expr) -> let rslt = !(bufh.o) in bufh.o := []; rslt
-   | EquateConcat(lhslst, expr) -> let rslt = !(bufh.o) in bufh.o := []; rslt
-   | Seq("", lst) -> List.flatten (List.map (tran bufh) lst)
-   | CaseStart (CaseStart1 expr, stmts) -> let rslt = !(bufh.l) in bufh.l := []; rslt
-   | EquateSelect (lhs, Number (_, _, n, _), expr) -> let rslt = !(bufh.o) in bufh.o := []; rslt
-   | Atom ";" -> []
-   | oth -> tran' oth
-
-let bufhash dhash expr =
-   if not (Hashtbl.mem (snd dhash) expr) then
-   begin
-   Hashtbl.add (snd dhash) expr {c=ref[];d=ref[];i=ref[];l=ref[];o=ref[];r=ref[];s=ref[];w=ref[]};
-   end;
-   Hashtbl.find (snd dhash) expr
-
-let switch' dhash typhash bufh' expr stmts =
-  let expr' = bufrecall dhash expr in
-  Switch_stmt (tran' expr', [], [], List.map (function
-    | CaseStmt ([caseval], case_stmts) ->
-        let bufh' = bufhash dhash caseval in
-        let caseval' = match caseval with Number _ -> caseval | _ -> bufrecall dhash caseval in
-        Switch_bodycase (tran' caseval', [], 
-			       (Assign_stmt67 ([Sigspec92 []], [Sigspec92 []]) :: List.flatten (List.map (tran bufh') case_stmts)))
-    | oth -> unhand := Some oth; failwith "switch'") stmts)
-
-let catbuf bufh = !(bufh.w) @ !(bufh.i) @ !(bufh.c) @ !(bufh.d) @ !(bufh.l) @ !(bufh.o) @ !(bufh.r) @ !(bufh.s)
+let catbuf bufh = !(bufh.w) @ !(bufh.i) @ !(bufh.c) @ !(bufh.l)
 
 let copybuf bufh bufh' =
         bufh.c := !(bufh'.c) @ !(bufh.c);
         bufh'.c := [];
-        bufh.d := !(bufh'.d) @ !(bufh.d);
-        bufh'.d := [];
         bufh.i := !(bufh'.i) @ !(bufh.i);
         bufh'.i := [];
         bufh.l := !(bufh'.l) @ !(bufh.l);
         bufh'.l := [];
-        bufh.o := !(bufh'.o) @ !(bufh.o);
-        bufh'.o := [];
-        bufh.r := !(bufh'.r) @ !(bufh.r);
-        bufh'.r := [];
-        bufh.s := !(bufh'.s) @ !(bufh.s);
-        bufh'.s := [];
         bufh.w := !(bufh'.w) @ !(bufh.w);
         bufh'.w := [];
         bufh.l := !(bufh'.l) @ !(bufh.l)
 
-let rec cnv' dhash typhash inst = function
-    | Atom ";" -> ()
-    | Seq ("", lst) -> List.iter (cnv' dhash typhash inst) lst
+let dbgcase = ref []
+
+let restrict' typhash wid = function
+  | Vemember(s, _, Number(b,w,n,_)) -> Number(b,min w wid,n mod (1 lsl wid),"")
+  | Vemember(s, _, Intgr n) -> Number(2,wid,n mod (1 lsl wid),"")
+  | oth -> coth := Some oth; failwith "restrict'"
+
+let restrict typhash wid = function
+  | Number(b,w,n,_) -> Number(b,min w wid,n mod (1 lsl wid),"")
+  | Id s -> (match Hashtbl.find_opt typhash s with Some x -> restrict' typhash wid x | None -> Id s)
+
+  | oth -> unhand := Some oth; failwith "restrict"
+
+let rec cnv' bufh dhash typhash inst = function
+    | Atom ";" -> ([],[],[])
+    | Seq ("", lst) ->
+        let lst' = List.map (cnv' bufh dhash typhash inst) lst in
+        (List.flatten (List.map (fun (p,u,d) -> p) lst'),
+         List.flatten (List.map (fun (p,u,d) -> u) lst'),
+         List.flatten (List.map (fun (p,u,d) -> d) lst'))
     | EquateConcat(lhslst, expr) ->
         let wid = ref 0 in
-        let bufh = bufhash dhash (Id inst) in
         let dlylst = List.map (function
           | Id lhs ->
           let dly = dlymemo bufh dhash typhash (Id lhs) in
 	  wid := !wid + width typhash (Id lhs);
-          bufh.d := Assign_stmt67 (tran' dly, [TokID lhs]) :: !(bufh.d);
-          bufh.s := TokUpdate ([TokID lhs], tran' dly) :: !(bufh.s);
-          dly
+          (Assign_stmt67 (tran' dly, [TokID lhs]),
+           TokUpdate ([TokID lhs], tran' dly),
+          dly)
 	  | oth -> unhand := Some oth; failwith "concat") lhslst in
         let rhs = buffer' bufh typhash expr !wid in
-        bufh.o := Assign_stmt67
-          ([Sigspec92 (List.flatten (List.map tran' dlylst))],
-          [Sigspec92 (tran' rhs)]) :: !(bufh.o);
+        (List.map (fun (p,u,d) -> p) dlylst,
+		  Assign_stmt67 ([Sigspec92 (List.flatten (List.map (fun (p,u,d) -> tran' d) dlylst))], [Sigspec92 (tran' rhs)]) :: [],
+		  List.map (fun (p,u,d) -> u) dlylst)
     | Equate (lhs, (Number _ as expr)) ->
-        let bufh = bufhash dhash (Id inst) in
         let dly = dlymemo bufh dhash typhash (Id lhs) in
-        bufh.r := Assign_stmt67 (tran' dly, tran' expr) :: !(bufh.r)
-    | EquateSelect (lhs, Number(_,_,n,_), expr) ->
-        let bufh = bufhash dhash (Id inst) in
-        let dly = dlymemo bufh dhash typhash (Id lhs) in
-        bufh.o := Assign_stmt67 (vsel' lhs n, tran' expr) :: !(bufh.o)
-    | Blocking (FopAsgn (lhs, (Number _ as expr))) ->
-        let bufh = bufhash dhash (Id inst) in
-        let dly = dlymemo bufh dhash typhash (Id lhs) in
-        bufh.r := Assign_stmt67 (tran' dly, tran' expr) :: !(bufh.r)
-    | Blocking (FopAsgn (lhs, expr)) -> 
-        let bufh = bufhash dhash (Id inst) in
+        (Assign_stmt67 (tran' dly, [TokID lhs]) :: [],
+         Assign_stmt67 (tran' dly, tran' expr) :: [],
+         TokUpdate ([TokID lhs], tran' dly) :: [])
+    | Equate (lhs, expr) -> 
         let dly = dlymemo bufh dhash typhash (Id lhs) in
         let rhs = buffer bufh typhash expr lhs in
-        bufh.d := Assign_stmt67 (tran' dly, [TokID lhs]) :: !(bufh.d);
-        bufh.o := Assign_stmt67 (tran' dly, tran' rhs) :: !(bufh.o);
-        bufh.s := TokUpdate ([TokID lhs], tran' dly) :: !(bufh.s);
+        (Assign_stmt67 (tran' dly, [TokID lhs]) :: [],
+         Assign_stmt67 (tran' dly, tran' rhs) :: [],
+         TokUpdate ([TokID lhs], tran' dly) :: [])
+    | EquateSelect (lhs, Number(_,_,n,_), expr) ->
+        let dly = dlymemo bufh dhash typhash (Id lhs) in
+        (Assign_stmt67 (tran' dly, [TokID lhs]) :: [],
+         Assign_stmt67 (vsel' n dly, tran' expr) :: [],
+         TokUpdate ([TokID lhs], tran' dly) :: [])
+    | Blocking (FopAsgn (lhs, (Number _ as expr))) ->
+        let dly = dlymemo bufh dhash typhash (Id lhs) in
+        (Assign_stmt67 (tran' dly, [TokID lhs]) :: [],
+         Assign_stmt67 (tran' dly, tran' expr) :: [],
+         TokUpdate ([TokID lhs], tran' dly) :: [])
+    | Blocking (FopAsgn (lhs, expr)) -> 
+        let dly = dlymemo bufh dhash typhash (Id lhs) in
+        let rhs = buffer bufh typhash expr lhs in
+        (Assign_stmt67 (tran' dly, [TokID lhs]) :: [],
+         Assign_stmt67 (tran' dly, tran' rhs) :: [],
+         TokUpdate ([TokID lhs], tran' dly) :: [])
     | CaseStmt ([caseval], itm_stmts) ->
-        let bufh = bufhash dhash (Id inst) in
-        let bufh' = bufhash dhash caseval in
-        bufmemo bufh dhash typhash caseval;
-        List.iter (cnv' dhash typhash inst) itm_stmts;
-	copybuf bufh bufh';
+        let dly = dlymemo bufh dhash typhash caseval in
+        let lst' = List.map (cnv' bufh dhash typhash inst) itm_stmts in
+	let wid = width typhash inst in
+        (List.flatten (List.map (fun (p,u,d) -> p) lst'),
+         Switch_bodycase (tran' (restrict typhash wid caseval), [], List.flatten (List.map (fun (p,u,d) -> u) lst')) :: [],
+         List.flatten (List.map (fun (p,u,d) -> d) lst'))
     | CaseStart (CaseStart1 expr, stmts) ->
-        let bufh = bufhash dhash (Id inst) in
-        let inst' = newnam() in
-        let bufh' = bufhash dhash (Id inst') in
-        bufmemo bufh dhash typhash expr;
-        List.iter (cnv' dhash typhash inst') stmts;
-        bufh.l := switch' dhash typhash bufh' expr stmts :: !(bufh.l);
-	copybuf bufh bufh';
-    | Id t when Hashtbl.mem typhash t -> print_endline t
+        let lst' = List.map (cnv' bufh dhash typhash expr) stmts in
+        dbgcase := lst';
+        (List.flatten (List.map (fun (p,u,d) -> p) lst'),
+         Switch_stmt (tran' expr, [], [], (List.flatten (List.map (fun (p,u,d) -> u) lst'))) :: [],
+         List.flatten (List.map (fun (p,u,d) -> d) lst'))
+    | Id t when Hashtbl.mem typhash t -> print_endline t; ([],[],[])
     | oth -> unhand := Some oth; failwith "cnv'"
 
 let dbgproc = ref None
@@ -1250,13 +1234,11 @@ let rec proc_template bufh typhash cnt = function
     | DeclReg _ -> ()
     | DeclLogic _ -> ()
     | AlwaysLegacy (At (EventOr [Pos clk]), body) ->
-    let dhash = (Hashtbl.create 255, Hashtbl.create 255) in
+    let dhash = Hashtbl.create 255 in
     let inst = newnam() in
-    dbgproc := Some (fst dhash, snd dhash, inst, clk, body);
-    let bufh' = bufhash dhash (Id inst) in
-    cnv' dhash typhash inst body;
-    bufh.l := proc1 inst bufh' clk :: !(bufh.l);
-    copybuf bufh bufh'
+    dbgproc := Some (typhash, dhash, inst, clk, body);
+    let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, [Sync_list69 ([TokPos], [TokID clk], [], (List.sort_uniq compare s))]) :: !(bufh.l)
 (*
     | AlwaysFF (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
   bprintf buf' "    // clocked process %d description goes here\n" !cnt;
@@ -1336,15 +1318,15 @@ let rec proc_template bufh typhash cnt = function
     | Port _ -> ()
     | oth -> unhand := Some oth; failwith "proc_template"
 
-let dbgtyp = ref (Hashtbl.create 1)
+let body = ref []
+let body' = ref []
 
 let template modules = function
   | Modul(nam, parm_lst, port_lst, body_lst') -> let cnt = ref 1 in
   let typhash = Hashtbl.create 255 in
   let dhash = (Hashtbl.create 255, Hashtbl.create 255) in
-  let bufh = bufhash dhash (Id nam) in
+  let bufh = bufhash () in
   let bufm = ref [] in
-  dbgtyp := typhash;
   bufm := Attr_stmt ("\\cells_not_processed", [TokInt 1]) :: !(bufm);
   let ports' = List.flatten(List.mapi (fun ix itm -> ports typhash (ix+1) itm) port_lst) in
   let typlst, othlst = List.partition (function TypEnum6 _ -> true | _ -> false) body_lst' in
@@ -1353,6 +1335,8 @@ let template modules = function
   List.iter (decl_template bufh typhash modules cnt) (List.sort compare components);
   List.iter (decl_template bufh typhash modules cnt) othlst;
   let body_lst = sub' typhash body_lst' in
+  body := body_lst;
+  body' := body_lst';
   List.iter (proc_template bufh typhash cnt) body_lst;
   bufm := Module12 (nam, ports' @ catbuf bufh) :: !(bufm);
   List.rev (!bufm);
@@ -1361,7 +1345,7 @@ let template modules = function
   let body_lst = sub' typhash body_lst' in
   let dhash = (Hashtbl.create 255, Hashtbl.create 255) in
   let inst = newnam() in
-  let bufh = bufhash dhash (Id inst) in
+  let bufh = bufhash () in
   List.iter (decl_template bufh typhash modules cnt) body_lst;
   List.rev (catbuf bufh);
   | oth -> unhand := Some oth; failwith "This template only handles modules/packages"
