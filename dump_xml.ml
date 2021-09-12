@@ -141,7 +141,7 @@ SysTaskCall (_, _)|TaskBody (_, _)|TaskRef (_, _)|Typ2 (_, _, _)|Typ3 (_, _)|
 Typ4 (_, _, _, _)|Typ5 (_, _)|Typ6 _|Typ7 (_, _)|Typ8 (_, _)|Typ9 (_, _, _)|
 Typ10 (_, _, _)|TypEnum3 _|TypEnum4 (_, _, _)|TypEnum5 _|TypEnum6 (_, _, _)|
 TypParam (_, _, _)|UPlus _|Union (_, _)|VNum _|ValueRange (_, _)|
-VarDeclAsgn (_, _)|VarDim _|While (_, _)|PackageParam _|PackageParam2 _ as x) -> x
+VarDeclAsgn (_, _)|VarDim _|While (_, _)|PackageParam _|PackageParam2 _|EquateConcat (_, _)|TaskDecl (_, _, _, _)|SysTaskRef (_, _) as x) -> x
 
 and recurs_lst sysver_attr x = List.map (sysver_attr.fn sysver_attr ) x
 
@@ -703,7 +703,7 @@ let rec decl_template typhash modules cnt = function
         | oth -> unhand := Some oth; failwith "InstDecl") lst);
     | Typ2 ("bool_t", [], [Id "FALSE"; Id "TRUE"]) -> []
     | Typ2 (nam, _, Id id :: []) ->  update typhash nam (Vtyp nam);
-    let s = vexpr typhash (Id id) in update typhash id Vsigtyp;
+    let _ = vexpr typhash (Id id) in update typhash id Vsigtyp;
      VAR ("", [id], (BASDTYP, "logic", TYPNONE, []), "logic") :: []
     | Typ3 (nam, id_lst) -> List.flatten (List.map (function
         | Id id -> VAR ("", [id], (BASDTYP, "logic", TYPNONE, []), "logic") :: []
@@ -758,23 +758,21 @@ let rec decl_template typhash modules cnt = function
     | TypEnum6 (nam, Typ8 (Atom "int", Atom "unsigned"), id_lst) -> update typhash nam (Venum nam); []
 *)
     | TypEnum6 (nam, Deflt, id_lst) -> update typhash nam (Venum nam);
-        let strt = ref 0 in let enums = List.map (function
+        let strt = ref 0 in List.iter (function
         | Id e -> update typhash e (Vemember(nam, e, Intgr(!strt))); incr strt
         | EnumInit (e, expr) ->
-	    let s = vexpr typhash expr in
+	    let _ = vexpr typhash expr in
 	    update typhash e (Vemember(nam, e, expr))
-	| oth -> unhand := Some oth; failwith "TypEnum6") id_lst in
-	[]
+	| oth -> unhand := Some oth; failwith "TypEnum6") id_lst; []
     | TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), id_lst) -> update typhash nam (Venum nam);
-        let strt = ref 0 in let enums = List.map (function
+        let strt = ref 0 in List.iter (function
         | Id e -> update typhash e (Vemember(nam, e, Intgr(!strt)));
 	    incr strt
         | EnumInit (e, expr) ->
 	    strt := ceval typhash expr;
 	    update typhash e (Vemember(nam, e, Intgr(!strt)));
             incr strt
-	| oth -> unhand := Some oth; failwith "TypEnum6") id_lst in
-	[]
+	| oth -> unhand := Some oth; failwith "TypEnum6") id_lst; []
 
 	(*
     | ParamDecl (Atom "localparam", [ParamAsgn1 (nam, expr)]) -> sprintf "    localparam %s = %s; // 740	\n" nam (vexpr typhash expr)
@@ -828,7 +826,7 @@ let rec decl_template typhash modules cnt = function
     | oth -> unhand := Some oth; failwith "decl_template"
 
 let instance_template typhash typ params inst pinlst =
- let params = List.map (parm_generic typhash) params in
+ let _ = List.map (parm_generic typhash) params in
 INST("", MODULE, [inst], (typ, (List.mapi (fun ix -> function
   | Id id -> (match Hashtbl.find_opt typhash typ with
     | Some (Vcomp lst) -> (match List.nth lst ix with
@@ -917,7 +915,7 @@ let template modules = function
   let body_lst = List.map (recurs {fn=recurs}) body_lst' in
   let typhash = Hashtbl.create 255 in
   print_endline ("Converting: "^nam);
-  let params = parm_template typhash parm_lst in
+  let _ = parm_template typhash parm_lst in
   let typlst, othlst = List.partition (function TypEnum6 _ -> true | _ -> false) body_lst in
   let decl1 = List.map (decl_template typhash modules cnt) (typlst) in
   let components, othlst = List.partition (function InstDecl _ -> true | _ -> false) othlst in

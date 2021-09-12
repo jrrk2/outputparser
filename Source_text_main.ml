@@ -36,6 +36,7 @@ let rewrite_sysver v =
 let dbgx = ref None
 
 let rewrite_rtlil v =
+  print_endline ("Parsing: "^v);
   Matchmly.modules := [];
   let p = parse v in
   let p' = rw p in
@@ -59,7 +60,7 @@ let rewrite_rtlil v =
   fprintf fd "synth\n";
   fprintf fd "write_verilog %s_dump.synth\n" v;
   close_out fd;
-  let err = match Unix.system("yosys "^fnam) with
+  let _ = match Unix.system("yosys "^fnam) with
   | WEXITED errno -> if errno <> 0 then
     printf "yosys failed with error code %d\n" errno;
     errno

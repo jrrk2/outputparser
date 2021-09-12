@@ -134,7 +134,7 @@ SysTaskCall (_, _)|TaskBody (_, _)|TaskRef (_, _)|Typ2 (_, _, _)|Typ3 (_, _)|
 Typ4 (_, _, _, _)|Typ5 (_, _)|Typ6 _|Typ7 (_, _)|Typ8 (_, _)|Typ9 (_, _, _)|
 Typ10 (_, _, _)|TypEnum3 _|TypEnum4 (_, _, _)|TypEnum5 _|TypEnum6 (_, _, _)|
 TypParam (_, _, _)|UPlus _|Union (_, _)|VNum _|ValueRange (_, _)|
-VarDeclAsgn (_, _)|VarDim _|While (_, _)|PackageParam _|PackageParam2 _ as x) -> x
+VarDeclAsgn (_, _)|VarDim _|While (_, _)|PackageParam _|PackageParam2 _|EquateConcat (_, _)|TaskDecl (_, _, _, _)|SysTaskRef (_, _) as x) -> x
 
 and recurs_lst sysver_attr x = List.map (sysver_attr.fn sysver_attr ) x
 

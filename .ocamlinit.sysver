@@ -61,6 +61,7 @@ let v = "examples/count5.v";;
 let v = "examples/count6.v";;
 let v = "examples/count7.v";;
 let v = "../yosys/tests/simple/process.v";;
+let v = "../yosys/tests/simple/aes_kexp128.v";;
 
 (*
 let x = rw (parse v);;

@@ -1268,8 +1268,8 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("port_declaration225"), arg1, arg2, Var, arg4, arg5) as oth -> mayfail oth  "port_declaration225"
 | TUPLE6(STRING("port_declaration227"), dir, arg2, arg3, arg4, nam) ->
   let rng = match mly arg4 with Itmlst lst -> lst | oth -> [oth] in
-  let port = match mly nam with Itmlst[Id id] -> id | oth -> othport := Some oth; failwith "port" in
-  Port(mly dir, port, rng, [])
+  let portlst = match mly nam with Itmlst(Id _ :: _ as lst) -> lst | oth -> othport := Some oth; failwith "port" in
+  Itmlst (List.map (function Id port -> Port(mly dir, port, rng, []) | oth -> othport := Some oth; failwith "portlst") portlst)
 | TUPLE6(STRING("program_declaration134"), Extern, arg2, arg3, arg4, SEMICOLON) as oth -> mayfail oth  "program_declaration134"
 | TUPLE6(STRING("property_spec2555"), AT, LPAREN, arg3, RPAREN, arg5) -> PropertySpec (* (mly arg3, mly arg5) *)
 | TUPLE6(STRING("simple_immediate_assertion_statement2530"), Assert, LPAREN, arg3, RPAREN, arg5) -> Assert (* (mly arg3, mly arg5) *)

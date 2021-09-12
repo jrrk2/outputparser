@@ -15,10 +15,8 @@ let getstr = function
   | AnyRange _ -> "AnyRange"
   | Asgn1 _ -> "Asgn1"
   | AsgnPat _ -> "AsgnPat"
-(*
-  | Assert _ -> "Assert"
-  | AssertProperty _ -> "AssertProperty"
- *)
+  | Assert -> "Assert"
+  | AssertProperty -> "AssertProperty"
   | At _ -> "At"
   | AtStar
   | Atom _ -> "Atom"
@@ -174,7 +172,7 @@ let getstr = function
   | PortItemFront _ -> "PortItemFront"
   | PortsStar _ -> "PortsStar"
   | Pos _ -> "Pos"
-  | PropertySpec _ -> "PropertySpec"
+  | PropertySpec -> "PropertySpec"
   | Query _ -> "Query"
   | RedAnd _ -> "RedAnd"
   | RedOr _ -> "RedOr"

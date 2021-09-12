@@ -137,6 +137,7 @@ let rec width typhash = function
 | Sys ("$size", Dot1 _) -> 1 (* placeholder *)
 | ExprOKL [] -> 0
 | ExprOKL (hd::tl) -> width typhash hd + width typhash (ExprOKL tl)
+| IdArrayedColon(_, hi, lo) -> ceval typhash hi - ceval typhash lo + 1
 | oth -> unhand := Some oth; failwith "width"
 
 let rec recurs t (attr: Source_text_rewrite.attr) = function
@@ -152,7 +153,7 @@ let rec recurs t (attr: Source_text_rewrite.attr) = function
        (CaseStmt ([Number(2,1,1,"")],
          recurs t attr if_clause :: []) ::
          []))
-  | EquateSelect(lhs, sel, expr) as x ->
+  | EquateSelect(lhs, sel, expr) ->
       let wid = width t (Id lhs) in
       print_endline ("wid="^string_of_int wid);
       let foreach = List.init wid (fun ix -> let sel = Number(2,clog2 wid,ix,"") in CaseStmt ([], EquateSelect(lhs, sel, expr) :: [])) in
@@ -262,7 +263,7 @@ let rec vexpr typhash = function
 and vexpr' typhash = function
 | (Intgr _ | Number _) as x -> "(unsigned'(" ^ (vexpr typhash) x ^ ")) "
 | (Id s) as x -> (match Hashtbl.find_opt typhash s with
-    | Some (Vint _|Vtyp _|Venum _|Vsigtyp|Vpkg _|Vfun _|Vintf _|Vstr _|Vdot|Vemember _|MaybePort _) -> vexpr typhash x
+    | Some (Vint _|Vtyp _|Venum _|Vsigtyp|Vpkg _|Vfun _|Vintf _|Vstr _|Vdot|Vemember _|MaybePort _|Task _) -> vexpr typhash x
     | Some Std_logic -> vexpr typhash x
     | Some Std_logic_vector _ -> "unsigned (" ^ vexpr typhash x ^ ") "
     | None -> print_endline ("not found: "^s); s)
@@ -445,6 +446,8 @@ and instance_template bufh typhash typ params inst pinlst =
         List.map (function
 		   | CellPinItem2 (pin, Number(b,w,n,_)) -> TokConn([TokID("\\"^pin)], [TokVal(sprintf "%d'%s\n" w (obin w n))])
 		   | CellPinItem2 (pin, Id conn) -> TokConn([TokID("\\"^pin)], [TokID conn ])
+		   | CellPinItem2 (pin, IdArrayed2 (Id conn, Number(_,_,n,_))) -> TokConn([TokID("\\"^pin)], [Sigspec90(conn,n)])
+		   | CellPinItem2 (pin, IdArrayedColon (Id conn, Number(_,_,hi,_), Number(_,_,lo,_))) -> TokConn([TokID("\\"^pin)], [Sigspecrange(conn,hi,lo)])
 		   | CellPinItem1 (pin, conn) -> TokConn([TokID("\\"^pin)], [TokID conn])
                    | oth -> unhand := Some oth; failwith "inst_arg") pinlst)
 
@@ -469,6 +472,7 @@ let rec asgnexpr' bufh typhash wid = function
   | Expression x -> asgnexpr bufh typhash x
   | Tilde expr -> let rhs = asgnexpr bufh typhash expr and rslt = newid bufh typhash wid in addprim bufh typhash "$tilde" [] [rhs;rslt] "AY"; rslt
   | Pling expr -> let rhs = asgnexpr bufh typhash expr and rslt = newid bufh typhash wid in addprim bufh typhash "$not" [] [rhs;rslt] "AY"; rslt
+  | IdArrayedColon (id, hi, lo) as x -> x
   | IdArrayed2 (id, ix) as x -> x
   | Query (cond', ctrue', cfalse') -> ternary bufh typhash wid "mux" [cfalse'; ctrue'; cond'] "ABSY"
 (*
@@ -739,6 +743,7 @@ let rec tran' = function
    | Atom "default" -> []
    | Concat lst -> List.flatten (List.map tran' lst)
    | ExprOKL lst -> List.flatten (List.map tran' lst)
+   | IdArrayed2 (Id arr, Number (b, w, n, _)) -> vsel' n (Id arr)
    | oth -> unhand := Some oth; failwith "tran'"
 
 let asgn bufh typhash expr = function
@@ -911,10 +916,11 @@ let elabenum typhash nam id_lst = update typhash nam (Venum nam);
 let rec decl_template bufh typhash modules cnt = function
     | Port(PortDir(dir, Atom kind), nam, [], []) -> addwire bufh ([vdir (portpos typhash nam) dir], nam)
     | Port(dir, nam, [], []) -> addwire bufh ([vdir (portpos typhash nam) dir], nam)
-    | Itmlst (Port(dir, nam, [], []) :: _ as lst) ->
+    | Itmlst (Port(dir, nam, rng, []) :: _ as lst) ->
         List.iter (function
 		   | Port(PortDir(dir, Atom kind), nam, [], []) -> addwire bufh ([vdir (portpos typhash nam) dir], nam)
 		   | Port(dir, nam, [], []) -> addwire bufh ([vdir (portpos typhash nam) dir], nam)
+                   | Port(dir, nam, [AnyRange _ as x], []) -> addwire bufh (range typhash nam x :: [vdir (portpos typhash nam) dir], nam)
                    | oth -> unhand := Some oth; failwith "Port Itmlst") lst
     | Port(PortDir(dir, Atom kind), nam, [AnyRange _ as x], []) -> addwire bufh (range typhash nam x :: [vdir (portpos typhash nam) dir], nam)
     | Port(dir, nam, [AnyRange _ as x], []) -> addwire bufh (range typhash nam x :: [vdir (portpos typhash nam) dir], nam)
@@ -1211,8 +1217,9 @@ let rec cnv' bufh dhash typhash inst = function
          TokUpdate ([TokID lhs], tran' dly) :: [])
     | EquateSelect (lhs, Number(_,_,n,_), expr) ->
         let dly = dlymemo bufh dhash typhash (Id lhs) in
+        let rhs = buffer' bufh typhash expr 0 in
         (Assign_stmt67 (tran' dly, [TokID lhs]) :: [],
-         Assign_stmt67 (vsel' n dly, tran' expr) :: [],
+         Assign_stmt67 (vsel' n dly, tran' rhs) :: [],
          TokUpdate ([TokID lhs], tran' dly) :: [])
     | Blocking (FopAsgn (lhs, (Number _ as expr))) ->
         let dly = dlymemo bufh dhash typhash (Id lhs) in
@@ -1246,6 +1253,7 @@ let dbgproc = ref None
 let mapedge sync_lst = function
   | Pos signal -> Sync_list69 ([TokPos], [TokID signal], [], sync_lst)
   | Neg signal -> Sync_list69 ([TokNeg], [TokID signal], [], sync_lst)
+  | oth -> unhand := Some oth; failwith "mapedge"
 
 let rec proc_template bufh typhash cnt = function
     | DeclReg _ -> ()
@@ -1349,7 +1357,6 @@ let body' = ref []
 let template modules = function
   | Modul(nam, parm_lst, port_lst, body_lst') -> let cnt = ref 1 in
   let typhash = Hashtbl.create 255 in
-  let dhash = (Hashtbl.create 255, Hashtbl.create 255) in
   let bufh = bufhash () in
   let bufm = ref [] in
   bufm := Attr_stmt ("\\cells_not_processed", [TokInt 1]) :: !(bufm);
@@ -1368,8 +1375,6 @@ let template modules = function
   | PackageBody (pkg, body_lst') -> let cnt = ref 1 in
   let typhash = Hashtbl.create 255 in
   let body_lst = sub' typhash body_lst' in
-  let dhash = (Hashtbl.create 255, Hashtbl.create 255) in
-  let inst = newnam() in
   let bufh = bufhash () in
   List.iter (decl_template bufh typhash modules cnt) body_lst;
   List.rev (catbuf bufh);
