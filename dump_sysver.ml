@@ -107,8 +107,8 @@ DotBus (_, _, _, _)|ElabTask _|ElseStmt _|EnumInit (_, _)|
 Equals3 (_, _)|EqualsQuery (_, _)|Equate (_, _)|
 EquateArrayField (_, _, _, _, _)|EquateField (_, _, _)|
 EquateSelect (_, _, _)|EquateSelect2 (_, _, _)|EquateSlice (_, _, _, _)|
-EventOr _|ExprOKL _|ExprQuote1 (_, _)|Final _|FopAsgn (_, _)|
-FopAsgn1 (_, _, _, _)|FopAsgnArrayField (_, _, _)|
+EquateSlicePlus (_, _, _, _)|EventOr _|ExprOKL _|ExprQuote1 (_, _)|
+Final _|FopAsgn (_, _)|FopAsgn1 (_, _, _, _)|FopAsgnArrayField (_, _, _)|
 FopAsgnArrayField2 (_, _, _)|FopAsgnArrayField3 (_, _, _, _)|
 FopAsgnArrayField4 (_, _, _, _, _, _)|FopAsgnArrayField5 (_, _, _, _, _)|
 FopAsgnArrayField6 (_, _, _, _, _)|FopAsgnArrayField7 (_, _, _, _, _)|

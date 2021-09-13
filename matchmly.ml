@@ -1001,14 +1001,11 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
       | oth -> othpat3 := Some oth; failwith "port92")
 | TUPLE5(STRING("port_declaration221"), dir, arg2, arg3, arg4) ->
     (match arg3, arg4 with
-      | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic as x), EMPTY_TOKEN, TLIST rng), TLIST [TUPLE4
-         (STRING "variable_decl_assignment297", IDENTIFIER port,
-          EMPTY_TOKEN, EMPTY_TOKEN)] ->
-	   Port(PortDir(mly dir, mly x), port, rml rng, [])
-      | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic as x), EMPTY_TOKEN, EMPTY_TOKEN), TLIST [TUPLE4
-         (STRING "variable_decl_assignment297", IDENTIFIER port,
-          EMPTY_TOKEN, EMPTY_TOKEN)] ->
-	   Port(PortDir(mly dir, mly x), port, [], [])
+      | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic as x), EMPTY_TOKEN, rng), TLIST lst ->
+          Itmlst (List.map (function
+	      | TUPLE4 (STRING "variable_decl_assignment297", IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
+                  Port(PortDir(mly dir, mly x), port, (match rng with EMPTY_TOKEN -> [] | TLIST rng -> rml rng | oth -> [mly rng]), [])
+              | oth -> othpat1 := Some oth; failwith "port_declaration221'") lst)
       | oth -> othpat2 := Some oth; failwith "port_declaration221")
 | TUPLE5(STRING("port_declaration229"), arg1, arg2, arg3, arg4) as oth -> mayfail oth  "port_declaration229"
 | TUPLE5(STRING("senitemEdge611"), Posedge, LPAREN, arg3, RPAREN) -> Pos (match arg3 with IDENTIFIER id -> id | oth -> othpat1 := Some oth; failwith "senitemEdge611")
@@ -1285,6 +1282,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 	| TUPLE5 (STRING "idArrayed2503", IDENTIFIER lhs, LBRACK, ix, RBRACK), EMPTY_TOKEN, expr -> EquateSelect(lhs, mly ix, mly expr)
 	| TUPLE5 (STRING "idArrayed2503", lhs, LBRACK, ix, RBRACK), EMPTY_TOKEN, expr -> EquateSelect2(mly lhs, mly ix, mly expr)
 	| TUPLE4 (STRING "fexprOkLvalue1316", LBRACE, TLIST lst, RBRACE), EMPTY_TOKEN, expr -> EquateConcat(rml lst, mly expr)
+	| TUPLE7 (STRING "idArrayed2505", lhs, LBRACK, hi, PLUS_COLON, lo, RBRACK), EMPTY_TOKEN, expr -> EquateSlicePlus(mly lhs, mly hi, mly lo, mly expr)
 	| oth -> othpat3 := Some oth; failwith "statement_item648")
 | TUPLE6(STRING("statement_item651"), Force, arg2, EQUALS, arg4, SEMICOLON) as oth -> mayfail oth  "statement_item651"
 | TUPLE6(STRING("statement_item653"), arg1, arg2, arg3, arg4, Endcase) ->

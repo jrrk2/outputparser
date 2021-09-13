@@ -66,6 +66,7 @@ type rw =
   | EquateSelect of string * rw * rw
   | EquateSelect2 of rw * rw * rw
   | EquateSlice of rw * rw * rw * rw
+  | EquateSlicePlus of rw * rw * rw * rw
   | EventOr of rw list
   | ExprOKL of rw list
   | ExprQuote1 of rw * rw

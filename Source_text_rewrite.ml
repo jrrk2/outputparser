@@ -2,6 +2,8 @@ open Source_text_rewrite_types
 open Source_text_lex
 open Source_text
 
+let verbose = ref false
+
 let getstr = function
   | Add _ -> "Add"
   | AlwaysComb _ -> "AlwaysComb"
@@ -69,6 +71,7 @@ let getstr = function
   | EquateSelect _ -> "EquateSelect"
   | EquateSelect2 _ -> "EquateSelect2"
   | EquateSlice _ -> "EquateSlice"
+  | EquateSlicePlus _ -> "EquateSlicePlus"
   | EventOr _ -> "EventOr"
   | ExprOKL _ -> "ExprOKL"
   | ExprQuote1 _ -> "ExprQuote1"
@@ -414,7 +417,7 @@ let rec descend' (attr:attr) = function
   | AtStar as x -> x
   | BreakSemi as x -> x
   | PropertySpec as x -> x
-  | AlwaysComb2 _ as x -> x
+  | AlwaysComb2 (rw) -> AlwaysComb2 (descend_itm attr rw)
   | AlwaysFF (_, _) as x -> x
   | AlwaysLatch _ as x -> x
   | AlwaysLegacy (rw, rw') -> AlwaysLegacy (descend_itm attr rw, descend_itm attr rw')
@@ -425,7 +428,7 @@ let rec descend' (attr:attr) = function
   | At _ as x -> x
   | Atom _ as x -> x
   | AutoFunDecl (_, _, _) as x -> x
-  | CaseStmt(rw_lst, rw_lst') -> print_endline "CaseStmt"; CaseStmt(descend_lst attr (rw_lst), descend_lst attr (rw_lst'))
+  | CaseStmt(rw_lst, rw_lst') -> CaseStmt(descend_lst attr (rw_lst), descend_lst attr (rw_lst'))
   | CaseItm(rw_lst) -> CaseItm(descend_lst attr (rw_lst))
   | CaseStart (rw, rw_lst) -> CaseStart(descend_itm attr rw, descend_lst attr rw_lst)
   | CaseStart1 (rw) -> CaseStart1(descend_itm attr rw)
@@ -457,7 +460,8 @@ let rec descend' (attr:attr) = function
   | EquateField (_, _, _) as x -> x
   | EquateSelect (_, _, _) as x -> x
   | EquateSelect2 (_, _, _) as x -> x
-  | EquateSlice (_, _, _, _) as x -> x
+  | EquateSlice (rw, rw2, rw3, rw4) -> EquateSlice (descend_itm attr rw, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | EquateSlicePlus (rw, rw2, rw3, rw4) -> EquateSlicePlus (descend_itm attr rw, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
   | EventOr _ as x -> x
   | ExprOKL _ as x -> x
   | ExprQuote1 (_, _) as x -> x
@@ -486,11 +490,11 @@ let rec descend' (attr:attr) = function
   | Generate _ as x -> x
   | HyphenGt (_, _) as x -> x
   | IdArrayed1 (_, _, _) as x -> x
-  | IdArrayed2 (_, _) as x -> x
+  | IdArrayed2 (id, sel) -> IdArrayed2 (descend_itm attr id, descend_itm attr sel)
   | IdArrayed3 (_, _) as x -> x
-  | IdArrayedColon (_, _, _) as x -> x
-  | IdArrayedHyphenColon (_, _, _) as x -> x
-  | IdArrayedPlusColon (_, _, _) as x -> x
+  | IdArrayedColon (rw, rw2, rw3) -> IdArrayedColon (descend_itm attr rw, descend_itm attr rw2, descend_itm attr rw3)
+  | IdArrayedHyphenColon (rw, rw2, rw3) -> IdArrayedHyphenColon (descend_itm attr rw, descend_itm attr rw2, descend_itm attr rw3)
+  | IdArrayedPlusColon (rw, rw2, rw3) -> IdArrayedPlusColon (descend_itm attr rw, descend_itm attr rw2, descend_itm attr rw3)
   | Iff (_, _) as x -> x
   | Inc _ as x -> x
   | InitPat _ as x -> x
@@ -563,41 +567,13 @@ let rec descend' (attr:attr) = function
   | TaskDecl _ as x -> x
   | SysTaskRef _ as x -> x
   
-and descend_lst attr x = List.map (attr.fn attr) x
+and descend_lst attr x = List.map (fun x -> if !verbose then print_endline (getstr x); attr.fn attr x) x
 
-and descend_itm attr x = attr.fn attr x
+and descend_itm attr x = if !verbose then print_endline (getstr x); attr.fn attr x
 
 let rec descend (attr:attr) = function
   | Id id -> (match Hashtbl.find_opt attr.subst id with None -> Id id | Some exp -> exp)
   | oth -> descend' {attr with fn=descend} oth
-
-let iter attr ix strt stop inc stmts = 
-    let loopvar = ref strt in
-    let block = ref [] in
-    while (!loopvar <= stop) do
-      begin
-	Hashtbl.replace attr.subst ix (Intgr !loopvar);
-	block := descend_itm attr stmts :: !block;
-	loopvar := !loopvar + inc;
-      end
-    done;
-    BeginBlock (List.rev !block)
-
-let rec unroll (attr:attr) = function
-  | Id id -> (match Hashtbl.find_opt attr.subst id with None -> Id id | Some exp -> exp)
-  | ForLoop(rw_lst, rw2, rw3, rw4) ->
-    begin 
-    match rw_lst, rw2, rw3 with
- (*
-     | Blocking (Id ix, Intgr strt) :: [], LtEq (Id ix', Intgr stop), Inc (Id ix'') ->
-	iter attr ix strt stop 1 rw4
-	*)
-     | _ -> ForLoop(descend_lst attr (rw_lst),
-	    descend_itm attr (rw2),
-	    descend_itm attr (rw3),
-	    descend_itm attr (rw4))
-    end
-  | oth -> descend' {attr with fn=unroll} oth
 
 let parse_output_ast_from_chan ch =
   let lb = Lexing.from_channel ch in
