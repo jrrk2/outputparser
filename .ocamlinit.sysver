@@ -65,7 +65,10 @@ let v = "../yosys/tests/simple/aes_kexp128.v";;
 let v = "examples/picorv32_ref.v";;
 let v = "examples/shiftx.v";;
 let v = "examples/array.v";;
+let v = "examples/taskfunc1.v";;
 let v = "../yosys/tests/simple/memory.v";;
+let v = "../yosys/tests/simple/task_func.v";;
+let v = "examples/taskfunc4.v";;
 
 (*
 let x = rw (parse v);;
@@ -75,18 +78,17 @@ let x = rw (parse v);;
 let (modlst,x,p,p') = rewrite_rtlil v;;
 (* *)
 
-let crnt = "memtest13";;
-let x = sub' !dbgtyp [List.assoc crnt !Matchmly.modules];;
+let x crnt = sub' !dbgtyp (List.assoc crnt !Matchmly.modules);;
 let t id = Hashtbl.find !dbgtyp id;;
 let u = snd (List.hd modlst);;
-let m = List.assoc crnt !(Matchmly.modules);;
+let m crnt = List.assoc crnt !(Matchmly.modules);;
 let p u = output_string stdout (Input_dump.dump_ilst "\n" u);;
 
 let (typhash, dhash, inst, edglst, body) = match !dbgproc with
     | Some (typhash, dhash, inst, edglst, body) -> (typhash, dhash, inst, edglst, body)
     | None -> print_endline "dbgproc is empty"; Hashtbl.create 1, Hashtbl.create 1, "", [], Seq("", [])
 
-let e = sub' !dbgtyp [m];;
+let e crnt = sub' !dbgtyp (m crnt);;
 
 let tlst = ref [];;
 Hashtbl.iter (fun k x -> tlst := (k,x) :: !tlst) !dbgtyp;;

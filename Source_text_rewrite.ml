@@ -2,7 +2,7 @@ open Source_text_rewrite_types
 open Source_text_lex
 open Source_text
 
-let verbose = ref false
+let verbose = try int_of_string (Sys.getenv ("DESCEND_VERBOSE")) > 0 with _ -> false
 
 let getstr = function
   | Add _ -> "Add"
@@ -34,10 +34,8 @@ let getstr = function
   | CaseStartUniqInside _ -> "CaseStartUniqInside"
   | CaseStmt _ -> "CaseStmt"
   | Cast _ -> "Cast"
-  | CellParamItem1 _ -> "CellParamItem1"
   | CellParamItem2 _ -> "CellParamItem2"
   | CellParamItem3 _ -> "CellParamItem3"
-  | CellPinItem1 _ -> "CellPinItem1"
   | CellPinItem2 _ -> "CellPinItem2"
   | CellPinItemImplied _ -> "CellPinItemImplied"
   | CellPinItemNC _ -> "CellPinItemNC"
@@ -197,7 +195,7 @@ let getstr = function
   | Sys _ -> "Sys"
   | SysFuncCall _ -> "SysFuncCall"
   | SysTaskCall _ -> "SysTaskCall"
-  | TaskBody _ -> "TaskBody"
+  | TFBody _ -> "TFBody"
   | TaskDecl _ -> "TaskDecl"
   | TaskRef _ -> "TaskRef"
   | SysTaskRef _ -> "SysTaskRef"
@@ -334,7 +332,7 @@ let rec rw = function
 
 and flatten lst = List.flatten (List.map (function ELIST lst -> List.map rw lst | oth -> [rw oth]) lst)
  
-type attr = {subst: (string,rw)Hashtbl.t; fn: attr -> rw -> rw}
+type attr = {subst: (rw,rw)Hashtbl.t; fn: attr -> rw -> rw}
 
 let rec descend' (attr:attr) = function
   | Id id -> Id id
@@ -423,7 +421,7 @@ let rec descend' (attr:attr) = function
   | AlwaysLegacy (rw, rw') -> AlwaysLegacy (descend_itm attr rw, descend_itm attr rw')
   | And3 (_, _) as x -> x
   | AnyRange (_, _) as x -> x
-  | Asgn1 (_, _) as x -> x
+  | Asgn1 (lhs, rhs) -> Asgn1(descend_itm attr lhs, descend_itm attr rhs)
   | AsgnPat _ as x -> x
   | At _ as x -> x
   | Atom _ as x -> x
@@ -435,15 +433,13 @@ let rec descend' (attr:attr) = function
   | CaseStartInside (_, _) as x -> x
   | CaseStartUniq (_, _) as x -> x
   | CaseStartUniqInside (_, _) as x -> x
-  | CellParamItem1 (_, _) as x -> x
   | CellParamItem2 (_, _) as x -> x
   | CellParamItem3 (_, _) as x -> x
-  | CellPinItem1 (_, _) as x -> x
   | CellPinItem2 (_, _) as x -> x
   | CellPinItemImplied _ as x -> x
   | CellPinItemNC _ as x -> x
   | CondGen1 (_, _, _) as x -> x
-  | ContAsgn _ as x -> x
+  | ContAsgn lst -> ContAsgn (descend_lst attr lst)
   | DeclAsgn (_, _) as x -> x
   | DeclData (_, _) as x -> x
   | DeclInt2 _ as x -> x
@@ -466,7 +462,7 @@ let rec descend' (attr:attr) = function
   | ExprOKL _ as x -> x
   | ExprQuote1 (_, _) as x -> x
   | Final _ as x -> x
-  | FopAsgn (_, _) as x -> x
+  | FopAsgn (rw, rw') -> FopAsgn(descend_itm attr rw, descend_itm attr rw')
   | FopAsgn1 (_, _, _, _) as x -> x
   | FopAsgnArrayField (_, _, _) as x -> x
   | FopAsgnArrayField2 (_, _, _) as x -> x
@@ -478,7 +474,7 @@ let rec descend' (attr:attr) = function
   | FopAsgnArrayMemSel (_, _, _, _) as x -> x
   | FopAsgnArrayRange (_, _, _, _) as x -> x
   | FopAsgnArrayRange2 (_, _, _, _) as x -> x
-  | FopAsgnArraySel (_, _, _) as x -> x
+  | FopAsgnArraySel (s, rw, rw') -> FopAsgnArraySel (s, descend_itm attr rw, descend_itm attr rw')
   | FopAsgnArrayWid (_, _, _, _) as x -> x
   | FopAsgnConcat (_, _) as x -> x
   | ForEach (_, _) as x -> x
@@ -534,12 +530,12 @@ let rec descend' (attr:attr) = function
   | SUDecl (_, _) as x -> x
   | SUMember (_, _) as x -> x
   | Seq (lbl, lst) -> Seq(lbl, descend_lst attr lst)
-  | Blocking _ as x -> x
+  | Blocking rw -> Blocking ( descend_itm attr rw )
   | String _ as x -> x
   | Sys (_, _) as x -> x
   | SysFuncCall (_, _) as x -> x
   | SysTaskCall (_, _) as x -> x
-  | TaskBody (_, _) as x -> x
+  | TFBody (_, _) as x -> x
   | TaskRef (_, _) as x -> x
   | Typ2 (_, _, _) as x -> x
   | Typ3 (_, _) as x -> x
@@ -567,12 +563,12 @@ let rec descend' (attr:attr) = function
   | TaskDecl _ as x -> x
   | SysTaskRef _ as x -> x
   
-and descend_lst attr x = List.map (fun x -> if !verbose then print_endline (getstr x); attr.fn attr x) x
+and descend_lst attr x = List.map (fun x -> if verbose then print_endline (getstr x); attr.fn attr x) x
 
-and descend_itm attr x = if !verbose then print_endline (getstr x); attr.fn attr x
+and descend_itm attr x = if verbose then print_endline (getstr x); attr.fn attr x
 
 let rec descend (attr:attr) = function
-  | Id id -> (match Hashtbl.find_opt attr.subst id with None -> Id id | Some exp -> exp)
+  | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> exp)
   | oth -> descend' {attr with fn=descend} oth
 
 let parse_output_ast_from_chan ch =

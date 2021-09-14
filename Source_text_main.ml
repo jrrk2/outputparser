@@ -3,6 +3,7 @@ open Source_text
 open Source_text_lex
 open Source_text_rewrite
 
+(*
 let rewrite_vhdl v =
   Matchmly.modules := [];
   let p = parse v in
@@ -32,6 +33,7 @@ let rewrite_sysver v =
   close_out fd;
   let modlst = !modlst in
   modlst, x, p, p'
+  *)
 
 let dbgx = ref None
 
@@ -72,6 +74,7 @@ let rewrite_rtlil v =
     signal in
   !modlst, x, p, p'
 
+(*
 open Vxml_types
 
 let topxml = ref None
@@ -93,6 +96,7 @@ let rewrite_xml v top =
   let (x:typetable_t) = (Vxml_types.BASDTYP, "logic", Vxml_types.TYPNONE, []) in
   let rslt = Vxml.translate errlst (0,(0,0),xml,[]) top in
   !modlst, !errlst, rslt, xml, x, p, p'
+*)
 
 let _ = if Array.length Sys.argv > 1 then Array.iteri (fun ix itm -> if ix > 0 then let modlst,x,p,p' = rewrite_rtlil itm in List.iter (fun (k,_) -> print_endline k) modlst) Sys.argv
 

@@ -134,7 +134,7 @@ ParamDecl (_, _)|ParamPort _|PatMember1 (_, _)|PatMemberDflt _|PkgImport _|
 PkgImportItm (_, _)|PortDir (_, _)|PortFront (_, _)|PortItem (_, _)|
 PortItemFront (_, _)|PortsStar _|Return _|SUDecl (_, _)|SUMember (_, _)|Seq (_, _)|
 SideEffect (_, _)|Blocking _|String _|Sys (_, _)|SysFuncCall (_, _)|
-SysTaskCall (_, _)|TaskBody (_, _)|TaskRef (_, _)|Typ2 (_, _, _)|Typ3 (_, _)|
+SysTaskCall (_, _)|TFBody (_, _)|TaskRef (_, _)|Typ2 (_, _, _)|Typ3 (_, _)|
 Typ4 (_, _, _, _)|Typ5 (_, _)|Typ6 _|Typ7 (_, _)|Typ8 (_, _)|Typ9 (_, _, _)|
 Typ10 (_, _, _)|TypEnum3 _|TypEnum4 (_, _, _)|TypEnum5 _|TypEnum6 (_, _, _)|
 TypParam (_, _, _)|UPlus _|Union (_, _)|VNum _|ValueRange (_, _)|
