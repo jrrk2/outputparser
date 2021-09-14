@@ -75,24 +75,21 @@ let x = rw (parse v);;
 let (modlst,x,p,p') = rewrite_rtlil v;;
 (* *)
 
-let x () = sub' !dbgtyp [List.assoc "memtest05" !Matchmly.modules];;
+let crnt = "memtest13";;
+let x = sub' !dbgtyp [List.assoc crnt !Matchmly.modules];;
 let t id = Hashtbl.find !dbgtyp id;;
 let u = snd (List.hd modlst);;
-let m = List.assoc (fst (List.hd modlst)) !(Matchmly.modules);;
+let m = List.assoc crnt !(Matchmly.modules);;
 let p u = output_string stdout (Input_dump.dump_ilst "\n" u);;
 
 let (typhash, dhash, inst, edglst, body) = match !dbgproc with
     | Some (typhash, dhash, inst, edglst, body) -> (typhash, dhash, inst, edglst, body)
     | None -> print_endline "dbgproc is empty"; Hashtbl.create 1, Hashtbl.create 1, "", [], Seq("", [])
 
-let e = sub' typhash [m];;
-
-let dlst = ref [];;
-Hashtbl.iter (fun k x -> dlst := (k,x) :: !dlst) dhash;;
-let dlst = !dlst;;
+let e = sub' !dbgtyp [m];;
 
 let tlst = ref [];;
-Hashtbl.iter (fun k x -> tlst := (k,x) :: !tlst) typhash;;
+Hashtbl.iter (fun k x -> tlst := (k,x) :: !tlst) !dbgtyp;;
 let tlst = !tlst;;
 
 (*
