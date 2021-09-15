@@ -235,7 +235,7 @@ let rec mly = function
 | TUPLE3(STRING("expr1114"), CARET, arg2) -> RedXor(mly arg2)
 | TUPLE3(STRING("expr1115"), TILDE_AMPERSAND, arg2) -> TildeAnd(mly arg2)
 | TUPLE3(STRING("expr1116"), TILDE_VBAR, arg2) -> TildeOr(mly arg2)
-| TUPLE3(STRING("expr1117"), CARET_TILDE, arg2) as oth -> mayfail oth  "expr1117"
+| TUPLE3(STRING("expr1117"), CARET_TILDE, arg2) -> CaretTilde(mly arg2)
 | TUPLE3(STRING("expr1154"), LBRACE, RBRACE) as oth -> mayfail oth  "expr1154"
 | TUPLE3(STRING("exprEqE1104"), EQUALS, arg2) as oth -> mayfail oth  "exprEqE1104"
 | TUPLE3(STRING("exprNoStr1240"), PLUS, arg2) as oth -> mayfail oth  "exprNoStr1240"
@@ -502,7 +502,7 @@ let rec mly = function
 (*
     | TUPLE4 (STRING "data_typeBasic263", (Bit|Logic), (EMPTY_TOKEN|Signed), EMPTY_TOKEN), TLIST lst -> DeclLogic(rml lst)
     | TUPLE4 (STRING "data_typeBasic263", Reg, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst -> DeclReg(rml lst, [], [])
-    | TUPLE4 (STRING "data_typeBasic263", Reg, EMPTY_TOKEN, TLIST lst'), TLIST lst -> DeclReg2(rml lst, rml lst')
+    | TUPLE4 (STRING "data_typeBasic263", Reg, (EMPTY_TOKEN|Signed as signed), TLIST lst'), TLIST lst -> DeclReg(rml lst, rml lst', signed_flag signed)
     | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst' -> Typ2(typ_id, rml lst, rml lst')
     | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst), TLIST lst' -> Typ2(typ_id, rml lst, rml lst')
     | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst -> Typ3(typ_id, rml lst)
@@ -555,8 +555,8 @@ let rec mly = function
     | TUPLE4 (STRING "data_typeBasic263", (Bit|Logic), (EMPTY_TOKEN|Signed), EMPTY_TOKEN), TLIST lst -> DeclLogic(rml lst)
     | TUPLE4 (STRING "data_typeBasic263", Logic, (EMPTY_TOKEN|Signed), TLIST lst'), TLIST lst -> DeclLogic2(rml lst, rml lst')
     | TUPLE3 (STRING "data_typeBasic264", (Byte|Int|Integer|Longint), (EMPTY_TOKEN|Unsigned)), TLIST lst -> DeclInt2(rml lst)
-    | TUPLE4 (STRING "data_typeBasic263", Reg, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst -> DeclReg(rml lst, [], [])
-    | TUPLE4 (STRING "data_typeBasic263", Reg, EMPTY_TOKEN, TLIST lst'), TLIST lst -> DeclReg2(rml lst, rml lst')
+    | TUPLE4 (STRING "data_typeBasic263", Reg, (EMPTY_TOKEN|Signed as signed), EMPTY_TOKEN), TLIST lst -> DeclReg(rml lst, [], signed_flag signed)
+    | TUPLE4 (STRING "data_typeBasic263", Reg, (EMPTY_TOKEN|Signed as signed), TLIST lst'), TLIST lst -> DeclReg(rml lst, rml lst', signed_flag signed)
     | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst' -> Typ2(typ_id, rml lst, rml lst')
     | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst), TLIST lst' -> Typ2(typ_id, rml lst, rml lst')
     | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst -> Typ3(typ_id, rml lst)
@@ -1280,7 +1280,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("port_declaration227"), dir, arg2, arg3, arg4, nam) ->
   let rng = match mly arg4 with Itmlst lst -> lst | oth -> [oth] in
   let portlst = match mly nam with Itmlst(Id _ :: _ as lst) -> lst | oth -> othport := Some oth; failwith "port" in
-  Itmlst (List.map (function Id port -> Port(mly dir, port, rng, []) | oth -> othport := Some oth; failwith "portlst") portlst)
+  Itmlst (List.map (function Id port -> Port(mly dir, port, rng, match mly arg3 with Deflt -> [] | oth -> [oth]) | oth -> othport := Some oth; failwith "portlst") portlst)
 | TUPLE6(STRING("program_declaration134"), Extern, arg2, arg3, arg4, SEMICOLON) as oth -> mayfail oth  "program_declaration134"
 | TUPLE6(STRING("property_spec2555"), AT, LPAREN, arg3, RPAREN, arg5) -> PropertySpec (* (mly arg3, mly arg5) *)
 | TUPLE6(STRING("simple_immediate_assertion_statement2530"), Assert, LPAREN, arg3, RPAREN, arg5) -> Assert (* (mly arg3, mly arg5) *)
@@ -1641,6 +1641,8 @@ and other msg = function
   | oth -> failwith msg
 
 and mayfail oth msg = if !canfail then (othpat1 := Some oth; failwith msg) else other msg oth
+
+and signed_flag x = (function | Deflt -> [] | oth -> [oth]) (mly x)
 
 and parmf = function
     | EMPTY_TOKEN -> []

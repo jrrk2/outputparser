@@ -27,6 +27,7 @@ let getstr = function
   | Bitlst _ -> "Bitlst"
   | BlockItem _ -> "BlockItem"
   | BreakSemi -> "BreakSemi"
+  | CaretTilde _ -> "CaretTilde"
   | CaseItm _ -> "CaseItm"
   | CaseStart _ -> "CaseStart"
   | CaseStart1 _ -> "CaseStart1"
@@ -50,7 +51,6 @@ let getstr = function
   | DeclLogic2 _ -> "DeclLogic2"
   | DeclModPort _ -> "DeclModPort"
   | DeclReg _ -> "DeclReg"
-  | DeclReg2 _ -> "DeclReg2"
   | Deflt
   | Div _ -> "Div"
   | Dot1 _ -> "Dot1"
@@ -268,7 +268,7 @@ let rec rw = function
 | ((IDENTIFIER _
 | INTEGER_NUMBER _| STRING _
 | AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|LBRACE|RBRACE
-| COLON|SEMICOLON|COMMA|CARET|TILDE|QUERY|QUOTE
+| COLON|SEMICOLON|COMMA|CARET|TILDE|QUERY|QUOTE|PERCENT
 | PLUS|HYPHEN|STAR|SLASH|HASH|PLING
 | AMPERSAND|AMPERSAND_AMPERSAND|AMPERSAND_EQ
 | GT_GT_GT|PLUS_COLON|PLUS_PLUS|COLON_COLON
@@ -364,6 +364,7 @@ let rec descend' (attr:attr) = function
   | Blocking rw -> Blocking ( descend_itm attr rw )
   | BlockItem(rw) -> BlockItem(descend_itm attr rw)
   | BreakSemi as x -> x
+  | CaretTilde _ as x -> x
   | CaseItm(rw_lst) -> CaseItm(descend_lst attr (rw_lst))
   | CaseStart (rw, rw_lst) -> CaseStart(descend_itm attr rw, descend_lst attr rw_lst)
   | CaseStart1 (rw) -> CaseStart1(descend_itm attr rw)
@@ -386,8 +387,7 @@ let rec descend' (attr:attr) = function
   | DeclLogic(rw_lst) -> DeclLogic(descend_lst attr (rw_lst))
   | DeclLogic2 (_, _) as x -> x
   | DeclModPort(rw_lst) -> DeclModPort(descend_lst attr (rw_lst))
-  | DeclReg(rw_lst, str1_lst, rw_lst_lst) -> DeclReg(descend_lst attr rw_lst, str1_lst, List.map (fun itm -> descend_lst attr itm) rw_lst_lst)
-  | DeclReg2 (_, _) as x -> x
+  | DeclReg(rw_lst, str1_lst, rw_lst') -> DeclReg(descend_lst attr rw_lst, str1_lst, descend_lst attr rw_lst')
   | Deflt -> Deflt
   | Div(rw, rw2) -> Div(descend_itm attr (rw), descend_itm attr (rw2))
   | Dot1(str1, rw2) -> Dot1(str1, descend_itm attr (rw2))

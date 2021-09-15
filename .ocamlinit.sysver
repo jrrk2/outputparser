@@ -70,6 +70,7 @@ let v = "examples/taskfunc4.v";;
 let v = "../yosys/tests/simple/memory.v";;
 let v = "../yosys/tests/simple/task_func.v";;
 let v = "../yosys/tests/simple/operators.v";;
+let v = "../yosys/tests/simple/sincos.v";;
 
 (*
 let x = rw (parse v);;

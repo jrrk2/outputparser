@@ -1,5 +1,5 @@
 
-type rw =
+type rw =  
   | Add of rw * rw
   | AlwaysComb of rw list
   | AlwaysComb2 of rw
@@ -21,7 +21,9 @@ type rw =
   | BeginBlock of rw list
   | Bitlst of rw list
   | BlockItem of rw
+  | Blocking of rw
   | BreakSemi
+  | CaretTilde of rw
   | CaseItm of rw list
   | CaseStart of rw * rw list
   | CaseStart1 of rw
@@ -44,8 +46,7 @@ type rw =
   | DeclLogic of rw list
   | DeclLogic2 of rw list * rw list
   | DeclModPort of rw list
-  | DeclReg of rw list * rw list * rw list list
-  | DeclReg2 of rw list * rw list
+  | DeclReg of rw list * rw list * rw list
   | Deflt
   | Div of rw * rw
   | Dot1 of rw * rw
@@ -188,7 +189,6 @@ type rw =
   | SideEffect of rw * rw
   | Signed of rw
   | StarStar of rw * rw
-  | Blocking of rw
   | String of string
   | Sub of rw * rw
   | Sys of string * rw
@@ -196,10 +196,10 @@ type rw =
   | SysTaskCall of string * rw list
   | SysTaskRef of rw * rw list
   | TFBody of rw list * rw list
+  | TF_port_decl of rw * rw list * rw list
+  | TF_variable of rw * rw * rw * rw
   | TaskDecl of string * rw * rw * rw
   | TaskRef of string * rw list
-  | TF_variable of rw * rw * rw * rw
-  | TF_port_decl of rw * rw list * rw list
   | Tilde of rw
   | TildeAnd of rw
   | TildeOr of rw
@@ -231,4 +231,3 @@ type rw =
   | WireExpr of rw * rw
   | Xnor of rw * rw
   | Xor of rw * rw
-  
