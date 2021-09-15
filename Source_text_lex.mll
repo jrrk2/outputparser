@@ -1117,7 +1117,7 @@ let tok arg = if verbose then Printf.printf "tokenToBison  TOKEN {c%d-%d:}=%d %s
 let ident = ['a'-'z' 'A'-'Z' '$' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$']*
 let escaped = '\\'[^' ']*' '
 let fltnum = ['0'-'9']+'.'['E' '-' '+' '0'-'9']*
-let sizednumber = ['0'-'9']+'\''['b' 'd' 'h'][' ']*[ '0'-'9' 'a'-'f' 'x' 'A'-'F' 'X' '_' '?']+
+let sizednumber = ['0'-'9']+'\''['s']*['b' 'd' 'h'][' ']*[ '0'-'9' 'a'-'f' 'x' 'A'-'F' 'X' '_' '?']+
 let number = ['0'-'9']['0'-'9' '_']*
 let dfltnum = '''['0'-'9' 'b' 'd' 'h' 'x' 'X']['0'-'9' 'a'-'f' 'A'-'F' 'x' '?']*
 let space = [' ' '\t' '\r']+

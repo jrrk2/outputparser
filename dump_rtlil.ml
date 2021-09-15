@@ -29,8 +29,10 @@ type bufh = {c:ilang list ref;
     w:ilang list ref}
 
 let unhand = ref None
-let update typhash id expr = match id with Id id -> Hashtbl.replace typhash id expr
-
+let update typhash id expr = match id with
+  | Id id -> Hashtbl.replace typhash id expr
+  | oth -> failwith ("Argument "^(Source_text_rewrite.getstr oth)^" of update must be Id")
+  
 let is_mem typhash id = match Hashtbl.find_opt typhash id with Some (Vmem _) -> true | _ -> false
 let mem_opt typhash id = match Hashtbl.find_opt typhash id with Some (Vmem opt) -> opt | _ -> failwith "mem_opt"
 
@@ -258,12 +260,12 @@ and fsubst' t attr arglst = function
      Itmlst [AnyRange (hi', lo')],
      TFBody (formlst', body)) ->
   let formlst = List.flatten (List.map (function
-    | TF_port_decl (In, [AnyRange (hi, lo)], formlst) -> List.map (function TF_variable (Id _ as formal, Deflt, Deflt, Deflt) -> formal) formlst
-(* *)
+    | TF_port_decl (In, [AnyRange (hi, lo)], formlst) -> List.map (function
+          | TF_variable (Id _ as formal, Deflt, Deflt, Deflt) -> formal
+          | oth -> unhand := Some oth; failwith "param") formlst
     | BlockItem (ParamDecl (Atom "Parameter", lst)) -> List.iter (function
 	  | ParamAsgn1 (id, expr) -> Hashtbl.add attr.Source_text_rewrite.subst (Id id) expr
           | oth -> unhand := Some oth; failwith "param") lst; []
-(* *)
     | oth -> unhand := Some oth; failwith "fsubst'") formlst') in
   printf "fsubst1 nam: %s, len(arglst) = %d, len(formlst) = %d\n" nam (List.length arglst) (List.length formlst);
   dbgact := arglst;
@@ -354,19 +356,22 @@ let newnam () =
   incr id_ix;
   "$Id$"^string_of_int !id_ix
 
-let addwire bufh typhash = function (options, Id nam) ->
+let addwire bufh typhash = function
+| (options, Id nam) ->
   print_endline ("addwire: "^nam);
   (match Hashtbl.find_opt typhash nam with Some (MaybePort (ix,Vsigtyp,dir)) -> update typhash (Id nam) (MaybePort (ix, Std_logic, dir)) | _ -> ());
   if List.filter (function Wire_stmt (_, id) -> id=nam | _ -> false) !(bufh.w) <> [] then
     print_endline ("Warning: "^nam^" is already defined, could be obsolete syntax")
   else
     bufh.w := Wire_stmt(options, nam) :: !(bufh.w)
+| (_, oth) -> failwith ("Argument "^(Source_text_rewrite.getstr oth)^" of addwire must be wire Id")
 
 let rec memsiz typhash = function
 | [] -> []
 | (first,last) :: tl -> let off' = ceval typhash first in (off', ceval typhash last - off' + 1) :: memsiz typhash tl
 
-let addmem bufh typhash first_last_lst wid' = function Id mem ->
+let addmem bufh typhash first_last_lst wid' = function
+| Id mem ->
   if List.filter (function Memory_stmt39 (_, id) -> id=mem | _ -> false) !(bufh.w) <> [] then
     print_endline ("Warning: "^mem^" is already defined, could be obsolete syntax")
   else
@@ -379,6 +384,7 @@ let addmem bufh typhash first_last_lst wid' = function Id mem ->
     update typhash (Id mem) (Vmem {off=off';siz=siz';wid=wid';tot=tot'});
     bufh.w := Memory_stmt39 (options, mem) :: !(bufh.w)
     end
+| oth -> failwith ("Argument "^(Source_text_rewrite.getstr oth)^" of addmem must be memory Id")
 
 let vsel' n = function Id lhs -> [Sigspec90 (lhs, n)] | oth -> unhand := Some oth; failwith "vsel'"
 
@@ -635,7 +641,9 @@ let vdir ix = function
   | oth -> unhand := Some oth; failwith "vdir"
 
 let array_port typhash ix hi lo dir nam =
+(*
   let wid = ceval typhash hi - ceval typhash lo +1 in
+*)
   update typhash (Id nam) (MaybePort (ix, Std_logic_vector(hi,lo), dir))
 
 let maybe_port typhash nam ix dir = 
@@ -1339,21 +1347,21 @@ let rec cnv' bufh dhash typhash inst = function
         (generate_assignment bufh typhash (dly, lhs) :: [],
          generate_assignment bufh typhash (IdArrayed2(dly,sel), rhs) :: [],
          generate_update bufh typhash (lhs, dly) :: [])
-    | EquateSelect2 (IdArrayed2(lhs, sel'), sel, expr) as x ->
+    | EquateSelect2 (IdArrayed2(lhs, sel'), sel, expr) ->
         let dly = dlymemo bufh dhash typhash lhs in
         let rhs = buffer' bufh typhash expr 0 in
         (generate_assignment bufh typhash (dly, lhs) :: [],
          generate_assignment bufh typhash (IdArrayed1(lhs,sel',sel), rhs) :: [],
          generate_update bufh typhash (lhs, dly) :: [])
     | EquateSlice (lhs, ((Number _| Intgr _) as hi), ((Number _| Intgr _) as lo), expr) ->
-        let dly = dlymemo bufh dhash typhash lhs in
-        let rhs = buffer' bufh typhash expr 0 in
+(*        let dly = dlymemo bufh dhash typhash lhs in
+*)        let rhs = buffer' bufh typhash expr 0 in
         ([],
          generate_assignment bufh typhash (IdArrayedColon(lhs,hi,lo), rhs) :: [],
          [])
     | EquateSlicePlus (lhs, (lo), (Intgr _ | Number _ as wid), expr) ->
-        let dly = dlymemo bufh dhash typhash lhs in
-        let rhs = buffer' bufh typhash expr 0 in
+(*        let dly = dlymemo bufh dhash typhash lhs in
+*)        let rhs = buffer' bufh typhash expr 0 in
         ([],
          generate_assignment bufh typhash (IdArrayedPlusColon(lhs,lo,wid), rhs) :: [],
          [])
@@ -1491,7 +1499,6 @@ let rec proc_template bufh typhash = function
     | AssertProperty -> ()
     | Port _ -> ()
     | FunDecl _ -> ()
-    | TaskDecl _ -> ()
     | oth -> unhand := Some oth; failwith "proc_template"
 
 let body' = ref []
@@ -1519,7 +1526,7 @@ let template modules = function
         addwire bufh typhash ([vdir ix dir], Id nam)
     | Vint _ -> ()
     | Task _ -> ()
-    | Std_logic _ -> ()
+    | Std_logic -> ()
     | Std_logic_vector _ -> ()
     | oth -> coth := Some oth; failwith "portdump") typhash;
   List.iter (proc_template bufh typhash) body_lst;

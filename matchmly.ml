@@ -176,7 +176,7 @@ let rec mly = function
 | DLR_readmemh -> Atom "$readmemh"
 | TUPLE3(STRING("assignment_pattern769"), QUOTE_LBRACE, RBRACE) as oth -> mayfail oth  "assignment_pattern769"
 | TUPLE3(STRING("attr_event_control592"), AT, STAR) as oth -> mayfail oth  "attr_event_control592"
-| TUPLE3(STRING("block_item_declaration637"), arg1, SEMICOLON) as oth -> BlockItem (mly arg1)
+| TUPLE3(STRING("block_item_declaration637"), arg1, SEMICOLON) -> BlockItem (mly arg1)
 | TUPLE3(STRING("caseAttrE725"), arg1, SLASH_STAR_verilator_full_case_STAR_SLASH) as oth -> mayfail oth  "caseAttrE725"
 | TUPLE3(STRING("caseAttrE726"), arg1, SLASH_STAR_verilator_parallel_case_STAR_SLASH) as oth -> mayfail oth  "caseAttrE726"
 | TUPLE3(STRING("case_generate_item485"), Default, arg2) as oth -> mayfail oth  "case_generate_item485"
