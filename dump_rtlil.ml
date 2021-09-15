@@ -1518,6 +1518,9 @@ let template modules = function
     | MaybePort(ix, Std_logic, dir) ->
         addwire bufh typhash ([vdir ix dir], Id nam)
     | Vint _ -> ()
+    | Task _ -> ()
+    | Std_logic _ -> ()
+    | Std_logic_vector _ -> ()
     | oth -> coth := Some oth; failwith "portdump") typhash;
   List.iter (proc_template bufh typhash) body_lst;
   bufm := Module12 (nam, catbuf bufh) :: !(bufm);

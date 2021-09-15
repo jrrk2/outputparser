@@ -45,7 +45,6 @@ outputparser.top
 Input_top
 Input.ml
 Input.mli
-Input.mly
 Input_lex.ml
 Input_ord.ml
 liberty_parser.y
@@ -85,7 +84,6 @@ mykernel_test.c
 Source_text
 Source_text.ml
 Source_text.mli
-Source_text.mly
 Source_text.mly.orig
 Source_text_lex.ml
 Source_text_top

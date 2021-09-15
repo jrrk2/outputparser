@@ -66,9 +66,10 @@ let v = "examples/picorv32_ref.v";;
 let v = "examples/shiftx.v";;
 let v = "examples/array.v";;
 let v = "examples/taskfunc1.v";;
+let v = "examples/taskfunc4.v";;
 let v = "../yosys/tests/simple/memory.v";;
 let v = "../yosys/tests/simple/task_func.v";;
-let v = "examples/taskfunc4.v";;
+let v = "../yosys/tests/simple/operators.v";;
 
 (*
 let x = rw (parse v);;
