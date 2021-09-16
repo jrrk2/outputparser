@@ -98,6 +98,7 @@ type rw =
   | GenBlock of rw list
   | GenItem of string * rw list
   | Generate of rw
+  | Genvar of rw list
   | Greater of rw * rw
   | GtEq of rw * rw
   | HyphenGt of rw * rw
@@ -133,7 +134,7 @@ type rw =
   | Less of rw * rw
   | LocalParamTyp of rw
   | Logic of rw list * rw list
-  | LoopGen1 of rw * string * rw * rw * rw * rw * rw list
+  | LoopGen1 of rw * string * rw * rw * rw * rw list
   | LtEq of rw * rw
   | LtGt of rw * rw
   | Mod of rw * rw

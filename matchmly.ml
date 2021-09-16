@@ -736,7 +736,7 @@ let rec mly = function
 | TUPLE4(STRING("genItemBegin446"), Begin, arg2, End) ->
 (match arg2 with TLIST lst -> GenItem("", rml lst) | oth -> othpat1 := Some oth; failwith "genItemBegin446")
 | TUPLE4(STRING("generate_region442"), Generate, arg2, Endgenerate) -> Generate(mly arg2)
-| TUPLE4(STRING("genvar_declaration171"), Genvar, arg2, SEMICOLON) -> Itmlst(match arg2 with TLIST lst -> rml lst | oth -> mly oth :: [])
+| TUPLE4(STRING("genvar_declaration171"), Genvar, arg2, SEMICOLON) -> Genvar(match arg2 with TLIST lst -> rml lst | oth -> mly oth :: [])
 | TUPLE4(STRING("genvar_initialization461"), arg1, EQUALS, arg3) as oth -> mayfail oth  "genvar_initialization461"
 | TUPLE4(STRING("genvar_iteration463"), arg1, EQUALS, arg3) -> Asgn1(mly arg1, mly arg3)
 | TUPLE4(STRING("genvar_iteration464"), arg1, PLUS_EQ, arg3) -> Asgn1(mly arg1, Add(mly arg1, mly arg3))
@@ -1574,50 +1574,22 @@ m
 | TUPLE9(STRING("system_t_call900"), DLR_writememh, LPAREN, arg3, COMMA, arg5, COMMA, arg7, RPAREN) as oth -> mayfail oth  "system_t_call900"
 | TUPLE9(STRING("type_declaration366"), Typedef, arg2, arg3, arg4, arg5, arg6, arg7, SEMICOLON) as oth -> mayfail oth  "type_declaration366"
 | TUPLE9(STRING("type_declaration369"), Typedef, arg2, arg3, arg4, arg5, arg6, arg7, SEMICOLON) as oth -> mayfail oth  "type_declaration369"
-| TUPLE10(STRING("loop_generate_construct460"), For, LPAREN, arg3, SEMICOLON, arg5, SEMICOLON, arg7, RPAREN, arg9) ->
-  ( match arg3, arg5, arg7, arg9 with
-  |    TUPLE5 (STRING "genvar_initialization462", Genvar, TUPLE3 (STRING "genvar_identifierDecl174", IDENTIFIER k, EMPTY_TOKEN), EQUALS, strt),
-      ELIST (cond :: LESS :: limit),
-      TUPLE3 (STRING "genvar_iteration477", IDENTIFIER k'', PLUS_PLUS),
-      TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(Id k, lbl, mly strt, mly cond, mly (ELIST limit), Intgr 1, rml body)
-  |    TUPLE5 (STRING "genvar_initialization462", Genvar, TUPLE3 (STRING "genvar_identifierDecl174", IDENTIFIER k, EMPTY_TOKEN), EQUALS, strt),
-      ELIST (cond :: LESS :: limit),
-      TUPLE3 (STRING "genvar_iteration475", PLUS_PLUS, IDENTIFIER k''),
-      TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(Id k, lbl, mly strt, mly cond, mly (ELIST limit), Intgr 1, rml body)
-  |    TUPLE5 (STRING "genvar_initialization462", Genvar, TUPLE3 (STRING "genvar_identifierDecl174", IDENTIFIER k, EMPTY_TOKEN), EQUALS, strt),
-      ELIST (cond :: LESS :: limit),
-      TUPLE3 (STRING "genvar_iteration477", IDENTIFIER k'', PLUS_PLUS),
-      TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) ->
-      LoopGen1(Id k, "", mly strt, mly cond, mly (ELIST limit), Intgr 1, rml body)
-  |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
-      ELIST (cond :: LESS :: limit),
-      TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
-      TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) ->
-      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), Intgr 1, rml body)
-  |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
-      ELIST (cond :: LESS :: limit),
-      TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
-      TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), Intgr 1, rml body)
-  |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
-      ELIST (cond :: LT_EQ :: limit),
-      TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
-      TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) ->
-      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), Intgr 1, rml body)
-  |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
-      ELIST (cond :: LESS :: limit),
-      TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
-      TUPLE6 (STRING "continuous_assign427", Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST body, SEMICOLON) ->
-      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), Intgr 1, rml body)
-  |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
-      limit,
-      TUPLE4 (STRING "genvar_iteration463", IDENTIFIER i'', EQUALS, ELIST [IDENTIFIER "i"; PLUS; inc]),
-      TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(Id i, "", mly strt, mly limit, mly limit, mly inc, rml body)
-
-  | oth -> othpat4 := Some oth; failwith "loop_generate_construct460")
+| TUPLE10(STRING("loop_generate_construct460"), For, LPAREN, arg3, SEMICOLON, limit, SEMICOLON, arg7, RPAREN, arg9) ->
+  let ix, strt = match arg3 with
+    | TUPLE5 (STRING "genvar_initialization462", Genvar, TUPLE3 (STRING "genvar_identifierDecl174", IDENTIFIER ix, EMPTY_TOKEN), EQUALS, strt)
+    | TUPLE4 (STRING "genvar_initialization461", IDENTIFIER ix, EQUALS, strt) -> ix, strt
+    | oth -> othpat1 := Some oth; failwith "loop_generate_construct460_arg3" in
+  let inc = match arg7 with
+    | TUPLE3 (STRING "genvar_iteration477", IDENTIFIER k'', PLUS_PLUS) -> Intgr 1
+    | TUPLE3 (STRING "genvar_iteration475", PLUS_PLUS, IDENTIFIER k'') -> Intgr 1
+    | TUPLE4 (STRING "genvar_iteration463", IDENTIFIER i'', EQUALS, ELIST [IDENTIFIER i'''; PLUS; inc]) when i'' = i''' -> mly inc
+    | oth -> othpat1 := Some oth; failwith "loop_generate_construct460_arg7" in
+  let lbl, body = match arg9 with
+    | TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) -> lbl, rml body
+    | TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) -> "", rml body
+    | TUPLE6 (STRING "continuous_assign427", Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST body, SEMICOLON) -> "", ContAsgn (rml body) :: []
+    | oth -> othpat1 := Some oth; failwith "loop_generate_construct460_arg9" in
+   LoopGen1(Id ix, lbl, mly strt, mly limit, inc, body)
 	       
 | TUPLE10(STRING("type_declaration367"), Typedef, arg2, arg3, arg4, arg5, arg6, arg7, arg8, SEMICOLON) as oth -> mayfail oth  "type_declaration367"
 | TUPLE11(STRING("property_spec2554"), AT, LPAREN, arg3, RPAREN, Disable, Iff, LPAREN, arg8, RPAREN, arg10) as oth -> mayfail oth  "property_spec2554"

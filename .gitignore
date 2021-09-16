@@ -95,6 +95,8 @@ mungelst.ml
 work-obj93.cf
 examples/*.ml
 examples/*.ref
+examples/*.v_dump.ys
 examples/*.verilog
 junk.v
 .DS_Store
+logfile.txt

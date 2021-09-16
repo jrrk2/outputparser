@@ -86,7 +86,7 @@ let x = rw (parse v);;
 let (modlst,x,p,p') = rewrite_rtlil v;;
 (* *)
 
-let x crnt = sub' !dbgtyp (List.assoc crnt !Matchmly.modules);;
+let x crnt = sub' (List.assoc crnt !Matchmly.modules);;
 let t id = Hashtbl.find !dbgtyp id;;
 let u = snd (List.hd modlst);;
 let m crnt = List.assoc crnt !(Matchmly.modules);;
@@ -96,7 +96,7 @@ let (typhash, dhash, inst, edglst, body) = match !dbgproc with
     | Some (typhash, dhash, inst, edglst, body) -> (typhash, dhash, inst, edglst, body)
     | None -> print_endline "dbgproc is empty"; Hashtbl.create 1, Hashtbl.create 1, "", [], Seq("", [])
 
-let e crnt = sub' !dbgtyp (m crnt);;
+let e crnt = sub' (m crnt);;
 
 let tlst = ref [];;
 Hashtbl.iter (fun k x -> tlst := (k,x) :: !tlst) !dbgtyp;;

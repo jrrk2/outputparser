@@ -53,7 +53,7 @@ let rec dump_ilang ind = function
 | Wire_optionswidth(int') -> " width "^string_of_int int'
 | Wire_stmt(ilang_lst,string') -> "wire"^dump_ilst " " ilang_lst^" "^esc string'^"\n"
 | TokCase(ilang_lst,ilang_lst') -> "TokCase("^dump_ilst ind ilang_lst^", "^dump_ilst ind ilang_lst'
-| TokConn(ilang_lst,ilang_lst') -> "connect "^dump_ilst " " ilang_lst^" "^dump_ilst " " ilang_lst'
+| TokConn(ilang_lst,ilang_lst') -> "connect "^dump_ilst " " ilang_lst^" "^dump_ilst " " ilang_lst'^"\n"
 | TokParam(ilang_lst,ilang_lst') -> "parameter "^dump_ilst " " ilang_lst^" "^dump_ilst " " ilang_lst'
 | TokUpdate(ilang_lst,ilang_lst') -> "update "^dump_ilst ind ilang_lst^" "^dump_ilst ind ilang_lst'^"\n"
 | TokInt(int) -> string_of_int int

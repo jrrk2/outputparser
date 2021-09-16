@@ -101,6 +101,7 @@ let getstr = function
   | FunRef2 _ -> "FunRef2"
   | GenBlock _ -> "GenBlock"
   | GenItem _ -> "GenItem"
+  | Genvar _ -> "GenItem"
   | Generate _ -> "Generate"
   | Greater _ -> "Greater"
   | GtEq _ -> "GtEq"
@@ -339,7 +340,7 @@ let rec rw = function
 
 and flatten lst = List.flatten (List.map (function ELIST lst -> List.map rw lst | oth -> [rw oth]) lst)
  
-type attr = {subst: (rw,rw)Hashtbl.t; fn: attr -> rw -> rw}
+type attr = {subst: (rw,rw)Hashtbl.t; fn: attr -> rw -> rw; pth: string}
 
 let rec descend' (attr:attr) = function
   | Add(rw, rw2) -> Add(descend_itm attr (rw), descend_itm attr (rw2))
@@ -380,7 +381,7 @@ let rec descend' (attr:attr) = function
   | CellPinItemImplied _ as x -> x
   | CellPinItemNC _ as x -> x
   | Concat(rw_lst) -> Concat(descend_lst attr (rw_lst))
-  | CondGen1 (_, _, _) as x -> x
+  | CondGen1 (rw, rw2, rw3) -> CondGen1 (descend_itm attr rw, descend_itm attr rw2, descend_itm attr rw3)
   | ContAsgn lst -> ContAsgn (descend_lst attr lst)
   | DeclAsgn (_, _) as x -> x
   | DeclData (_, _) as x -> x
@@ -391,7 +392,7 @@ let rec descend' (attr:attr) = function
   | DeclReg(rw_lst, str1_lst, rw') -> DeclReg(descend_lst attr rw_lst, str1_lst, descend_itm attr rw')
   | Deflt -> Deflt
   | Div(rw, rw2) -> Div(descend_itm attr (rw), descend_itm attr (rw2))
-  | Dot1(str1, rw2) -> Dot1(str1, descend_itm attr (rw2))
+  | Dot1(rw, rw2) -> Dot1(descend_itm attr (rw), descend_itm attr (rw2))
   | Dot3(str1, str2, str3) -> Dot3(str1, str2, str3)
   | DotBus (_, _, _, _) as x -> x
   | Edge(rw, rw2) -> Edge(descend_itm attr (rw), descend_itm attr (rw2))
@@ -440,6 +441,7 @@ let rec descend' (attr:attr) = function
   | GenBlock(rw_lst) -> GenBlock(descend_lst attr (rw_lst))
   | GenItem (_, _) as x -> x
   | Generate _ as x -> x
+  | Genvar _ as x -> x
   | Greater(rw, rw2) -> Greater(descend_itm attr (rw), descend_itm attr (rw2))
   | GtEq(rw, rw2) -> GtEq(descend_itm attr (rw), descend_itm attr (rw2))
   | HyphenGt (_, _) as x -> x
@@ -458,7 +460,7 @@ let rec descend' (attr:attr) = function
   | Inc _ as x -> x
   | InitPair (_, _) as x -> x
   | InitPat _ as x -> x
-  | InitSig (_, _) as x -> x
+  | InitSig (rw, rw2) -> InitSig(descend_itm attr (rw), descend_itm attr (rw2))
   | Initial _ as x -> x
   | Inout -> Inout
   | InsideCase (_, _) as x -> x
@@ -475,9 +477,9 @@ let rec descend' (attr:attr) = function
   | Less(rw, rw2) -> Less(descend_itm attr (rw), descend_itm attr (rw2))
   | LocalParamTyp _ as x -> x
   | Logic(rw_lst, rw_lst2) -> Logic(descend_lst attr (rw_lst), descend_lst attr (rw_lst2))
-  | LoopGen1 (rw, rw2, rw3, rw4, rw5, rw6, rw7) ->
+  | LoopGen1 (rw, rw2, rw3, rw4, rw5, rw6) ->
        LoopGen1 (descend_itm attr (rw), (rw2), descend_itm attr (rw3), descend_itm attr (rw4),
-               descend_itm attr (rw5), descend_itm attr (rw6), descend_lst attr (rw7))
+               descend_itm attr (rw5), descend_lst attr (rw6))
   | LtEq(rw, rw2) -> LtEq(descend_itm attr (rw), descend_itm attr (rw2))
   | LtGt (_, _) as x -> x
   | Mod (_, _) as x -> x
@@ -486,7 +488,7 @@ let rec descend' (attr:attr) = function
   | Mult(rw, rw2) -> Mult(descend_itm attr (rw), descend_itm attr (rw2))
   | Nand (_, _) as x -> x
   | Neg(str1) -> Neg (str1)
-  | NetDecl (_, _) as x -> x
+  | NetDecl (rw, rwlst) -> NetDecl(descend_itm attr (rw), descend_lst attr (rwlst))
   | NonBlocking(rw, rw2) -> NonBlocking(descend_itm attr rw, descend_itm attr rw2)
   | Nor (_, _) as x -> x
   | NotEq(rw, rw2) -> NotEq(descend_itm attr (rw), descend_itm attr (rw2))
