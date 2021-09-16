@@ -61,7 +61,6 @@ let v = "examples/count6.v";;
 let v = "examples/count7.v";;
 let v = "examples/range.v";;
 let v = "../yosys/tests/simple/process.v";;
-let v = "../yosys/tests/simple/aes_kexp128.v";;
 let v = "examples/picorv32_ref.v";;
 let v = "examples/shiftx.v";;
 let v = "examples/array.v";;
@@ -71,6 +70,13 @@ let v = "../yosys/tests/simple/memory.v";;
 let v = "../yosys/tests/simple/task_func.v";;
 let v = "../yosys/tests/simple/operators.v";;
 let v = "../yosys/tests/simple/sincos.v";;
+let v = "../VlogHammer/rtl/expression_00000.v";;
+let v = "../yosys/tests/simple/aes_kexp128.v";;
+let v = "../yosys/tests/simple/arraycells.v";;
+let v = "../yosys/tests/simple/arrays01.v";;
+let v = "../yosys/tests/simple/attrib01_module.v";;
+let v = "../yosys/tests/simple/attrib09_case.v";;
+let v = "../yosys/tests/simple/carryadd.v";;
 
 (*
 let x = rw (parse v);;

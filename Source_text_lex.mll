@@ -1136,6 +1136,8 @@ rule token = parse
 | ">>>" { tok ( GT_GT_GT ) }
 | "<<<" { tok ( LT_LT ) } (* placeholder *)
 | "<<=" { tok ( LT_LT_EQ ) }
+| "===" { tok ( EQ_EQ_EQ ) }
+| "!==" { tok ( PLING_EQ_EQ ) }
 | "||" { tok ( VBAR_VBAR ) }
 | "~|" { tok ( TILDE_VBAR ) }
 | "^~" { tok ( CARET_TILDE ) }

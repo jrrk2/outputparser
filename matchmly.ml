@@ -373,7 +373,7 @@ let rec mly = function
     (match arg1,arg2 with 
         | Parameter, EMPTY_TOKEN -> Atom "Parameter"
         | Localparam, EMPTY_TOKEN -> Atom "localparam"
-        | Localparam, TUPLE3 (STRING "implicit_typeE363", EMPTY_TOKEN, TLIST lst) -> Param("localparam", Atom("implicit"), rml lst)
+        | Localparam, TUPLE3 (STRING "implicit_typeE363", (EMPTY_TOKEN|Signed as sgn), TLIST lst) -> Param("localparam", signed_flag sgn, rml lst)
         | oth -> othpat2 := Some oth; failwith "parameter_declarationFront177")
 | TUPLE3(STRING("parameter_declarationFront178"), arg1, arg2) ->
 (match arg1, arg2 with
@@ -796,8 +796,11 @@ let rec mly = function
 | TUPLE4(STRING("pexpr2559"), arg1, VBAR_EQ_GT, arg3) as oth -> mayfail oth  "pexpr2559"
 | TUPLE4(STRING("pgmFront135"), Program, arg2, arg3) as oth -> mayfail oth  "pgmFront135"
 | TUPLE4(STRING("port_declaration231"), arg1, arg2, arg3) -> 
-    let dir, lst = match (mly arg1, mly arg2, mly arg3) with dir, Deflt, Itmlst lst -> dir, lst | oth -> othport3 := Some oth; failwith "n231" in
-    Itmlst (List.map (function Id port -> Port(dir, port,[], []) | oth -> othport := Some oth; failwith "n231'") lst)
+  let dir, lst = match (mly arg1, mly arg2, mly arg3) with
+    | dir, Deflt, Itmlst lst -> dir, lst
+    | dir, Atom "wire", Itmlst lst -> dir, lst
+    | oth -> othport3 := Some oth; failwith "n231" in
+    Itmlst (List.map (function Id port -> Port(dir, port,[], Deflt) | oth -> othport := Some oth; failwith "n231'") lst)
 | TUPLE4(STRING("portsStarE78"), LPAREN, arg2, RPAREN) ->
 (match arg2 with
        | TLIST lst ->  PortsStar(rml lst)
@@ -963,6 +966,8 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE5(STRING("instDecl550"), arg1, arg2, arg3, SEMICOLON) ->
  (match arg1,arg2,arg3 with
   | IDENTIFIER id, TUPLE5 (STRING "parameter_value_assignment60", HASH, LPAREN, TLIST lst, RPAREN), TLIST lst' -> InstDecl(Id id, rml lst, rml lst')
+  | IDENTIFIER id, EMPTY_TOKEN, TLIST (TUPLE6 (STRING "instnameParen558", IDENTIFIER inst, TLIST rng, LPAREN, TLIST [TLIST lst], RPAREN) :: []) ->
+      InstArrayDecl(Id id, [], Id inst, rml rng, rml lst)
   | IDENTIFIER id, EMPTY_TOKEN, TLIST lst -> InstDecl(Id id, [], rml lst)
   | oth -> othpat3 := Some oth; failwith "instDecl550")
 | TUPLE5(STRING("member_decl_assignment292"), arg1, arg2, EQUALS, arg4) as oth -> mayfail oth  "member_decl_assignment292"
@@ -1002,14 +1007,14 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE5(STRING("patternOne755"), arg1, LBRACE, arg3, RBRACE) as oth -> mayfail oth  "patternOne755"
 | TUPLE5(STRING("port92"), dir, port, arg3, arg4) ->
     (match arg3, arg4, port with
-      | EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(mly dir, port, [], [])
+      | EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(mly dir, port, [], Deflt)
       | oth -> othpat3 := Some oth; failwith "port92")
 | TUPLE5(STRING("port_declaration221"), dir, arg2, arg3, arg4) ->
     (match arg3, arg4 with
       | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic as x), EMPTY_TOKEN, rng), TLIST lst ->
           Itmlst (List.map (function
 	      | TUPLE4 (STRING "variable_decl_assignment297", IDENTIFIER port, EMPTY_TOKEN, EMPTY_TOKEN) ->
-                  Port(PortDir(mly dir, mly x), port, (match rng with EMPTY_TOKEN -> [] | TLIST rng -> rml rng | oth -> [mly rng]), [])
+                  Port(PortDir(mly dir, mly x), port, (match rng with EMPTY_TOKEN -> [] | TLIST rng -> rml rng | oth -> [mly rng]), Deflt)
               | oth -> othpat1 := Some oth; failwith "port_declaration221'") lst)
       | oth -> othpat2 := Some oth; failwith "port_declaration221")
 | TUPLE5(STRING("port_declaration229"), arg1, arg2, arg3, arg4) as oth -> mayfail oth  "port_declaration229"
@@ -1267,12 +1272,12 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("port87"), dir, typ, port, arg4, arg5) ->
     (match typ, port with
       | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic as x), EMPTY_TOKEN, EMPTY_TOKEN), IDENTIFIER port ->
-	   Port(PortDir(mly dir, mly x), port, [], [])
-      | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic), (EMPTY_TOKEN|Signed), TLIST lst), IDENTIFIER port -> Port(mly dir, port, rml lst, [])
-      | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: [], [])
-      | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, rml lst, []) :: [], [])
-      | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: rml lst, [])
-      | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst'), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, rml lst, []) :: rml lst', [])
+	   Port(PortDir(mly dir, mly x), port, [], Deflt)
+      | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic), (EMPTY_TOKEN|Signed), TLIST lst), IDENTIFIER port -> Port(mly dir, port, rml lst, Deflt)
+      | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: [], Deflt)
+      | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, rml lst, []) :: [], Deflt)
+      | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: rml lst, Deflt)
+      | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst'), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, rml lst, []) :: rml lst', Deflt)
       | oth -> othpat2 := Some oth; failwith "port87")
 | TUPLE6(STRING("port90"), arg1, arg2, arg3, arg4, arg5) as oth -> mayfail oth  "port90"
 | TUPLE6(STRING("port_declaration223"), arg1, arg2, Var, arg4, arg5) as oth -> mayfail oth  "port_declaration223"
@@ -1280,7 +1285,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("port_declaration227"), dir, arg2, arg3, arg4, nam) ->
   let rng = match mly arg4 with Itmlst lst -> lst | oth -> [oth] in
   let portlst = match mly nam with Itmlst(Id _ :: _ as lst) -> lst | oth -> othport := Some oth; failwith "port" in
-  Itmlst (List.map (function Id port -> Port(mly dir, port, rng, match mly arg3 with Deflt -> [] | oth -> [oth]) | oth -> othport := Some oth; failwith "portlst") portlst)
+  Itmlst (List.map (function Id port -> Port(mly dir, port, rng, mly arg3) | oth -> othport := Some oth; failwith "portlst") portlst)
 | TUPLE6(STRING("program_declaration134"), Extern, arg2, arg3, arg4, SEMICOLON) as oth -> mayfail oth  "program_declaration134"
 | TUPLE6(STRING("property_spec2555"), AT, LPAREN, arg3, RPAREN, arg5) -> PropertySpec (* (mly arg3, mly arg5) *)
 | TUPLE6(STRING("simple_immediate_assertion_statement2530"), Assert, LPAREN, arg3, RPAREN, arg5) -> Assert (* (mly arg3, mly arg5) *)
@@ -1390,7 +1395,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE7(STRING("port89"), arg1, Var, arg3, arg4, arg5, arg6) as oth -> mayfail oth  "port89"
 | TUPLE7(STRING("port91"), dir, arg2, typ, port, arg5, arg6) ->
     (match typ, port with
-      | TLIST lst, IDENTIFIER port -> Port(mly dir, port, rml lst, [])
+      | TLIST lst, IDENTIFIER port -> Port(mly dir, port, rml lst, Deflt)
       | oth -> othpat2 := Some oth; failwith "port91")
 | TUPLE7(STRING("port96"), arg1, arg2, arg3, arg4, EQUALS, arg6) as oth -> mayfail oth  "port96"
 | TUPLE7(STRING("property_spec2556"), Disable, Iff, LPAREN, arg4, RPAREN, arg6) as oth -> mayfail oth  "property_spec2556"
@@ -1575,38 +1580,43 @@ m
       ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER k'', PLUS_PLUS),
       TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(Id k, lbl, mly strt, mly cond, mly (ELIST limit), rml body)
+      LoopGen1(Id k, lbl, mly strt, mly cond, mly (ELIST limit), Intgr 1, rml body)
   |    TUPLE5 (STRING "genvar_initialization462", Genvar, TUPLE3 (STRING "genvar_identifierDecl174", IDENTIFIER k, EMPTY_TOKEN), EQUALS, strt),
       ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration475", PLUS_PLUS, IDENTIFIER k''),
       TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(Id k, lbl, mly strt, mly cond, mly (ELIST limit), rml body)
+      LoopGen1(Id k, lbl, mly strt, mly cond, mly (ELIST limit), Intgr 1, rml body)
   |    TUPLE5 (STRING "genvar_initialization462", Genvar, TUPLE3 (STRING "genvar_identifierDecl174", IDENTIFIER k, EMPTY_TOKEN), EQUALS, strt),
       ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER k'', PLUS_PLUS),
       TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) ->
-      LoopGen1(Id k, "", mly strt, mly cond, mly (ELIST limit), rml body)
+      LoopGen1(Id k, "", mly strt, mly cond, mly (ELIST limit), Intgr 1, rml body)
   |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
       ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
       TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) ->
-      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), rml body)
+      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), Intgr 1, rml body)
   |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
       ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
       TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
-      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), rml body)
+      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), Intgr 1, rml body)
   |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
       ELIST (cond :: LT_EQ :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
       TUPLE4 (STRING "genItemBegin446", Begin, TLIST body, End) ->
-      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), rml body)
+      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), Intgr 1, rml body)
   |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
       ELIST (cond :: LESS :: limit),
       TUPLE3 (STRING "genvar_iteration477", IDENTIFIER i'', PLUS_PLUS),
       TUPLE6 (STRING "continuous_assign427", Assign, EMPTY_TOKEN, EMPTY_TOKEN, TLIST body, SEMICOLON) ->
-      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), rml body)
-      
+      LoopGen1(Id i, "", mly strt, mly cond,  mly (ELIST limit), Intgr 1, rml body)
+  |   TUPLE4 (STRING "genvar_initialization461", IDENTIFIER i, EQUALS, strt),
+      limit,
+      TUPLE4 (STRING "genvar_iteration463", IDENTIFIER i'', EQUALS, ELIST [IDENTIFIER "i"; PLUS; inc]),
+      TUPLE7 (STRING "genItemBegin450", Begin, COLON, IDENTIFIER lbl, TLIST body, End, EMPTY_TOKEN) ->
+      LoopGen1(Id i, "", mly strt, mly limit, mly limit, mly inc, rml body)
+
   | oth -> othpat4 := Some oth; failwith "loop_generate_construct460")
 	       
 | TUPLE10(STRING("type_declaration367"), Typedef, arg2, arg3, arg4, arg5, arg6, arg7, arg8, SEMICOLON) as oth -> mayfail oth  "type_declaration367"
@@ -1642,7 +1652,7 @@ and other msg = function
 
 and mayfail oth msg = if !canfail then (othpat1 := Some oth; failwith msg) else other msg oth
 
-and signed_flag x = (function | Deflt -> [] | oth -> [oth]) (mly x)
+and signed_flag x = mly x
 
 and parmf = function
     | EMPTY_TOKEN -> []
@@ -1700,7 +1710,7 @@ and itemsf portlst itmlst =
               let _ = List.iter (function DeclLogic lst -> List.iter (function Port(dir, nam, dimlst, xlst) -> Hashtbl.add porthash nam (dir,dimlst) | _ -> ()) lst | _ -> ()) portdecl in
 	      let ports = rml portlst in
 	      let ports' = List.map (function
-				      | Id port -> let dir,dims = Hashtbl.find porthash port in Port(dir, port, dims, [])
+				      | Id port -> let dir,dims = Hashtbl.find porthash port in Port(dir, port, dims, Deflt)
 				      | Port (dir, port, dims, xlst) as x -> x
                                       | Dot3 _ as x -> x (* placeholder *)
                                       | DotBus _ as x -> x (* placeholder *)
@@ -1742,7 +1752,7 @@ and prior5 = function
 
 and prior6 = function
 | [] -> []
-| lhs :: (EQ_EQ|PLING_EQ as op) :: rhs :: tl -> prior6 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
+| lhs :: (EQ_EQ|PLING_EQ|EQ_EQ_EQ|PLING_EQ_EQ as op) :: rhs :: tl -> prior6 (TUPLE4(enc_expr op, lhs, op, rhs) :: tl)
 | hd :: tl -> hd :: prior6 tl
 
 and prior7 = function

@@ -125,6 +125,7 @@ let getstr = function
   | Inout
   | InsideCase _ -> "InsideCase"
   | InsideRange _ -> "InsideRange"
+  | InstArrayDecl _ -> "InstArrayDecl"
   | InstDecl _ -> "InstDecl"
   | InstNameParen1 _ -> "InstNameParen1"
   | InstNameParen2 _ -> "InstNameParen2"
@@ -246,7 +247,7 @@ let rec rw = function
 | TLIST lst -> TLIST (List.map rw lst)
 | TUPLE2(arg1,arg2) -> TUPLE2 (rw arg1, rw arg2)
 | TUPLE4(STRING _ as arg0,LPAREN,arg,RPAREN) -> TUPLE4(arg0,LPAREN,rw arg,RPAREN)
-| TUPLE4(STRING _,arg1,(PLUS|HYPHEN|STAR|SLASH|AMPERSAND|AMPERSAND_AMPERSAND|VBAR|VBAR_VBAR|EQ_EQ|PLING_EQ|LT_EQ|GT_EQ|LT_LT|GT_GT|GT_GT_GT|LESS|GREATER|CARET|CARET_TILDE|STAR_STAR as arg2),arg3) -> ELIST (flatten (flatten (arg1 :: arg2 :: arg3 :: [])))
+| TUPLE4(STRING _,arg1,(PLUS|HYPHEN|STAR|SLASH|AMPERSAND|AMPERSAND_AMPERSAND|VBAR|VBAR_VBAR|EQ_EQ|PLING_EQ|LT_EQ|GT_EQ|LT_LT|GT_GT|GT_GT_GT|LESS|GREATER|CARET|CARET_TILDE|STAR_STAR|EQ_EQ_EQ|PLING_EQ_EQ as arg2),arg3) -> ELIST (flatten (flatten (arg1 :: arg2 :: arg3 :: [])))
 | TUPLE5(arg1,QUERY,arg3,COLON,arg5) -> ELIST (flatten (flatten (arg1 :: QUERY :: arg3 :: COLON :: arg5 :: [])))
 | TUPLE3(arg1,arg2,arg3) -> TUPLE3 (rw arg1, rw arg2, rw arg3)
 | TUPLE4(arg1,arg2,arg3,arg4) -> TUPLE4 (rw arg1, rw arg2, rw arg3, rw arg4)
@@ -273,7 +274,7 @@ let rec rw = function
 | AMPERSAND|AMPERSAND_AMPERSAND|AMPERSAND_EQ
 | GT_GT_GT|PLUS_COLON|PLUS_PLUS|COLON_COLON
 | EQUALS|LT_EQ|VBAR_VBAR|LT_LT|GT_GT|GT_EQ|EQ_EQ|LESS|GREATER|VBAR
-| TILDE_VBAR|TILDE_AMPERSAND
+| TILDE_VBAR|TILDE_AMPERSAND|EQ_EQ_EQ|PLING_EQ_EQ
 | CARET_TILDE
 | HYPHEN_HYPHEN
 | VBAR_EQ|PLUS_EQ
@@ -387,7 +388,7 @@ let rec descend' (attr:attr) = function
   | DeclLogic(rw_lst) -> DeclLogic(descend_lst attr (rw_lst))
   | DeclLogic2 (_, _) as x -> x
   | DeclModPort(rw_lst) -> DeclModPort(descend_lst attr (rw_lst))
-  | DeclReg(rw_lst, str1_lst, rw_lst') -> DeclReg(descend_lst attr rw_lst, str1_lst, descend_lst attr rw_lst')
+  | DeclReg(rw_lst, str1_lst, rw') -> DeclReg(descend_lst attr rw_lst, str1_lst, descend_itm attr rw')
   | Deflt -> Deflt
   | Div(rw, rw2) -> Div(descend_itm attr (rw), descend_itm attr (rw2))
   | Dot1(str1, rw2) -> Dot1(str1, descend_itm attr (rw2))
@@ -462,6 +463,7 @@ let rec descend' (attr:attr) = function
   | Inout -> Inout
   | InsideCase (_, _) as x -> x
   | InsideRange (_, _) as x -> x
+  | InstArrayDecl (_, _, _, _, _) as x -> x
   | InstDecl (_, _, _) as x -> x
   | InstNameParen1 (_, _) as x -> x
   | InstNameParen2 (_, _) as x -> x
@@ -473,7 +475,9 @@ let rec descend' (attr:attr) = function
   | Less(rw, rw2) -> Less(descend_itm attr (rw), descend_itm attr (rw2))
   | LocalParamTyp _ as x -> x
   | Logic(rw_lst, rw_lst2) -> Logic(descend_lst attr (rw_lst), descend_lst attr (rw_lst2))
-  | LoopGen1 (_, _, _, _, _, _) as x -> x
+  | LoopGen1 (rw, rw2, rw3, rw4, rw5, rw6, rw7) ->
+       LoopGen1 (descend_itm attr (rw), (rw2), descend_itm attr (rw3), descend_itm attr (rw4),
+               descend_itm attr (rw5), descend_itm attr (rw6), descend_lst attr (rw7))
   | LtEq(rw, rw2) -> LtEq(descend_itm attr (rw), descend_itm attr (rw2))
   | LtGt (_, _) as x -> x
   | Mod (_, _) as x -> x
@@ -506,7 +510,7 @@ let rec descend' (attr:attr) = function
   | PkgImport _ as x -> x
   | PkgImportItm (_, _) as x -> x
   | Pling(rw) -> Pling(descend_itm attr (rw))
-  | Port(rw, str1, rw_lst1, rw_lst2) -> Port(descend_itm attr rw, str1, descend_lst attr rw_lst1, descend_lst attr rw_lst2)
+  | Port(rw, str1, rw_lst1, rw') -> Port(descend_itm attr rw, str1, descend_lst attr rw_lst1, descend_itm attr rw')
   | PortDir (_, _) as x -> x
   | PortFront (_, _) as x -> x
   | PortItem (_, _) as x -> x

@@ -46,7 +46,7 @@ type rw =
   | DeclLogic of rw list
   | DeclLogic2 of rw list * rw list
   | DeclModPort of rw list
-  | DeclReg of rw list * rw list * rw list
+  | DeclReg of rw list * rw list * rw
   | Deflt
   | Div of rw * rw
   | Dot1 of rw * rw
@@ -121,6 +121,7 @@ type rw =
   | Inout
   | InsideCase of rw * rw
   | InsideRange of rw * rw
+  | InstArrayDecl of rw * rw list * rw * rw list * rw list
   | InstDecl of rw * rw list * rw list
   | InstNameParen1 of string * rw list
   | InstNameParen2 of string * rw list
@@ -132,7 +133,7 @@ type rw =
   | Less of rw * rw
   | LocalParamTyp of rw
   | Logic of rw list * rw list
-  | LoopGen1 of rw * string * rw * rw * rw * rw list
+  | LoopGen1 of rw * string * rw * rw * rw * rw * rw list
   | LtEq of rw * rw
   | LtGt of rw * rw
   | Mod of rw * rw
@@ -165,7 +166,7 @@ type rw =
   | PkgImport of rw
   | PkgImportItm of string * rw
   | Pling of rw
-  | Port of rw * string * rw list * rw list
+  | Port of rw * string * rw list * rw
   | PortDir of rw * rw
   | PortFront of rw * rw
   | PortItem of rw * rw

@@ -98,5 +98,8 @@ let rewrite_xml v top =
   !modlst, !errlst, rslt, xml, x, p, p'
 *)
 
-let _ = if Array.length Sys.argv > 1 then Array.iteri (fun ix itm -> if ix > 0 then let modlst,x,p,p' = rewrite_rtlil itm in List.iter (fun (k,_) -> print_endline k) modlst) Sys.argv
+let _ = if Array.length Sys.argv > 1 then Array.iteri (fun ix itm -> try
+    if ix > 0 then let modlst,x,p,p' = rewrite_rtlil itm in
+    List.iter (fun (k,_) -> print_endline ("PASSED: "^itm^"("^k^")")) modlst
+    with err -> print_endline ("FAILED: "^itm)) Sys.argv
 

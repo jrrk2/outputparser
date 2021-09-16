@@ -1,7 +1,7 @@
 open Input
 open Input_rewrite_types
 
-let esc string = (if string.[0] <> '\\' then "\\" else "")^string
+let esc string = (if string.[0] <> '\\'  && string.[0] <> '$' then "\\" else "")^string
 
 let rec dump_ilang ind = function
 | Assign_stmt67(ilang_lst,ilang_lst') -> "assign "^dump_ilst ind ilang_lst^" "^dump_ilst ind ilang_lst'^"\n"
