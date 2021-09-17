@@ -98,7 +98,6 @@ type rw =
   | FunRef2 of string * rw list * rw list
   | GenBlock of rw list
   | GenItem of string * rw list
-  | Generate of rw
   | Genvar of rw list
   | Greater of rw * rw
   | GtEq of rw * rw

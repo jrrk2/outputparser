@@ -32,6 +32,11 @@ type bufh = {c:ilang list ref;
     l:ilang list ref;
     w:ilang list ref}
 
+type dead = 
+| Undecidable
+| Always_false
+| Always_true
+
 let logf = open_out "logfile.txt"
 
 let vtyp = function
@@ -206,6 +211,7 @@ and width typhash = function
 | IdArrayed2 (IdArrayed2 (Id id, addr), abot) -> 1
 | Float f -> 64
 | String s -> 8 * String.length s
+| FunRef _ -> 1 (* placeholder *)
 | oth -> unhand := Some oth; failwith "width"
 
 and signof' = function
@@ -269,6 +275,7 @@ and signof typhash = function
 | IdArrayed2 (IdArrayed2 (Id _ as id, _), _) -> signof typhash id
 | Float f -> Signed
 | String s -> Signed
+| FunRef _ -> Signed (* placeholder *)
 | oth -> unhand := Some oth; failwith "signof"
 
 let is_const' = function
@@ -325,6 +332,7 @@ let simplify x =
   !rslt2
 
 let rec recurs1 (attr: Source_text_rewrite.attr) = function
+  | Modul (nam, params, args, body) -> Modul (nam, List.map (recurs1 attr) params, List.map (recurs1 attr) args, List.map (recurs1 attr) body)
 (*
   | Itmlst lst -> Hashtbl.remove attr.subst Deflt; Itmlst (List.map (recurs1 attr) lst)
   | Port (Deflt, nam, [], sgn) as x -> (match Hashtbl.find_opt attr.subst Deflt with Some (DeclData(dir, rng)) -> Port (dir, nam, rng, sgn) | _ -> x)
@@ -335,6 +343,7 @@ let rec recurs1 (attr: Source_text_rewrite.attr) = function
   | TaskDecl(id, _, _, _) as x -> Hashtbl.replace attr.subst (TaskRef (id,[])) x; x
   | ParamDecl (Atom "Parameter", lst) as x ->
       List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl") lst; x
+  | Param (nam, expr, _) as x -> Hashtbl.add attr.Source_text_rewrite.subst (Id nam) expr; x
   | oth -> Source_text_rewrite.descend' {attr with fn=recurs1} oth
 
 let dbgform = ref []
@@ -342,25 +351,13 @@ let dbgact = ref []
 let dbgloop = ref None
 
 let rec recurs2 (attr: Source_text_rewrite.attr) = function
-  | If2(cond, if_clause, else_clause) ->
-      CaseStart (CaseStart1 (cond),
-       (CaseStmt ([Number(2,1,1,"")],
-         recurs2 attr if_clause :: []) ::
-        CaseStmt ([Number(2,1,0,"")],
-         recurs2 attr else_clause :: []) ::
-        []))
-  | If1(cond, if_clause) ->
-      CaseStart (CaseStart1 (recurs2 attr cond),
-       (CaseStmt ([Number(2,1,1,"")],
-         recurs2 attr if_clause :: []) ::
-         []))
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs2 attr exp)
   | ForLoop ([Asgn1 (Id ix, strt)], stop, Asgn1 (Id ix'', Add (Id ix''', inc)), body) ->
-      recurs2 attr (iter attr ix "ForLoop" (elabeval attr strt) stop (elabeval attr inc) body)
+      recurs2 attr (iter attr ix ("ForLoop_"^ix) (elabeval attr strt) stop (elabeval attr inc) body)
   | ForLoop _ as x -> unhand := Some x; failwith "unroll"
-  | Generate (Itmlst (LoopGen1 (Id ix, lbl, strt, stop, inc, body) :: [])) ->
+  | LoopGen1 (Id ix, lbl, strt, stop, inc, body) ->
       recurs2 attr (iter attr ix lbl (elabeval attr strt) stop (elabeval attr inc) (Itmlst body))
-  | Generate _ as x -> unhand := Some x; failwith "generate"
+  | LoopGen1 _ as oth -> unhand := Some oth; failwith "LoopGen1"
   | BeginBlock lst -> Seq("", List.map (recurs2 attr) lst)
   | ContAsgn (Asgn1 (Id _ as lhs, FunRef (id, arglst)) :: []) ->
       Hashtbl.add attr.subst (Id id) lhs;
@@ -379,10 +376,16 @@ let rec recurs2 (attr: Source_text_rewrite.attr) = function
   | AutoFunDecl(id, _, _) -> AutoFunDecl(id, Deflt, Deflt)
   | TaskDecl(id, _, _, _) -> TaskDecl(id, Deflt, Deflt, Deflt)
 (* *)
-  | Dot1 (IdArrayed2 (Id lbl, Intgr n), Id id) -> Id (lbl^"["^string_of_int n^"]."^id)
+  | Dot1 (IdArrayed2 (Id lbl, sel), Id id) -> let n = elabeval attr sel in Id (lbl^"["^string_of_int n^"]."^id)
+  | Blocking x -> (match x with
+        | FopAsgn (lhs, rhs) -> recurs2 attr (Equate (lhs, rhs))
+        | FopAsgnArraySel (out, sel, expr) -> recurs2 attr (EquateSelect (out, sel, expr))
+        | FopAsgnConcat (idlst, expr) -> recurs2 attr (EquateConcat (idlst, expr))
+	| oth -> unhand := Some oth; failwith "blocking not replaced")
   | oth -> Source_text_rewrite.descend' {attr with fn=recurs2} (simplify oth)
 
-and iter attr ix lbl strt stop inc stmts = 
+and iter attr ix lbl strt stop inc stmts =
+    print_endline ("iter: "^lbl);
     let loopvar = ref strt in
     let block = ref [] in
     let continue = match stop with
@@ -409,17 +412,23 @@ and fsubst' attr arglst = function
   let formlst = List.flatten (List.map (function
     | TF_port_decl (In, [AnyRange (hi, lo)], formlst) -> List.map (function
           | TF_variable (Id _ as formal, Deflt, Deflt, Deflt) -> formal
-          | oth -> unhand := Some oth; failwith "param") formlst
+          | oth -> unhand := Some oth; failwith "param1") formlst
+    | TF_port_decl (In, [Atom "integer"], formlst) -> List.map (function
+          | TF_variable (Id _ as formal, Deflt, Deflt, Deflt) -> formal
+          | oth -> unhand := Some oth; failwith "param2") formlst
     | BlockItem (ParamDecl (Atom "Parameter", lst)) -> List.iter (function
 	  | ParamAsgn1 (id, expr) -> Hashtbl.add attr.Source_text_rewrite.subst (Id id) expr
           | oth -> unhand := Some oth; failwith "param") lst; []
+    | DeclInt2 formlst -> List.map (function
+	  | Id _ as formal -> formal
+          | oth -> unhand := Some oth; failwith "param3") formlst; []
     | oth -> unhand := Some oth; failwith "fsubst'") formlst') in
   printf "fsubst1 nam: %s, len(arglst) = %d, len(formlst) = %d\n" nam (List.length arglst) (List.length formlst);
   dbgact := arglst;
   dbgform := formlst;
   List.iter2 (fun actual -> function
     | Id _ as formal -> Hashtbl.add attr.Source_text_rewrite.subst formal actual
-    | oth -> unhand := Some oth; failwith "fsubst'") arglst formlst;
+    | oth -> unhand := Some oth; failwith "fsubst''") arglst formlst;
     (match body with
 	   | Blocking (FopAsgn (nam', funexpr)) :: [] -> funexpr
            | Seq(lbl, lst) :: [] -> Seq(lbl, DeclReg([Id nam], [AnyRange (hi', lo')], Deflt) :: lst)
@@ -436,7 +445,7 @@ and fsubst' attr arglst = function
   printf "fsubst2 nam: %s, len(arglst) = %d, len(formlst) = %d\n" nam (List.length arglst) (List.length formlst);
   List.iter2 (fun actual -> function
     | Id _ as formal -> Hashtbl.add attr.subst formal actual
-    | oth -> unhand := Some oth; failwith "fsubst'") arglst formlst;
+    | oth -> unhand := Some oth; failwith "fsubst'''") arglst formlst;
   funexpr
   | oth -> unhand := Some oth; failwith "fsubst"
 
@@ -473,6 +482,35 @@ and tsubst attr arglst id = recurs2 attr (match Hashtbl.find_opt attr.subst (Tas
   | Some (TaskDecl _ as f) -> tsubst' attr arglst f
   | Some oth -> unhand := Some oth; failwith "TaskRef"
   | None -> failwith ("No definition for task: "^id))
+
+and dead_code attr = function
+| Pling rhs -> dead_code attr rhs
+| Less (Intgr n, Intgr m) -> if n < m then Always_true else Always_false
+| LtEq (Intgr n, Intgr m) -> if n <= m then Always_true else Always_false
+| Equals (Intgr n, Intgr m) -> if n = m then Always_true else Always_false
+| NotEq (Intgr n, Intgr m) -> if n <> m then Always_true else Always_false
+| GtEq (Intgr n, Intgr m) -> if n >= m then Always_true else Always_false
+| Greater (Intgr n, Intgr m) -> if n > m then Always_true else Always_false
+| Or2 (lhs, rhs) -> dead_code_or attr (dead_code attr lhs, dead_code attr rhs)
+| And2 (lhs, rhs) -> dead_code_and attr (dead_code attr lhs, dead_code attr rhs)
+| Id _ as id -> (match Hashtbl.find_opt attr.Source_text_rewrite.subst id with Some x -> dead_code_id attr x | None -> Undecidable)
+| Intgr n -> if n <> 0 then Always_true else Always_false
+| (TildeAnd _ | RedAnd _ | RedOr _ | IdArrayed2 _ | GtEq _ | Equals _ | Less _ | LtEq _ | NotEq _ | Greater _) -> Undecidable
+| oth -> unhand := Some oth; failwith "dead_code"
+| _ -> Undecidable
+
+and dead_code_id attr = function
+| Deflt -> Undecidable
+
+and dead_code_and attr = function
+| (Always_false,_)
+| (_, Always_false) -> Always_false
+| _ -> Undecidable
+
+and dead_code_or attr = function
+| (Always_true,_)
+| (_, Always_true) -> Always_true
+| _ -> Undecidable
 
 and elabeval attr = function
 | Intgr n -> n
@@ -526,12 +564,27 @@ let npth attr nam =
   npth'
 
 let rec recurs3 (attr: Source_text_rewrite.attr) = function
+  | If2(cond, if_clause, else_clause) -> (match dead_code attr cond with
+     | Always_true -> recurs3 attr if_clause
+     | Always_false -> recurs3 attr else_clause
+     | Undecidable ->
+      CaseStart (CaseStart1 (cond),
+       (CaseStmt ([Number(2,1,1,"")],
+         recurs3 attr if_clause :: []) ::
+        CaseStmt ([Number(2,1,0,"")],
+         recurs3 attr else_clause :: []) ::
+        [])))
+  | If1(cond, if_clause) ->
+      CaseStart (CaseStart1 (recurs3 attr cond),
+       (CaseStmt ([Number(2,1,1,"")],
+         recurs3 attr if_clause :: []) ::
+         []))
   | Seq (lbl, lst) -> Seq (dot(attr.pth,lbl), let oldp = attr.pth in List.map (recurs3 {attr with pth=dot(oldp,lbl)}) lst)
   | NetDecl (arg1, lst) -> NetDecl (arg1, List.map (function
 				     | InitSig (Id nam, arg2) -> let nam = npth attr nam in InitSig(Id nam, recurs3 attr arg2)
                                      | Id nam -> let nam = npth attr nam in Id nam
 				     | oth' -> failwith (Source_text_rewrite.getstr oth')) lst)
-  | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs2 attr exp)
+  | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs3 attr exp)
   | ParamDecl (Atom "Parameter", lst) as x ->
       List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl") lst; x
 (*
@@ -546,7 +599,9 @@ let sub' x =
    let subst' = Hashtbl.create 255 in
    recurhash := subst';
    let pass1 = recurs1 {fn=recurs1; subst=subst'; pth=""} x in
+   dbgsub := Some pass1;
    let pass2 = recurs2 {fn=recurs2; subst=subst'; pth=""} pass1 in
+   dbgsub := Some pass2;
    let pass3 = recurs3 {fn=recurs3; subst=subst'; pth=""} pass2 in
    dbgsub := Some pass3;
    pass3
@@ -659,6 +714,8 @@ let rec parm_map typhash = function
       TokParam([TokID ("\\"^nam)], [TokInt n])
   | CellParamItem2 (nam, (Intgr n | Number (_, _, n, _))) ->
       update typhash (Id nam) (Vint n); 
+      TokParam([TokID ("\\"^nam)], [TokInt n])
+  | CellParamItem2 (nam, (Id _ as s)) -> let n = ceval typhash s in
       TokParam([TokID ("\\"^nam)], [TokInt n])
   | CellParamItem2 (nam, String s) ->
       TokParam([TokID ("\\"^nam)], [TokStr s])
@@ -922,18 +979,26 @@ let array_port typhash ix hi lo dir nam =
 *)
   update typhash (Id nam) (MaybePort (ix, Unsigned_vector(hi,lo), dir))
 
-let maybe_port typhash nam ix dir = 
+let maybe_port typhash nam ix dir typ = 
   output_string logf (nam^": port "^string_of_int ix^"\n");
-  update typhash (Id nam) (MaybePort (ix, Vsigtyp, dir))
+  update typhash (Id nam) (MaybePort (ix, typ, dir))
+
+let signcnv = function
+	| (Deflt,Deflt) -> Unsigned
+        | (Atom "signed",Deflt) -> Signed
+        | (Deflt,AnyRange(hi,lo)) -> Unsigned_vector(hi,lo)
+        | (Atom "signed",AnyRange(hi,lo)) -> Signed_vector(hi,lo)
+	| (Deflt,oth) -> failwith "signcnv'"
+	| oth, _ -> unhand := Some oth; failwith "signcnv"
 
 let ports typhash ix = function
-    | Port ((In|Out|Inout|Deflt) as dir, nam, [], sgn) -> maybe_port typhash nam ix dir
-    | Port (PortDir ((In|Out|Inout) as dir, Atom ("wire"|"reg")), nam, [], sgn) -> maybe_port typhash nam ix dir
+    | Port ((In|Out|Inout|Deflt) as dir, nam, [], sgn) -> maybe_port typhash nam ix dir (signcnv (sgn, Deflt))
+    | Port (PortDir ((In|Out|Inout) as dir, Atom ("wire"|"reg")), nam, [], sgn) -> maybe_port typhash nam ix dir (signcnv (sgn, Deflt))
     | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: [], sgn) -> array_port typhash ix hi lo dir nam
     | Port (PortDir ((In|Out|Inout) as dir, Atom ("wire"|"reg")), nam, AnyRange (hi, lo) :: [], sgn) -> array_port typhash ix hi lo dir nam              
     | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: AnyRange(hi', lo') :: [], sgn) -> array_port typhash ix hi lo dir nam              
     | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: AnyRange(hi', lo') :: AnyRange(hi'', lo'') :: [], sgn) -> array_port typhash ix hi lo dir nam
-    | Port ((In|Out|Inout) as dir, nam, Typ6 (Atom primtyp) :: [], sgn) -> maybe_port typhash nam ix dir
+    | Port ((In|Out|Inout) as dir, nam, Typ6 (Atom primtyp) :: [], sgn) -> maybe_port typhash nam ix dir Unsigned
     | Port (Deflt, nam, Typ2 (typ_t, PackageBody (pkg, []) :: [], []) :: AnyRange (hi, lo) :: [], sgn) -> update typhash (Id nam) (Vtyp(typ_t));
         array_port typhash ix hi lo Inout nam              
 (*
@@ -1255,14 +1320,6 @@ let elabenum typhash nam id_lst = update typhash (Id nam) (Venum nam);
 	    update typhash (Id e) (Vemember(nam, e, Intgr(!strt)));
             incr strt
 	| oth -> unhand := Some oth; failwith "TypEnum6") id_lst
-
-let signcnv = function
-	| (Deflt,Deflt) -> Unsigned
-        | (Atom "signed",Deflt) -> Signed
-        | (Deflt,AnyRange(hi,lo)) -> Unsigned_vector(hi,lo)
-        | (Atom "signed",AnyRange(hi,lo)) -> Signed_vector(hi,lo)
-	| (Deflt,oth) -> failwith "signcnv'"
-	| oth, _ -> unhand := Some oth; failwith "signcnv"
   
 let rec decl_template bufh typhash modules pth = function
     | Seq (lbl, lst) -> List.iter (decl_template bufh typhash modules (newpth lbl pth)) lst
@@ -1454,7 +1511,6 @@ let rec decl_template bufh typhash modules pth = function
     | AlwaysLegacy _ -> ()
     | Initial _ -> ()
     | Final _ -> ()
-    | Generate _ -> ()
     | Genvar _ -> ()
     | AssertProperty -> ()
     | FunDecl _ -> ()
@@ -1527,6 +1583,7 @@ let rec restrict' typhash wid nam = function
       IdArrayedColon(Id nam, Intgr(if wid' > wid then lo' + wid-1 else hi'), Intgr(lo'))
   | MaybePort(ix, typ, Deflt) -> restrict' typhash wid nam typ
   | (Signed | Unsigned) -> Id nam
+  | Vint n -> Number(2,min 32 wid,n mod (1 lsl wid),"")
   | oth -> coth := Some oth; failwith "restrict'"
 
 let rec restrict typhash wid = function
@@ -1676,10 +1733,11 @@ let rec cnv' bufh dhash typhash inst = function
          generate_assignment bufh typhash (dly, rhs) :: [],
          generate_update bufh typhash (lhs, dly) :: [])
     | CaseStmt (caselbl, itm_stmts) ->
+        let lbl' = List.map (function Atom "default" as x -> x | oth -> buffer'' bufh typhash oth) caselbl in
         let lst' = List.map (cnv' bufh dhash typhash inst) itm_stmts in
 	let wid = width typhash inst in
         (List.flatten (List.map (fun (p,u,d) -> p) lst'),
-         Switch_bodycase (List.flatten(List.map (fun itm -> tran' (restrict typhash wid itm)) caselbl), [], List.flatten (List.map (fun (p,u,d) -> u) lst')) :: [],
+         Switch_bodycase (List.flatten(List.map (fun itm -> tran' (restrict typhash wid itm)) lbl'), [], List.flatten (List.map (fun (p,u,d) -> u) lst')) :: [],
          List.flatten (List.map (fun (p,u,d) -> d) lst'))
     | CaseStart (CaseStart1 expr, stmts) ->
         let dly = dlymemo bufh dhash typhash expr in
@@ -1689,6 +1747,7 @@ let rec cnv' bufh dhash typhash inst = function
          Switch_stmt (tran' dly, [], [], (List.flatten (List.map (fun (p,u,d) -> u) lst'))) :: [],
          List.flatten (List.map (fun (p,u,d) -> d) lst'))
     | Id t when Hashtbl.mem typhash t -> print_endline t; ([],[],[])
+    | SysTaskRef (Atom "$display", _) -> ([],[],[])
     | oth -> unhand := Some oth; failwith "cnv'"
 
 let dbgproc = ref None
@@ -1724,6 +1783,7 @@ let module_header modules = function
 	          | Some oth -> coth := Some oth; failwith "modport"
 	          | None -> failwith ("modport "^id^" not found"))
 	      | oth -> unhand := Some oth; failwith (typ^": map_ports")) port_lst in
+  List.iter (fun (id,sgn,rng) -> ()) ports';
   bufh, typhash, ports'
 | oth -> unhand := Some oth; failwith "module_header only handles modules"
 
@@ -1865,7 +1925,7 @@ let template modules = function
   let bufm = ref [] in
   bufm := Attr_stmt ("\\cells_not_processed", [TokInt 1]) :: !(bufm);
   dbgtyp := typhash;
-  port' := port_lst;
+  port' := ports';
   body' := body_lst;
   List.iter (proc_template bufh typhash modules) body_lst;
   bufm := Module12 (nam, catbuf bufh) :: !(bufm);

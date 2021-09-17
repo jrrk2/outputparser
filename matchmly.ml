@@ -119,6 +119,8 @@ let rec event_lst = function
 | oth, EventOr lst -> EventOr (oth :: lst)
 | oth, oth' -> EventOr (oth :: [oth'])
 
+let dbgportitms = ref []
+
 let rec mly = function
 | Wire -> Atom "wire"
 (* *)
@@ -742,7 +744,7 @@ let rec mly = function
 | TUPLE4(STRING("gateUnsup1444"), arg1, arg2, RPAREN) as oth -> mayfail oth  "gateUnsup1444"
 | TUPLE4(STRING("genItemBegin446"), Begin, arg2, End) ->
 (match arg2 with TLIST lst -> GenItem("", rml lst) | oth -> othpat1 := Some oth; failwith "genItemBegin446")
-| TUPLE4(STRING("generate_region442"), Generate, arg2, Endgenerate) -> Generate(mly arg2)
+| TUPLE4(STRING("generate_region442"), Generate, arg2, Endgenerate) -> mly arg2 (* these keywords are obsolete *)
 | TUPLE4(STRING("genvar_declaration171"), Genvar, arg2, SEMICOLON) -> Genvar(match arg2 with TLIST lst -> rml lst | oth -> mly oth :: [])
 | TUPLE4(STRING("genvar_initialization461"), arg1, EQUALS, arg3) as oth -> mayfail oth  "genvar_initialization461"
 | TUPLE4(STRING("genvar_iteration463"), arg1, EQUALS, arg3) -> Asgn1(mly arg1, mly arg3)
@@ -935,7 +937,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
   | oth -> othpat3 := Some oth; failwith "for_initializationItem774")
 | TUPLE5(STRING("funcRef787"), arg1, LPAREN, arg3, RPAREN) ->
 ( match arg1, arg3 with
-	 | IDENTIFIER id, TLIST ((IDENTIFIER _|INTEGER_NUMBER _) :: _ as lst) -> FunRef(id, rml lst)
+	 | IDENTIFIER id, TLIST ((IDENTIFIER _|INTEGER_NUMBER _|STRING _) :: _ as lst) -> FunRef(id, rml lst)
 	 | IDENTIFIER id, TLIST (TUPLE5 _::_ as lst) -> FunRef(id, rml lst)
          | IDENTIFIER id, TLIST (TUPLE4 (STRING "argsExprListE1359", lft, COMMA, rght) :: []) ->
 	     FunRef(id, match (mly lft, mly rght) with
@@ -1165,7 +1167,11 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 		  | Itmlst lst, oth -> lst@[oth]
 		  | oth, oth' -> oth::[oth'])
          | oth -> othpat2 := Some oth; failwith "taskRef785")
-| TUPLE5(STRING("tf_port_declaration233"), arg1, arg2, arg3, SEMICOLON) as oth -> mayfail oth  "tf_port_declaration233"
+| TUPLE5(STRING("tf_port_declaration233"), arg1, arg2, arg3, SEMICOLON) ->
+(match arg1, arg2, arg3 with
+       | (Input|Output), EMPTY_TOKEN, TLIST lst -> TF_port_decl(mly arg1, [], rml lst)
+       | (Input|Output), TUPLE3 (STRING "data_typeBasic264", Integer, EMPTY_TOKEN), TLIST lst -> TF_port_decl(mly arg1, mly Integer :: [], rml lst)
+       | oth -> othpat3 := Some oth; failwith "tf_port_declaration233")
 | TUPLE5(STRING("tf_port_declaration235"), arg1, arg2, arg3, SEMICOLON) ->
 (match arg1, arg2, arg3 with
        | (Input|Output), EMPTY_TOKEN, TLIST lst -> TF_port_decl(mly arg1, [], rml lst)
@@ -1701,9 +1707,12 @@ and itemsf portlst itmlst =
               let porthash = Hashtbl.create 255 in
               let _ = List.iter (function DeclLogic lst -> List.iter (function Port(dir, nam, dimlst, xlst) -> Hashtbl.add porthash nam (dir,dimlst) | _ -> ()) lst | _ -> ()) portdecl in
 	      let ports = rml portlst in
-	      let ports' = List.map (function
+              dbgportitms := ports;
+              (* deal with ANSI default port syntax *)
+	      let ports' = let dir' = ref Deflt in List.map (function
 				      | Id port -> let dir,dims = Hashtbl.find porthash port in Port(dir, port, dims, Deflt)
-				      | Port (dir, port, dims, xlst) as x -> x
+				      | Port (Deflt, port, dims, xlst) -> Port (!dir', port, dims, xlst)
+				      | Port (dir, port, dims, xlst) as x -> dir' := dir; x
                                       | Dot3 _ as x -> x (* placeholder *)
                                       | DotBus _ as x -> x (* placeholder *)
 				      | oth -> remap := Some oth; failwith "ports") ports in

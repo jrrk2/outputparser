@@ -103,7 +103,6 @@ let getstr = function
   | GenBlock _ -> "GenBlock"
   | GenItem _ -> "GenItem"
   | Genvar _ -> "GenItem"
-  | Generate _ -> "Generate"
   | Greater _ -> "Greater"
   | GtEq _ -> "GtEq"
   | HyphenGt _ -> "HyphenGt"
@@ -407,7 +406,7 @@ let rec descend' (attr:attr) = function
   | EqualsQuery (_, _) as x -> x
   | Equate (rw, rw2) -> Equate (descend_itm attr rw, descend_itm attr rw2)
   | EquateArrayField (_, _, _, _, _) as x -> x
-  | EquateConcat _ as x -> x
+  | EquateConcat (lst,rw) -> EquateConcat (descend_lst attr lst, descend_itm attr rw)
   | EquateField (_, _, _) as x -> x
   | EquateSelect (_, _, _) as x -> x
   | EquateSelect2 (_, _, _) as x -> x
@@ -444,7 +443,6 @@ let rec descend' (attr:attr) = function
   | FunRef2 (_, _, _) as x -> x
   | GenBlock(rw_lst) -> GenBlock(descend_lst attr (rw_lst))
   | GenItem (_, _) as x -> x
-  | Generate _ as x -> x
   | Genvar _ as x -> x
   | Greater(rw, rw2) -> Greater(descend_itm attr (rw), descend_itm attr (rw2))
   | GtEq(rw, rw2) -> GtEq(descend_itm attr (rw), descend_itm attr (rw2))
