@@ -73,10 +73,16 @@ let v = "../yosys/tests/simple/sincos.v";;
 let v = "../VlogHammer/rtl/expression_00000.v";;
 let v = "../yosys/tests/simple/aes_kexp128.v";;
 let v = "../yosys/tests/simple/arraycells.v";;
-let v = "../yosys/tests/simple/arrays01.v";;
 let v = "../yosys/tests/simple/attrib01_module.v";;
 let v = "../yosys/tests/simple/attrib09_case.v";;
 let v = "../yosys/tests/simple/carryadd.v";;
+let v = "../yosys/tests/simple/arrays01.v";;
+let v = "../yosys/tests/simple/case_expr_const.v";;
+let v = "../yosys/tests/simple/case_large.v";;
+let v = "../yosys/tests/simple/const_fold_func.v";;
+let v = "../yosys/tests/simple/process.v";;
+let v = "../yosys/tests/simple/implicit_ports.v";;
+let v = "../yosys/tests/simple/verilog_primitives.v";;
 
 (*
 let x = rw (parse v);;

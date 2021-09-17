@@ -130,6 +130,7 @@ and csiz' typhash = function
 | Venum s -> 8
 | Vemember(s, _, _) -> csiz' typhash (match Hashtbl.find_opt typhash s with Some x -> x | None -> print_endline ("Not found: "^s); Unsigned)
 | Vmem {off;siz;wid;tot} -> tot * wid
+| Vsigtyp -> 1 (* placeholder *)
 | oth -> coth := Some oth; failwith "csiz'"
 
 and width typhash = function
@@ -322,6 +323,7 @@ let rec recurs1 (attr: Source_text_rewrite.attr) = function
   | Port (dir, _, rng, _) as x -> Hashtbl.replace attr.subst Deflt (DeclData(dir, rng)); x
 *)
   | FunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
+  | AutoFunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
   | TaskDecl(id, _, _, _) as x -> Hashtbl.replace attr.subst (TaskRef (id,[])) x; x
   | ParamDecl (Atom "Parameter", lst) as x ->
       List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl") lst; x
@@ -344,12 +346,6 @@ let rec recurs2 (attr: Source_text_rewrite.attr) = function
        (CaseStmt ([Number(2,1,1,"")],
          recurs2 attr if_clause :: []) ::
          []))
-(*
-  | EquateSelect(lhs, sel, expr) ->
-      let wid = width t lhs in
-      let foreach = List.init wid (fun ix -> let sel = Number(2,clog2 wid,ix,"") in CaseStmt ([], EquateSelect(lhs, recurs2 attr sel, recurs2 attr expr) :: [])) in
-      CaseStart (CaseStart1 (recurs2 attr sel), foreach)
-*)
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs2 attr exp)
   | ForLoop ([Asgn1 (Id ix, strt)], stop, Asgn1 (Id ix'', Add (Id ix''', inc)), body) ->
       recurs2 attr (iter attr ix "ForLoop" (elabeval attr strt) stop (elabeval attr inc) body)
@@ -372,6 +368,7 @@ let rec recurs2 (attr: Source_text_rewrite.attr) = function
   | Port (dir, _, rng, _) as x -> Hashtbl.replace attr.subst Deflt (DeclData(dir, rng)); x
 (* *)
   | FunDecl(id, _, _) -> FunDecl(id, Deflt, Deflt)
+  | AutoFunDecl(id, _, _) -> AutoFunDecl(id, Deflt, Deflt)
   | TaskDecl(id, _, _, _) -> TaskDecl(id, Deflt, Deflt, Deflt)
 (* *)
   | Dot1 (IdArrayed2 (Id lbl, Intgr n), Id id) -> Id (lbl^"["^string_of_int n^"]."^id)
@@ -397,9 +394,10 @@ and iter attr ix lbl strt stop inc stmts =
     Itmlst (List.rev !block)
 
 and fsubst' attr arglst = function
-| FunDecl (nam,
-     Itmlst [AnyRange (hi', lo')],
-     TFBody (formlst', body)) ->
+(* recursive functions are TBD *)
+| AutoFunDecl (nam, Deflt, Deflt) -> Atom ";"
+| AutoFunDecl (nam, Itmlst [AnyRange (hi', lo')], TFBody (formlst', body)) -> Atom ";"
+| FunDecl (nam, Itmlst [AnyRange (hi', lo')], TFBody (formlst', body)) ->
   let formlst = List.flatten (List.map (function
     | TF_port_decl (In, [AnyRange (hi, lo)], formlst) -> List.map (function
           | TF_variable (Id _ as formal, Deflt, Deflt, Deflt) -> formal
@@ -437,8 +435,10 @@ and fsubst' attr arglst = function
 and fsubst attr arglst id = match Hashtbl.find_opt attr.subst (FunRef (id, [])) with
   | Some (FunDecl _ as f) ->
      recurs2 attr (fsubst' attr arglst f)
+  | Some (AutoFunDecl _ as f) ->
+     recurs2 attr (fsubst' attr arglst f)
   | Some oth -> unhand := Some oth; failwith "FunRef"
-  | None -> failwith id
+  | None -> failwith ("No definition for function: "^id)
 
 and tsubst' attr arglst = function
 | TaskDecl (nam, Deflt, TFBody (formlst, body), Deflt) ->
@@ -464,7 +464,7 @@ and tsubst' attr arglst = function
 and tsubst attr arglst id = recurs2 attr (match Hashtbl.find_opt attr.subst (TaskRef (id,[])) with
   | Some (TaskDecl _ as f) -> tsubst' attr arglst f
   | Some oth -> unhand := Some oth; failwith "TaskRef"
-  | None -> failwith id)
+  | None -> failwith ("No definition for task: "^id))
 
 and elabeval attr = function
 | Intgr n -> n
@@ -512,8 +512,9 @@ let dot = function
   | (old, nam) -> old^"."^nam
 
 let npth attr nam =
-  let npth' = dot (attr.Source_text_rewrite.pth, nam) in
-  Hashtbl.replace attr.Source_text_rewrite.subst (Id nam) (Id npth');
+  let pth = attr.Source_text_rewrite.pth in
+  let npth' = dot (pth, nam) in
+  if pth <> "" then Hashtbl.replace attr.Source_text_rewrite.subst (Id nam) (Id npth');
   npth'
 
 let rec recurs3 (attr: Source_text_rewrite.attr) = function
@@ -613,6 +614,7 @@ let vsel' n = function Id lhs -> [Sigspec90 (lhs, n)] | oth -> unhand := Some ot
 let rec tran' = function
    | Id id -> TokID id :: []
    | Number (b,w,n,_) -> TokVal (sprintf "%d'%s" w (obin w n)) :: []
+   | Intgr n -> TokInt n :: []
    | Atom "default" -> []
 (*
    | Concat lst -> List.flatten (List.map tran' lst)
@@ -720,6 +722,8 @@ and instance_template bufh typhash typ params inst pinlst =
         List.rev (List.mapi (fun ix -> function
 		   | CellPinItem2 (pin, Intgr n) -> TokConn([TokID(pin)], tran' (Number(2, 32, n, "")))
 		   | CellPinItem2 (pin, conn) -> TokConn([TokID(pin)], tran' conn)
+		   | CellPinItemImplied (pin) -> TokConn([TokID(pin)], tran' (Id pin))
+		   | CellPinItemNC (pin) -> TokConn([TokID(pin)], tran' (newid bufh typhash 1))
                    | Id _ as conn -> TokConn([TokID("$"^string_of_int (ix+1))], tran' conn)
                    | oth -> unhand := Some oth; failwith "inst_arg") pinlst))
 
@@ -1431,6 +1435,7 @@ let rec decl_template bufh typhash modules pth = function
     | Genvar _ -> ()
     | AssertProperty -> ()
     | FunDecl _ -> ()
+    | AutoFunDecl _ -> ()
     | oth -> unhand := Some oth; failwith "decl_template"
 
 let rec sent_template (buf':ilang ref) typhash clk = function
@@ -1496,6 +1501,7 @@ let rec restrict' typhash wid nam = function
       let wid' = hi' - lo' + 1 in
       IdArrayedColon(Id nam, Intgr(if wid' > wid then lo' + wid-1 else hi'), Intgr(lo'))
   | MaybePort(ix, typ, Deflt) -> restrict' typhash wid nam typ
+  | (Signed | Unsigned) -> Id nam
   | oth -> coth := Some oth; failwith "restrict'"
 
 let rec restrict typhash wid = function
@@ -1603,6 +1609,10 @@ let rec cnv' bufh dhash typhash inst = function
         (generate_assignment bufh typhash (dly, lhs) :: [],
          generate_assignment bufh typhash (IdArrayed2(dly,sel), rhs) :: [],
          generate_update bufh typhash (lhs, dly) :: [])
+    | EquateSelect (lhs, sel, expr) ->
+         let wid = width typhash lhs in
+         let foreach = List.init wid (fun ix -> let sel = Number(2,clog2 wid,ix,"") in CaseStmt ([], EquateSelect(lhs, sel, expr) :: [])) in
+         cnv' bufh dhash typhash inst (CaseStart (CaseStart1 (sel), foreach))
     | EquateSelect2 (IdArrayed2(lhs, sel'), sel, expr) ->
         let dly = dlymemo bufh dhash typhash lhs in
         let rhs = buffer' bufh typhash expr 0 in
@@ -1680,15 +1690,11 @@ let module_header modules = function
     | Unsigned -> ()
     | Unsigned_vector _ -> ()
     | InstArray _ -> ()
-    | oth -> coth := Some oth; failwith "portdump") typhash;
+    | oth -> coth := Some oth; output_string logf ("portdump: "^vtyp oth^"\n")) typhash;
   let ports' = List.mapi (fun ix -> function
-              | Port (Deflt, id, [], Deflt) -> (match Hashtbl.find_opt typhash id with
+              | Port (_, id, _, _) -> (match Hashtbl.find_opt typhash id with
                   | Some (MaybePort (n, sgn, rng)) when n=ix+1 -> (id, sgn, rng)
 	          | Some oth -> coth := Some oth; failwith "modport"
-	          | None -> failwith ("modport "^id^" not found"))
-              | Port (Deflt, id, [AnyRange(hi,lo)], Deflt) -> (match Hashtbl.find_opt typhash id with
-                  | Some (MaybePort (n, sgn, rng)) when n=ix+1 -> (id, sgn, rng)
-	          | Some oth -> coth := Some oth; failwith (typ^": modport")
 	          | None -> failwith ("modport "^id^" not found"))
 	      | oth -> unhand := Some oth; failwith (typ^": map_ports")) port_lst in
   bufh, typhash, ports'
@@ -1808,7 +1814,7 @@ let rec proc_template bufh typhash modules = function
     | Genvar _ -> () (* placeholder *)
     | ParamDecl _ -> ()
     | TaskDecl _ -> ()
-    | AutoFunDecl (fn, typ, FunGuts (ports, lst)) -> () (* placeholder *)
+    | AutoFunDecl _ -> () (* placeholder *)
     | Initial _ -> bufh.l := TokStr "// initial is not implemented\n" :: !(bufh.l)
     | Final _ -> bufh.l := TokStr "// final is not implemented\n" :: !(bufh.l)
     | PkgImport _ -> ()

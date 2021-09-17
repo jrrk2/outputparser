@@ -925,7 +925,8 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
   | oth -> othpat3 := Some oth; failwith "for_initializationItem774")
 | TUPLE5(STRING("funcRef787"), arg1, LPAREN, arg3, RPAREN) ->
 ( match arg1, arg3 with
-	 | IDENTIFIER id, TLIST (IDENTIFIER _ :: _ as lst) -> FunRef(id, rml lst)
+	 | IDENTIFIER id, TLIST ((IDENTIFIER _|INTEGER_NUMBER _) :: _ as lst) -> FunRef(id, rml lst)
+	 | IDENTIFIER id, TLIST (TUPLE5 _::_ as lst) -> FunRef(id, rml lst)
          | IDENTIFIER id, TLIST (TUPLE4 (STRING "argsExprListE1359", lft, COMMA, rght) :: []) ->
 	     FunRef(id, match (mly lft, mly rght) with
 		  | Itmlst lst, Itmlst lst' -> lst@lst'
@@ -1487,15 +1488,20 @@ CondGen1(mly arg3, mly arg5, mly arg7)
 | TUPLE8(STRING("expr1160"), LPAREN, arg2, COLON, arg4, COLON, arg6, RPAREN) as oth -> mayfail oth  "expr1160"
 | TUPLE8(STRING("exprNoStr1292"), LPAREN, arg2, COLON, arg4, COLON, arg6, RPAREN) as oth -> mayfail oth  "exprNoStr1292"
 | TUPLE8(STRING("fexpr1226"), LPAREN, arg2, COLON, arg4, COLON, arg6, RPAREN) as oth -> mayfail oth  "fexpr1226"
-| TUPLE8(STRING("function_declaration1024"), Function, arg2, arg3, arg4, arg5, Endfunction, arg7) ->
-  (match arg2, arg3, arg4, arg5, arg7 with
-       | EMPTY_TOKEN,TUPLE3 (STRING ("funcId1044"|"funcId1045"), typ, IDENTIFIER fid), EMPTY_TOKEN, guts, (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", _, _)) ->
+| TUPLE8(STRING("function_declaration1024"), Function, EMPTY_TOKEN, arg3, arg4, arg5, Endfunction, arg7) ->
+  (match arg3, arg4, arg5, arg7 with
+       | TUPLE3 (STRING ("funcId1044"|"funcId1045"), typ, IDENTIFIER fid), EMPTY_TOKEN, guts, (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", _, _)) ->
            FunDecl(fid,mly typ,mly guts)
-       | EMPTY_TOKEN,TUPLE4 (STRING ("funcId1042"), arg1, typ, IDENTIFIER fid), EMPTY_TOKEN, guts, (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", _, _)) ->
+       | TUPLE4 (STRING ("funcId1042"), arg1, typ, IDENTIFIER fid), EMPTY_TOKEN, guts, (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", _, _)) ->
            FunDecl(fid,mly typ,mly guts)
-       | Automatic,TUPLE3 (STRING ("funcId1044"|"funcId1045"), typ, IDENTIFIER fid), EMPTY_TOKEN, guts, (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", _, _)) ->
+       | oth -> othpat4 := Some oth; failwith "function_declaration1024")
+| TUPLE8(STRING("function_declaration1024"), Function, Automatic, arg3, arg4, arg5, Endfunction, arg7) ->
+  (match arg3, arg4, arg5, arg7 with
+       | TUPLE3 (STRING ("funcId1044"|"funcId1045"), typ, IDENTIFIER fid), EMPTY_TOKEN, guts, (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", _, _)) ->
            AutoFunDecl(fid,mly typ,mly guts)
-       | oth -> othpat5 := Some oth; failwith "function_declaration1024")
+       | TUPLE4 (STRING ("funcId1042"), arg1, typ, IDENTIFIER fid), EMPTY_TOKEN, guts, (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", _, _)) ->
+           AutoFunDecl(fid,mly typ,mly guts)
+       | oth -> othpat4 := Some oth; failwith "function_declaration1024_auto")
 | TUPLE8(STRING("function_declaration1025"), Function, arg2, arg3, arg4, arg5, Endfunction, arg7) as oth -> mayfail oth  "function_declaration1025"
 | TUPLE8(STRING("gateBufif01431"), arg1, arg2, COMMA, arg4, COMMA, arg6, RPAREN) as oth -> mayfail oth  "gateBufif01431"
 | TUPLE8(STRING("gateBufif11432"), arg1, arg2, COMMA, arg4, COMMA, arg6, RPAREN) as oth -> mayfail oth  "gateBufif11432"
