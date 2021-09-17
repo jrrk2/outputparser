@@ -167,15 +167,10 @@ let parse_output_ast_from_chan ch =
 
 let parse arg =
   let ch = open_in arg in
-  let rslt = parse_output_ast_from_chan ch in
+  let p = parse_output_ast_from_chan ch in
   close_in ch;
-  rslt
+  let p' = List.rev (rw' (rw p)) in
+  p,p'
 
 let keyword = function
 | oth -> false
-
-let op fd v =
-    let p = parse v in
-    let p' = List.rev (rw' (rw p)) in
-    output_string fd (Input_dump.dump_ilst "\n" p');
-    p'

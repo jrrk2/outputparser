@@ -28,6 +28,7 @@
 *.rtlil
 *.ilang
 *.proc
+*.vsynth
 slib_*
 uart_*
 Extract*

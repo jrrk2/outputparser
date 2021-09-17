@@ -36,6 +36,8 @@ let rewrite_sysver v =
   *)
 
 let dbgx = ref None
+let proc = ref []
+let golden = ref []
 
 let rewrite_rtlil v =
   print_endline ("Parsing: "^v);
@@ -58,13 +60,25 @@ let rewrite_rtlil v =
   print_endline ("File: "^fnam);
   fprintf fd "read_ilang %s_dump.rtlil\n" v;
   fprintf fd "proc\n";
-  fprintf fd "write_verilog %s_dump.proc\n" v;
+  fprintf fd "write_ilang %s_proc.rtlil\n" v;
+  fprintf fd "write_verilog %s_proc.vsynth\n" v;
   fprintf fd "synth\n";
-  fprintf fd "write_verilog %s_dump.synth\n" v;
+  fprintf fd "write_verilog %s_synth.vsynth\n" v;
+  fprintf fd "read_verilog -overwrite %s\n" v;
+  fprintf fd "proc\n";
+  fprintf fd "write_ilang %s_golden.rtlil\n" v;
+  fprintf fd "write_verilog %s_golden.vsynth\n" v;
   close_out fd;
   let _ = match Unix.system("yosys "^fnam) with
   | WEXITED errno -> if errno <> 0 then
-    printf "yosys failed with error code %d\n" errno;
+    printf "yosys failed with error code %d\n" errno
+    else
+      begin
+      let p,p' = Input_rewrite.parse (v^"_proc.rtlil") in
+      proc := p';
+      let p,p' = Input_rewrite.parse (v^"_golden.rtlil") in
+      golden := p';
+      end;
     errno
   | WSIGNALED signal ->
     printf "yosys killed by signal %d\n" signal;
