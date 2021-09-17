@@ -76,6 +76,7 @@ let getstr = function
   | ExprQuote1 _ -> "ExprQuote1"
   | Expression _ -> "Expression"
   | Final _ -> "Final"
+  | Float _ -> "Float"
   | FopAsgn _ -> "FopAsgn"
   | FopAsgn1 _ -> "FopAsgn1"
   | FopAsgnArrayField _ -> "FopAsgnArrayField"
@@ -227,6 +228,7 @@ let getstr = function
   | TypParam _ -> "TypParam"
   | UMinus _ -> "UMinus"
   | UPlus _ -> "UPlus"
+  | Unimplemented _ -> "Unimplemented"
   | Union _ -> "Union"
   | Unknown _ -> "Unknown"
   | Unsigned _ -> "Unsigned"
@@ -284,8 +286,8 @@ let rec rw = function
 | DLR_display|DLR_stop|DLR_finish|DLR_write
 | DLR_signed|DLR_unsigned|DLR_time|DLR_readmemh|DLR_clog2|DLR_bits|DLR_error
 | Module|Always|Assign|Reg|Wire|Logic|Bit|Int|Integer
-| Unsigned|Signed
-| Output|Input|Posedge|Negedge|Or|DOT
+| Unsigned|Signed|Real
+| Output|Input|Posedge|Negedge|Or|DOT|Wand|Wor
 | Parameter|Localparam|Initial
 | If|Else|Modport|For
 | Begin|End|Endmodule
@@ -332,6 +334,7 @@ let rec rw = function
 | Unique
 | Foreach
 | Final
+| Specparam | Specify | Endspecify
 | HYPHEN_COLON
 | HYPHEN_EQ
 | FLOATING_HYPHEN_POINT_NUMBER _
@@ -402,7 +405,7 @@ let rec descend' (attr:attr) = function
   | Equals(rw, rw2) -> Equals(descend_itm attr (rw), descend_itm attr (rw2))
   | Equals3 (_, _) as x -> x
   | EqualsQuery (_, _) as x -> x
-  | Equate (_, _) as x -> x
+  | Equate (rw, rw2) -> Equate (descend_itm attr rw, descend_itm attr rw2)
   | EquateArrayField (_, _, _, _, _) as x -> x
   | EquateConcat _ as x -> x
   | EquateField (_, _, _) as x -> x
@@ -415,6 +418,7 @@ let rec descend' (attr:attr) = function
   | ExprQuote1 (_, _) as x -> x
   | Expression rw -> Expression(descend_itm attr rw)
   | Final _ as x -> x
+  | Float _ as x -> x
   | FopAsgn (rw, rw') -> FopAsgn(descend_itm attr rw, descend_itm attr rw')
   | FopAsgn1 (_, _, _, _) as x -> x
   | FopAsgnArrayField (_, _, _) as x -> x
@@ -430,7 +434,7 @@ let rec descend' (attr:attr) = function
   | FopAsgnArrayRange (_, _, _, _) as x -> x
   | FopAsgnArrayRange2 (_, _, _, _) as x -> x
   | FopAsgnArraySel (s, rw, rw') -> FopAsgnArraySel (s, descend_itm attr rw, descend_itm attr rw')
-  | FopAsgnArrayWid (_, _, _, _) as x -> x
+  | FopAsgnArrayWid (rw, rw2, rw3, rw4) -> FopAsgnArrayWid (descend_itm attr rw, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
   | FopAsgnConcat (_, _) as x -> x
   | ForEach (_, _) as x -> x
   | ForLoop(rw_lst, rw2, rw3, rw4) -> ForLoop(descend_lst attr (rw_lst), descend_itm attr (rw2), descend_itm attr (rw3), descend_itm attr (rw4))
@@ -488,7 +492,7 @@ let rec descend' (attr:attr) = function
   | Mult(rw, rw2) -> Mult(descend_itm attr (rw), descend_itm attr (rw2))
   | Nand (_, _) as x -> x
   | Neg(str1) -> Neg (str1)
-  | NetDecl (rw, rwlst) -> NetDecl(descend_itm attr (rw), descend_lst attr (rwlst))
+  | NetDecl (rwlst, rwlst') -> NetDecl(descend_lst attr (rwlst), descend_lst attr (rwlst'))
   | NonBlocking(rw, rw2) -> NonBlocking(descend_itm attr rw, descend_itm attr rw2)
   | Nor (_, _) as x -> x
   | NotEq(rw, rw2) -> NotEq(descend_itm attr (rw), descend_itm attr (rw2))
@@ -567,6 +571,7 @@ let rec descend' (attr:attr) = function
   | TypParam (_, _, _) as x -> x
   | UMinus(rw) -> UMinus(descend_itm attr (rw))
   | UPlus _ as x -> x
+  | Unimplemented (str,rw_lst) -> Unimplemented (str, descend_lst attr (rw_lst:rw list))
   | Union (_, _) as x -> x
   | Unknown (str,rw_lst) -> Unknown (str, descend_lst attr (rw_lst:rw list))
   | Unsigned(rw) -> Unsigned(descend_itm attr (rw))

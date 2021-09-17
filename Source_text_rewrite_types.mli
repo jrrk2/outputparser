@@ -72,6 +72,7 @@ type rw =
   | ExprQuote1 of rw * rw
   | Expression of rw
   | Final of rw list
+  | Float of float
   | FopAsgn of rw * rw
   | FopAsgn1 of rw * rw * rw * rw
   | FopAsgnArrayField of rw * rw * rw
@@ -143,7 +144,7 @@ type rw =
   | Mult of rw * rw
   | Nand of rw * rw
   | Neg of rw
-  | NetDecl of rw * rw list
+  | NetDecl of rw list * rw list
   | NonBlocking of rw * rw
   | Nor of rw * rw
   | NotEq of rw * rw
@@ -222,6 +223,7 @@ type rw =
   | TypParam of string * rw * rw list
   | UMinus of rw
   | UPlus of rw
+  | Unimplemented of string * rw list
   | Union of rw * rw list
   | Unknown of string * rw list
   | Unsigned of rw

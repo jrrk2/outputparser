@@ -82,7 +82,12 @@ let v = "../yosys/tests/simple/case_large.v";;
 let v = "../yosys/tests/simple/const_fold_func.v";;
 let v = "../yosys/tests/simple/process.v";;
 let v = "../yosys/tests/simple/implicit_ports.v";;
-let v = "../yosys/tests/simple/verilog_primitives.v";;
+let v = "../yosys/tests/simple/forloops.v";;
+let v = "../yosys/tests/simple/realexpr.v";;
+let v = "../yosys/tests/simple/wandwor.v";;
+let v = "../yosys/tests/simple/omsp_dbg_uart.v";;
+let v = "../yosys/tests/simple/specify.v";;
+let v = "../yosys/tests/simple/values.v";;
 
 (*
 let x = rw (parse v);;

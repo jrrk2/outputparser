@@ -20,7 +20,6 @@ let othport = ref None
 let othport3 = ref None
 let priorlst = ref None
 let remap = ref None
-let portlstref = ref []
 
 let g str pat =
 let len = String.length pat in
@@ -135,6 +134,9 @@ let rec mly = function
 | String -> Atom "string"
 | Signed -> Atom "signed"
 | Bit -> Atom "bit"
+| Real -> Atom "real"
+| Wand -> Atom "wand"
+| Wor -> Atom "wor"
 | Default -> Atom "default"
 | Packed -> Atom "packed"
 | Input -> In
@@ -143,6 +145,7 @@ let rec mly = function
 | EMPTY_TOKEN -> Deflt
 | IDENTIFIER id -> Id id
 | STRING s -> String s
+| FLOATING_HYPHEN_POINT_NUMBER f -> Float f
 | VBAR -> Atom "|"
 | PLUS -> Atom "++"
 | PLUS_PLUS -> Atom "++"
@@ -254,6 +257,7 @@ let rec mly = function
 (match arg2 with
        | IDENTIFIER member -> Id member
        | INTEGER_NUMBER n -> mly arg2
+       | FLOATING_HYPHEN_POINT_NUMBER f -> mly arg2
        | TUPLE4 (STRING ("expr1119"|"expr1120"|"expr1121"|"expr1122"|"expr1124"|"expr1136"|"expr1142"|"expr1143"|"expr1132"|"expr1137"|"expr1159"|"exprScope1329"), _, _, _) -> mly arg2
        | TUPLE6 (STRING ("expr1148"|"expr1162"|"expr1165"|"funcRef788"), _, _, _, _, _) -> mly arg2
        | TUPLE7 (STRING ("expr1155"), _, _, _, _, _, _) -> mly arg2
@@ -372,11 +376,14 @@ let rec mly = function
 | TUPLE3(STRING("parameter_declarationFront177"), arg1, arg2) ->
     (match arg1,arg2 with 
         | Parameter, EMPTY_TOKEN -> Atom "Parameter"
+        | Parameter, Real -> Atom "Parameter_real"
         | Localparam, EMPTY_TOKEN -> Atom "localparam"
         | Localparam, TUPLE3 (STRING "implicit_typeE363", (EMPTY_TOKEN|Signed as sgn), TLIST lst) -> Param("localparam", signed_flag sgn, rml lst)
         | oth -> othpat2 := Some oth; failwith "parameter_declarationFront177")
 | TUPLE3(STRING("parameter_declarationFront178"), arg1, arg2) ->
 (match arg1, arg2 with
+       | Parameter, Real -> Atom("Parameter_real")
+       | Localparam, Real -> Atom("Localparam_real")
        | Localparam, _ -> LocalParamTyp(mly arg2)
        | oth -> othpat2 := Some oth; failwith "parameter_declarationFront178")
 | TUPLE3(STRING("parameter_declarationTypeFront179"), arg1, Type) as oth -> mayfail oth  "parameter_declarationTypeFront179"
@@ -410,7 +417,7 @@ let rec mly = function
     | EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id_t -> Typ1(id_t)
     | TLIST lst, TYPE_HYPHEN_IDENTIFIER id_t -> Typ3(id_t, rml lst)
     | oth -> othpat2 := Some oth; failwith "simple_type259")
-| TUPLE3(STRING("specify_block1469"), Specify, Endspecify) as oth -> mayfail oth  "specify_block1469"
+| TUPLE3(STRING("specify_block1469"), Specify, Endspecify) -> Unimplemented ("specify_block1469", [])
 | TUPLE3(STRING("statement_item645"), arg1, SEMICOLON) ->
 (match arg1 with
        | TUPLE5 (STRING "foperator_assignment690", lhs, EQUALS, EMPTY_TOKEN, expr) -> Blocking(mly arg1)
@@ -768,11 +775,14 @@ let rec mly = function
 | TUPLE4(STRING("modport_declaration156"), Modport, arg2, SEMICOLON) -> DeclModPort(match arg2 with TLIST lst -> rml lst | _ -> mly arg2 :: [])
 | TUPLE4(STRING("module_or_generate_item408"), Defparam, arg2, SEMICOLON) as oth -> mayfail oth  "module_or_generate_item408"
 | TUPLE4(STRING("mpInstnameParen555"), arg1, arg2, arg3) as oth -> mayfail oth  "mpInstnameParen555"
-| TUPLE4(STRING("netSig507"), arg1, arg2, arg3) as oth -> mayfail oth  "netSig507"
+| TUPLE4(STRING("netSig507"), arg1, arg2, arg3) ->
+  (match arg1, arg2, arg3 with
+       | IDENTIFIER id, TLIST rng, EMPTY_TOKEN -> NetDecl(rml rng, Id id :: [])
+       | oth -> othpat3 := Some oth; failwith "netSig507")
 | TUPLE4(STRING("net_dataTypeE193"), arg1, arg2, arg3) as oth -> mayfail oth  "net_dataTypeE193"
 | TUPLE4(STRING("net_declaration186"), arg1, arg2, SEMICOLON) ->
   (match arg1, arg2 with
-    | TUPLE6 (STRING "net_declarationFront187", EMPTY_TOKEN, (Wire as typ), EMPTY_TOKEN, EMPTY_TOKEN, dly), TLIST lst -> NetDecl(mly typ, rml lst)
+    | TUPLE6 (STRING "net_declarationFront187", EMPTY_TOKEN, (Wire as typ), EMPTY_TOKEN, EMPTY_TOKEN, dly), TLIST lst -> NetDecl(mly typ :: [], rml lst)
     | oth -> othpat2 := Some oth; failwith "net_declaration186")
 | TUPLE4(STRING("open_range_list744"), arg1, COMMA, arg3) -> OpenRange(match mly arg1, mly arg3 with
      | OpenRange lst, OpenRange lst' -> lst @ lst'
@@ -798,7 +808,7 @@ let rec mly = function
 | TUPLE4(STRING("port_declaration231"), arg1, arg2, arg3) -> 
   let dir, lst = match (mly arg1, mly arg2, mly arg3) with
     | dir, Deflt, Itmlst lst -> dir, lst
-    | dir, Atom "wire", Itmlst lst -> dir, lst
+    | dir, Atom ("wire"|"wand"|"wor"), Itmlst lst -> dir, lst
     | oth -> othport3 := Some oth; failwith "n231" in
     Itmlst (List.map (function Id port -> Port(dir, port,[], Deflt) | oth -> othport := Some oth; failwith "n231'") lst)
 | TUPLE4(STRING("portsStarE78"), LPAREN, arg2, RPAREN) ->
@@ -812,8 +822,8 @@ let rec mly = function
 | TUPLE4(STRING("seq_blockFrontPreId627"), arg1, COLON_HYPHEN_begin, Begin) as oth -> mayfail oth  "seq_blockFrontPreId627"
 | TUPLE4(STRING("solve_before_list2636"), arg1, COMMA, arg3) as oth -> mayfail oth  "solve_before_list2636"
 | TUPLE4(STRING("specifyJunk1968"), Specify, arg2, Endspecify) as oth -> mayfail oth  "specifyJunk1968"
-| TUPLE4(STRING("specify_block1468"), Specify, arg2, Endspecify) as oth -> mayfail oth  "specify_block1468"
-| TUPLE4(STRING("specparam_declaration1970"), Specparam, arg2, SEMICOLON) as oth -> mayfail oth  "specparam_declaration1970"
+| TUPLE4(STRING("specify_block1468"), Specify, arg2, Endspecify) -> Unimplemented ("specify_block1468", [])
+| TUPLE4(STRING("specparam_declaration1970"), Specparam, arg2, SEMICOLON) -> Unimplemented ("specparam_declaration1970", [])
 | TUPLE4(STRING("statement_item650"), Deassign, arg2, SEMICOLON) as oth -> mayfail oth  "statement_item650"
 | TUPLE4(STRING("statement_item652"), Release, arg2, SEMICOLON) as oth -> mayfail oth  "statement_item652"
 | TUPLE4(STRING("statement_item664"), Disable, arg2, SEMICOLON) as oth -> mayfail oth  "statement_item664"
@@ -1514,8 +1524,12 @@ CondGen1(mly arg3, mly arg5, mly arg7)
        | oth -> othpat5 := Some oth; failwith "interface_declaration106")
 | TUPLE8(STRING("module_declaration51"), arg1, params, arg3, SEMICOLON, itmlst, Endmodule, arg7) ->
 (match arg1,arg3,arg7 with
-       | TUPLE4(STRING("modFront54"), Module, arg2, IDENTIFIER modid), TUPLE4(STRING "portsStarE78", LPAREN, TLIST portlst, RPAREN), (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", COLON, IDENTIFIER _)) ->
-portlstref := portlst;
+       | TUPLE4 (STRING "modFront54", Module, EMPTY_TOKEN, IDENTIFIER modid), EMPTY_TOKEN, EMPTY_TOKEN ->
+let ports', itms = itemsf [] itmlst in
+let m = Modul (modid, parmf params, ports', itms) in
+modules := (modid,m) :: !modules;
+m
+       | TUPLE4 (STRING "modFront54", Module, arg2, IDENTIFIER modid), TUPLE4(STRING "portsStarE78", LPAREN, TLIST portlst, RPAREN), (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", COLON, IDENTIFIER _)) ->
 let ports', itms = itemsf portlst itmlst in
 let m = Modul (modid, parmf params, ports', itms) in
 modules := (modid,m) :: !modules;
