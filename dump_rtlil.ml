@@ -62,6 +62,8 @@ let vtyp = function
 
 let unhand = ref None
 let unhand_typ = ref None
+let unhand_lst = ref []
+let coth = ref None
 
 let backtrace msg = print_endline ("backtrace: "^(Printexc.get_callstack 5 |> Printexc.raw_backtrace_to_string)^msg)
 
@@ -74,8 +76,6 @@ let mem_opt typhash id = match Hashtbl.find_opt typhash id with Some (Vmem opt) 
 
 let rec obin w n = 
   (if w > 1 then obin (w-1) (n lsr 1) else "")^string_of_int (n land 1)
-
-let coth = ref None
 
 let ceval' = function
 | Vint n -> n
@@ -496,11 +496,13 @@ and dead_code attr = function
 | Id _ as id -> (match Hashtbl.find_opt attr.Source_text_rewrite.subst id with Some x -> dead_code_id attr x | None -> Undecidable)
 | Intgr n -> if n <> 0 then Always_true else Always_false
 | (TildeAnd _ | RedAnd _ | RedOr _ | IdArrayed2 _ | GtEq _ | Equals _ | Less _ | LtEq _ | NotEq _ | Greater _) -> Undecidable
+(*
 | oth -> unhand := Some oth; failwith "dead_code"
+*)
 | _ -> Undecidable
 
 and dead_code_id attr = function
-| Deflt -> Undecidable
+| oth -> Undecidable
 
 and dead_code_and attr = function
 | (Always_false,_)
@@ -622,7 +624,7 @@ let funtyp typhash = function
 | Typ8 (Atom kind, Deflt) -> kind
 | oth -> unhand := Some oth; failwith "funtyp"
 
-let id_ix = ref 0
+let id_ix = ref 1000
 let wire_lst = ref []
 
 let newnam () = 
@@ -683,7 +685,7 @@ let str_to_bin s = let l = String.length s in
 let rec tran' = function
    | Id id -> TokID id :: []
    | Number (b,w,n,_) -> TokVal (sprintf "%d'%s" w (obin w n)) :: []
-   | Intgr n -> TokInt n :: []
+   | Intgr n -> TokVal (sprintf "32'%s" (obin 32 n)) :: []
    | Float f -> TokVal ("64'"^obin64 64 (Int64.bits_of_float f)) :: []
    | String s -> TokVal (let sz, b = str_to_bin s in string_of_int sz^"'"^b) :: []
    | Atom "default" -> []
@@ -843,7 +845,7 @@ let rec asgnexpr' bufh typhash wid = function
   | IdArrayed2 (Id id, sel) when is_mem typhash id -> memrd bufh typhash (mem_opt typhash id) id sel
   | IdArrayed2 (id, (Intgr _ | Number _)) as x -> x
   | IdArrayed2 (inner, expr) -> shiftx bufh typhash wid inner expr
-  | Query (cond', ctrue', cfalse') -> ternary bufh typhash wid "mux" [cfalse'; ctrue'; cond'] "ABSY"
+  | Query (cond', ctrue', cfalse') -> ternary bufh typhash wid "mux" [cfalse'; ctrue'; cond'] "absy"
   | Sys ("$signed", rhs) -> asgnexpr bufh typhash rhs
   | Sys ("$unsigned", rhs) -> asgnexpr bufh typhash rhs
   | GenBlock _ as x -> x
@@ -896,7 +898,13 @@ let rec asgnexpr' bufh typhash wid = function
 
 and asgnexpr bufh typhash x = asgnexpr' bufh typhash (width typhash x) x
 
-and signlst typhash = List.map (fun itm -> match signof typhash itm with Signed -> 1 | Unsigned -> 0 | _ -> failwith "signing")
+and signlst func typhash = List.mapi (fun ix itm -> match func,ix,signof typhash itm with
+ | "shr",1,_ -> 0 (* certain function/operand combinations cannot be signed in yosys *)
+ | "shl",1,_ -> 0
+ | "sub",_,_ -> 0
+ | _,_,Signed -> 1
+ | _,_,Unsigned -> 0
+ | _ -> failwith "signing")
 
 and signparm = List.map (fun (sgn,itm) -> CellParamItem2 (itm^"_SIGNED", Number (10, 32, sgn, "")))
 
@@ -905,26 +913,37 @@ and addprim bufh typhash typ params args templ =
   let args' = List.map (buffer'' bufh typhash) args in
   let wid' ix arg =
      let w = width typhash arg in
-     CellParamItem2 (String.make 1 templ.[ix]^"_WIDTH", Number(10, 32, w, "")) in
-  let conn' ix itm = CellPinItem2(String.make 1 templ.[ix], itm) in
-  let widths = List.mapi wid' args' in
-  dumpi bufh typhash (typ, [Itmlst (params@widths)], (InstNameParen1 (newnam(), Itmlst (List.mapi conn' args') :: []) :: []))
+     let u = Char.uppercase_ascii templ.[ix] in
+     if u = templ.[ix] || ix = 0 then CellParamItem2 (((if u = templ.[ix] then String.make 1 u^"_" else "")^"WIDTH"), Number(10, 32, w, "")) :: [] else [] in
+  let conn' ix itm = CellPinItem2(String.make 1 (Char.uppercase_ascii templ.[ix]), itm) in
+  let args'' = match args' with 
+    | a :: b :: y :: tl ->
+      let w0 = width typhash a and w1 = width typhash b in
+      if w0 < w1 then ExprOKL (Number(2,w1-w0,0,"") :: a :: []) :: b :: y :: tl
+      else if w0 > w1 then a :: ExprOKL (Number(2,w0-w1,0,"") :: b :: []) :: y :: tl
+      else a :: b :: y :: tl
+    | a :: b :: tl -> args'
+    | a :: tl -> args'
+    | oth -> unhand_lst := oth; failwith "addprim" in
+  let widths = List.flatten (List.mapi wid' args'') in
+  let signed = if List.length widths > 1 then params@widths else widths in
+  dumpi bufh typhash (typ, [Itmlst signed], (InstNameParen1 (newnam(), Itmlst (List.mapi conn' args'') :: []) :: []))
 
 and unary bufh typhash wid func expr pnam =
   let rhs = asgnexpr bufh typhash expr and rslt = newid bufh typhash wid in
-  let signing = List.combine (signlst typhash [rhs]) ["A"] in
+  let signing = List.combine (signlst func typhash [rhs]) ["A"] in
   addprim bufh typhash func (signparm signing) [rhs;rslt] pnam;
   rslt
 
 and dyadic bufh typhash wid func args pnam =
   let rslt = newid bufh typhash wid in
-  let signing = List.combine (signlst typhash args) ["A";"B"] in
+  let signing = List.combine (signlst func typhash args) ["A";"B"] in
   addprim bufh typhash func (signparm signing) (args@[rslt]) pnam;
   rslt
 
 and ternary bufh typhash wid func args pnam =
   let rslt = newid bufh typhash wid in
-  let signing = List.combine (signlst typhash args) ["A";"B";"S"] in
+  let signing = List.combine (signlst func typhash args) ["A";"B";"S"] in
   addprim bufh typhash func (signparm signing) (args@[rslt]) pnam;
   rslt
 

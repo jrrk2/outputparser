@@ -100,6 +100,7 @@ else
 else if (!basing==idx) then begin match ch with
   | 'b' -> base := 2
   | 'd' -> base := 10
+  | 'o' -> base := 8
   | 'h' -> base := 16
   | _ -> value := int_of_char(ch) - int_of_char('a') + 10
 end else
