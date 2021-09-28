@@ -3,6 +3,7 @@
 open Output
 open Template
 open Output_parser
+open Vxml
 
 let _ = parse "V3ParseBison.output";;
 let (t,g) = List.hd !tg';;
@@ -28,7 +29,6 @@ open Source_text
 open Input_rewrite_types
 open Dump_rtlil
 open Matchmly
-open Vxml
 ;;
 
 let v = "timer.v";;
@@ -90,6 +90,7 @@ let v = "../yosys/tests/simple/values.v";;
 let v = "../yosys/tests/simple/rotate.v";;
 let v = "examples/picorv32_ref.v";;
 let v = "examples/multest.v";;
+let v = "examples/count1.v";;
 
 (*
 let x = rw (parse v);;
