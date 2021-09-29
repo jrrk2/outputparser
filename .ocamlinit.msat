@@ -223,13 +223,15 @@ let cnv_sat arg =
   Hashtbl.iter (fun k -> function Some x -> hlst := (k,x) :: !hlst | None -> failwith ("hlst: "^k)) wh;
   !clst, !hlst, !ulst
 
-let clst, hlst, ulst = cnv_sat !golden;;
-let q = Array.init 3 (fun ix -> List.assoc (idx "nxt$\\q" ix) hlst);;
-let clk = List.assoc "\\clk" hlst;;
-let clst', hlst', ulst' = cnv_sat !proc;;
-let q' = Array.init 3 (fun ix -> List.assoc (idx "nxt$\\q" ix) hlst');;
-let clk' = List.assoc "\\clk" hlst';;
-
-let mitre = F.make_or (List.map2 (F.make_xor) (Array.to_list q) (Array.to_list q'));;
-
-let res = ep mitre;;
+let compare golden proc =
+    let clst, hlst, ulst = cnv_sat golden in
+    let q = Array.init 3 (fun ix -> List.assoc (idx "nxt$\\q" ix) hlst) in
+    let clk = List.assoc "\\clk" hlst in
+    let clst', hlst', ulst' = cnv_sat !proc in
+    let q' = Array.init 3 (fun ix -> List.assoc (idx "nxt$\\q" ix) hlst') in
+    let clk' = List.assoc "\\clk" hlst' in
+    let mitre = F.make_or (List.map2 (F.make_xor) (Array.to_list q) (Array.to_list q')) in
+    let res = ep mitre in
+    match res with
+      | Sat.Sat _ -> print_endline "SATISFIABLE"
+      | Sat.Unsat _ -> print_endline "UNSATISFIABLE"

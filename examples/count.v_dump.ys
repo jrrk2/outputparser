@@ -1,5 +1,6 @@
 read_ilang examples/count.v_dump.rtlil
-proc
-write_verilog examples/count.v_dump.proc
 synth
-write_verilog examples/count.v_dump.synth
+write_ilang examples/count.v_dump_synth.rtlil
+read_verilog -overwrite examples/count.v
+synth
+write_ilang examples/count.v_golden_synth.rtlil

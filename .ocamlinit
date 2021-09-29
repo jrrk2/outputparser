@@ -72,8 +72,11 @@
 
 (* *)
 #use ".ocamlinit.sysver"
-#use ".ocamlinit.msat"
 (* *)
+
+(*
+#use ".ocamlinit.msat"
+*)
 
 (*
 #use ".ocamlinit.hardcaml"

@@ -90,6 +90,7 @@ let v = "../yosys/tests/simple/values.v";;
 let v = "../yosys/tests/simple/rotate.v";;
 let v = "examples/picorv32_ref.v";;
 let v = "examples/multest.v";;
+let v = "examples/count0.v";;
 let v = "examples/count1.v";;
 
 (*
