@@ -1,21 +1,25 @@
-module count(input clk, input rst, input en, output reg [7:0] q);
+module count(input clk, input rst, input en, input dir, output reg [7:0] q);
 
-   enum {zero,one,two} e_t;
+   enum {hold,up,down} e_t;
 
    reg [1:0] state;
-   
+
    always @(posedge clk)
      if (rst)
        q = 8'b0;
+       state = hold;
      else
        begin
+          if (en && dir) state = up;
+          else if (en && !dir) state = down;
+          else state = hold;
        case (state)
-	  zero:
+	  up:
 	     q = q + 8'b1;
-	  one:
-	     q = q + 8'b1;
-	  two:;
-	  endcase  
+	  down:
+	     q = q - 8'b1;
+	  hold:;
+	  endcase
        end
-   
+
 endmodule // query

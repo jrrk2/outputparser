@@ -15,7 +15,7 @@ type ind = {
   wires:(string, F.t option) Hashtbl.t;
   undef:(string * ilang list, unit) Hashtbl.t;
   conn:(string * string, unit) Hashtbl.t;
-  ff:(string, unit) Hashtbl.t;
+  inffop:(string, unit) Hashtbl.t;
 }
 
 let oth' = ref None
@@ -25,15 +25,24 @@ let othconn = ref None
 let idx s i = s^"["^string_of_int i^"]"
 let rec value str = Char.code str.[0] + 128 * (let len = String.length str in if len > 1 then value (String.sub str 1 (len-1)) else 0)
 
-let getw ind string' =
-  match Hashtbl.find_opt ind.wires string' with
+let getw ind = function
+  | "1'0" -> Some F.f_false
+  | "1'1" -> Some F.f_true
+  | string' -> match Hashtbl.find_opt ind.wires string' with
     | Some x -> x
     | None -> failwith (string'^" not declared")
 
 let addinp idx idx' ind string' =
+  Hashtbl.add ind.inffop string' ();
   match Hashtbl.find_opt ind.wires string' with
     | Some x -> print_endline (string'^" redeclared")
     | None -> Hashtbl.add ind.wires string' ( Some ( F.make_atom ( E.make (idx*1000+idx') )) )
+
+let addoutp idx idx' ind string' =
+  Hashtbl.add ind.inffop string' ();
+  match Hashtbl.find_opt ind.wires string' with
+    | Some x -> print_endline (string'^" redeclared")
+    | None -> Hashtbl.add ind.wires string' None
 
 let addff ind string' = Hashtbl.replace ind.wires string' ( Some ( F.make_atom ( E.make (value string' ))))
 
@@ -55,27 +64,212 @@ let addconn ind lhs' rhs' =
 
 let conn' ind = function
   | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> let s = idx signal ix in pin, s, getw ind s
-  | TokConn ([TokID pin], [TokID (signal)]) -> pin, signal, getw ind signal
+  | TokConn ([TokID pin], [TokID signal]) -> pin, signal, getw ind signal
+  | TokConn ([TokID pin], [TokVal lev]) -> pin, lev, getw ind lev
   | oth -> othconn := Some oth; failwith "conn'"
 
-let addnxt ind data d q =
-   let lhs' = "nxt$"^q in
+let addnxt pat ind data d q =
+   let lhs' = pat^"$"^q in
    addwire 0 ind lhs';
-   Hashtbl.add ind.ff lhs' ();
+   Hashtbl.add ind.inffop lhs' ();
    match d with
        | Some d -> addfunc ind lhs' d
        | None -> Hashtbl.replace ind.conn (lhs',data) ()
 
 let pinmap ind conns = List.sort compare (List.map (conn' ind) conns)
 
+let othlst = ref []
+let xor' = ref None
+
+let notsupp kind lst = othlst := lst; failwith ("Not supported: "^kind)
+
+let fpp q =
+  let buf' = Buffer.create 1000 in
+  let buf = Format.formatter_of_buffer buf' in
+  F.pp buf q;
+  Format.pp_print_flush buf ();
+  Buffer.contents buf'
+
+let and2 a b = F.make_and [a;b]
+let or2 a b = F.make_or [a;b]
+let mux2 a b s = or2 (and2 a (F.make_not s)) (and2 b s)
+let xor2 a b = let a' = fpp a and b' = fpp b in
+  let rslt = try F.make_xor a b with e ->
+  let err = "make_xor ("^a'^") ("^b'^"): msat package too old, see: https://github.com/Gbury/mSAT/pull/28" in
+  xor' := Some (a', b');
+  if a' <> b' then failwith err else print_endline err; F.f_false in
+  rslt
+
 let func ind kind conns = match kind, pinmap ind conns with
-  | "$_AND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (F.make_and [a;b])
+  | "$_AND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (and2 a b)
+  | "$_ANDNOT_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (and2 a (F.make_not b))
+  | "$_MUX_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\S", _, Some s) :: ("\\Y", y, None) :: [] -> addfunc ind y (mux2 a b s)
   | "$_NOT_",("\\A", _, Some a) :: ("\\Y", y, None) :: [] -> addfunc ind y (F.make_not a)
+  | "$_DFF_PP0_",("\\C", clk, c) :: ("\\D", data, d) :: ("\\Q", q, None) :: ("\\R", rst, r) :: [] ->
+     addff ind q;
+     addnxt "nxt" ind data d q;
+     addnxt "rst" ind rst r q;
   | "$_SDFF_PP0_",("\\C", clk, c) :: ("\\D", data, d) :: ("\\Q", q, None) :: ("\\R", rst, r) :: [] ->
      addff ind q;
-     addnxt ind data d q;
-  | "$_XOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (F.make_xor a b)
+     addnxt "nxt" ind data d q;
+     addnxt "rst" ind rst r q;
+  | "$_SDFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, d) :: ("\\E", enable, e) :: ("\\Q", q, None) :: ("\\R", rst, r) :: [] ->
+     addff ind q;
+     addnxt "nxt" ind data d q;
+     addnxt "en" ind enable e q;
+     addnxt "rst" ind rst r q;
+  | "$_SDFFE_PP0P_",lst -> notsupp kind lst
+  | "$_NAND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (F.make_not (and2 a b))
+  | "$_NOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (F.make_not (or2 a b))
+  | "$_OR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (or2 a b)
+  | "$_ORNOT_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (or2 a (F.make_not b))
+  | "$_XOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (xor2 a b)
+  | "$_XNOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, None) :: [] -> addfunc ind y (F.make_not (xor2 a b))
+  | "$_AOI3_",lst -> notsupp kind lst
+  | "$_AOI4_",lst -> notsupp kind lst
+  | "$_BUF_",lst -> notsupp kind lst
+  | "$_DFFE_NN0N_",lst -> notsupp kind lst
+  | "$_DFFE_NN0P_",lst -> notsupp kind lst
+  | "$_DFFE_NN1N_",lst -> notsupp kind lst
+  | "$_DFFE_NN1P_",lst -> notsupp kind lst
+  | "$_DFFE_NN_",lst -> notsupp kind lst
+  | "$_DFFE_NP0N_",lst -> notsupp kind lst
+  | "$_DFFE_NP0P_",lst -> notsupp kind lst
+  | "$_DFFE_NP1N_",lst -> notsupp kind lst
+  | "$_DFFE_NP1P_",lst -> notsupp kind lst
+  | "$_DFFE_NP_",lst -> notsupp kind lst
+  | "$_DFFE_PN0N_",lst -> notsupp kind lst
+  | "$_DFFE_PN0P_",lst -> notsupp kind lst
+  | "$_DFFE_PN1N_",lst -> notsupp kind lst
+  | "$_DFFE_PN1P_",lst -> notsupp kind lst
+  | "$_DFFE_PN_",lst -> notsupp kind lst
+  | "$_DFFE_PP0N_",lst -> notsupp kind lst
+  | "$_DFFE_PP0P_",lst -> notsupp kind lst
+  | "$_DFFE_PP1N_",lst -> notsupp kind lst
+  | "$_DFFE_PP1P_",lst -> notsupp kind lst
+  | "$_DFFE_PP_",lst -> notsupp kind lst
+  | "$_DFFSRE_NNNN_",lst -> notsupp kind lst
+  | "$_DFFSRE_NNNP_",lst -> notsupp kind lst
+  | "$_DFFSRE_NNPN_",lst -> notsupp kind lst
+  | "$_DFFSRE_NNPP_",lst -> notsupp kind lst
+  | "$_DFFSRE_NPNN_",lst -> notsupp kind lst
+  | "$_DFFSRE_NPNP_",lst -> notsupp kind lst
+  | "$_DFFSRE_NPPN_",lst -> notsupp kind lst
+  | "$_DFFSRE_NPPP_",lst -> notsupp kind lst
+  | "$_DFFSRE_PNNN_",lst -> notsupp kind lst
+  | "$_DFFSRE_PNNP_",lst -> notsupp kind lst
+  | "$_DFFSRE_PNPN_",lst -> notsupp kind lst
+  | "$_DFFSRE_PNPP_",lst -> notsupp kind lst
+  | "$_DFFSRE_PPNN_",lst -> notsupp kind lst
+  | "$_DFFSRE_PPNP_",lst -> notsupp kind lst
+  | "$_DFFSRE_PPPN_",lst -> notsupp kind lst
+  | "$_DFFSRE_PPPP_",lst -> notsupp kind lst
+  | "$_DFFSR_NNN_",lst -> notsupp kind lst
+  | "$_DFFSR_NNP_",lst -> notsupp kind lst
+  | "$_DFFSR_NPN_",lst -> notsupp kind lst
+  | "$_DFFSR_NPP_",lst -> notsupp kind lst
+  | "$_DFFSR_PNN_",lst -> notsupp kind lst
+  | "$_DFFSR_PNP_",lst -> notsupp kind lst
+  | "$_DFFSR_PPN_",lst -> notsupp kind lst
+  | "$_DFFSR_PPP_",lst -> notsupp kind lst
+  | "$_DFF_NN0_",lst -> notsupp kind lst
+  | "$_DFF_NN1_",lst -> notsupp kind lst
+  | "$_DFF_NP0_",lst -> notsupp kind lst
+  | "$_DFF_NP1_",lst -> notsupp kind lst
+  | "$_DFF_N_",lst -> notsupp kind lst
+  | "$_DFF_PN0_",lst -> notsupp kind lst
+  | "$_DFF_PN1_",lst -> notsupp kind lst
+  | "$_DFF_PP1_",lst -> notsupp kind lst
+  | "$_DFF_P_",lst -> notsupp kind lst
+  | "$_DLATCHSR_NNN_",lst -> notsupp kind lst
+  | "$_DLATCHSR_NNP_",lst -> notsupp kind lst
+  | "$_DLATCHSR_NPN_",lst -> notsupp kind lst
+  | "$_DLATCHSR_NPP_",lst -> notsupp kind lst
+  | "$_DLATCHSR_PNN_",lst -> notsupp kind lst
+  | "$_DLATCHSR_PNP_",lst -> notsupp kind lst
+  | "$_DLATCHSR_PPN_",lst -> notsupp kind lst
+  | "$_DLATCHSR_PPP_",lst -> notsupp kind lst
+  | "$_DLATCH_NN0_",lst -> notsupp kind lst
+  | "$_DLATCH_NN1_",lst -> notsupp kind lst
+  | "$_DLATCH_NP0_",lst -> notsupp kind lst
+  | "$_DLATCH_NP1_",lst -> notsupp kind lst
+  | "$_DLATCH_N_",lst -> notsupp kind lst
+  | "$_DLATCH_PN0_",lst -> notsupp kind lst
+  | "$_DLATCH_PN1_",lst -> notsupp kind lst
+  | "$_DLATCH_PP0_",lst -> notsupp kind lst
+  | "$_DLATCH_PP1_",lst -> notsupp kind lst
+  | "$_DLATCH_P_",lst -> notsupp kind lst
+  | "$_FF_",lst -> notsupp kind lst
+  | "$_MUX16_",lst -> notsupp kind lst
+  | "$_MUX4_",lst -> notsupp kind lst
+  | "$_MUX8_",lst -> notsupp kind lst
+  | "$_NMUX_",lst -> notsupp kind lst
+  | "$_OAI3_",lst -> notsupp kind lst
+  | "$_OAI4_",lst -> notsupp kind lst
+  | "$_SDFFCE_NN0N_",lst -> notsupp kind lst
+  | "$_SDFFCE_NN0P_",lst -> notsupp kind lst
+  | "$_SDFFCE_NN1N_",lst -> notsupp kind lst
+  | "$_SDFFCE_NN1P_",lst -> notsupp kind lst
+  | "$_SDFFCE_NP0N_",lst -> notsupp kind lst
+  | "$_SDFFCE_NP0P_",lst -> notsupp kind lst
+  | "$_SDFFCE_NP1N_",lst -> notsupp kind lst
+  | "$_SDFFCE_NP1P_",lst -> notsupp kind lst
+  | "$_SDFFCE_PN0N_",lst -> notsupp kind lst
+  | "$_SDFFCE_PN0P_",lst -> notsupp kind lst
+  | "$_SDFFCE_PN1N_",lst -> notsupp kind lst
+  | "$_SDFFCE_PN1P_",lst -> notsupp kind lst
+  | "$_SDFFCE_PP0N_",lst -> notsupp kind lst
+  | "$_SDFFCE_PP0P_",lst -> notsupp kind lst
+  | "$_SDFFCE_PP1N_",lst -> notsupp kind lst
+  | "$_SDFFCE_PP1P_",lst -> notsupp kind lst
+  | "$_SDFFE_NN0N_",lst -> notsupp kind lst
+  | "$_SDFFE_NN0P_",lst -> notsupp kind lst
+  | "$_SDFFE_NN1N_",lst -> notsupp kind lst
+  | "$_SDFFE_NN1P_",lst -> notsupp kind lst
+  | "$_SDFFE_NP0N_",lst -> notsupp kind lst
+  | "$_SDFFE_NP0P_",lst -> notsupp kind lst
+  | "$_SDFFE_NP1N_",lst -> notsupp kind lst
+  | "$_SDFFE_NP1P_",lst -> notsupp kind lst
+  | "$_SDFFE_PN0N_",lst -> notsupp kind lst
+  | "$_SDFFE_PN0P_",lst -> notsupp kind lst
+  | "$_SDFFE_PN1N_",lst -> notsupp kind lst
+  | "$_SDFFE_PN1P_",lst -> notsupp kind lst
+  | "$_SDFFE_PP0N_",lst -> notsupp kind lst
+  | "$_SDFFE_PP1N_",lst -> notsupp kind lst
+  | "$_SDFFE_PP1P_",lst -> notsupp kind lst
+  | "$_SDFF_NN0_",lst -> notsupp kind lst
+  | "$_SDFF_NN1_",lst -> notsupp kind lst
+  | "$_SDFF_NP0_",lst -> notsupp kind lst
+  | "$_SDFF_NP1_",lst -> notsupp kind lst
+  | "$_SDFF_PN0_",lst -> notsupp kind lst
+  | "$_SDFF_PN1_",lst -> notsupp kind lst
+  | "$_SDFF_PP1_",lst -> notsupp kind lst
+  | "$_SR_NN_",lst -> notsupp kind lst
+  | "$_SR_NP_",lst -> notsupp kind lst
+  | "$_SR_PN_",lst -> notsupp kind lst
+  | "$_SR_PP_",lst -> notsupp kind lst
+  | "$_TBUF_",lst -> notsupp kind lst
   | oth,_ -> Hashtbl.replace ind.undef (kind,conns) ()
+
+let othx = ref []
+let othxlst = ref []
+
+let explode_const = function
+  | n::str::[] -> List.init (int_of_string n) (fun ix -> "1'"^String.make 1 str.[ix])
+  | oth -> othxlst := oth; failwith "explode_const"
+
+let rec explode_lst = function
+  | [] -> []
+  | Sigspecrange (lhs, hi, lo) :: tl -> List.init (hi-lo+1) (fun ix -> idx lhs (hi-ix)) @ explode_lst tl
+  | Sigspec90 (lhs, ix) :: tl -> idx lhs ix :: explode_lst tl
+  | TokVal tok :: tl -> explode_const (String.split_on_char '\'' tok) @ explode_lst tl
+  | TokID id :: tl -> id :: explode_lst tl
+  | oth -> othx := oth; failwith "explode_lst"
+
+let explode_signal = function
+  | (Sigspec90 _ | Sigspecrange _ | TokVal _) as x -> explode_lst (x :: [])
+  | Sigspec92 conc -> explode_lst conc
+  | oth -> oth' := Some oth; failwith "explode_signal"
 
 let rec cnv_ilang ind = function
 | Autoidx_stmt26(int') -> ()
@@ -84,12 +278,14 @@ let rec cnv_ilang ind = function
 | Wire_stmt(options,string') -> let wid = ref None and fn = ref addwire in List.iter (function
     | Wire_optionswidth n -> wid := Some n;
     | Wire_optionsinput n -> fn := addinp n;
-    | Wire_optionsoutput _ -> ()
+    | Wire_optionsoutput n -> fn := addoutp n;
+    | Signed -> ()
     | oth -> othopt := Some oth; failwith "options") options;
     (match !wid with
       | None -> !fn 0 ind string'
       | Some n -> for i = 0 to n-1 do !fn (i+1) ind (idx string' i) done); ()
 | Cell_stmt(kind,inst,params,conns) -> func ind kind conns; ()
+(*
 | Conn_stmt96 ([Sigspecrange (lhs, hi, lo)], [Sigspecrange (rhs, hi', lo')]) ->
 for i = 0 to hi-lo do
   let lhs' = idx lhs (hi-i) in
@@ -100,6 +296,14 @@ done
   let lhs' = idx lhs ix in
   let rhs' = idx rhs ix' in
   addconn ind lhs' rhs'
+| Conn_stmt96 ([Sigspec90 (lhs, ix)], [TokVal n]) ->
+  let lhs' = idx lhs ix in
+  (match getw ind n with Some n -> addfunc ind lhs' n | None -> failwith "conn_const")
+*)
+| Conn_stmt96 ([conc1], [conc2]) ->
+  let lhs = explode_signal conc1 in
+  let rhs = explode_signal conc2 in
+  List.iter2 (addconn ind) lhs rhs
 (*
 | Conn_stmt96([lft],[rght]) -> ()
 | Assign_stmt67(ilang_lst,ilang_lst') -> ()
@@ -169,13 +373,6 @@ let pp q =
     ) (F.make_cnf q);
   print_endline (Buffer.contents buf')
 
-let fpp q =
-  let buf' = Buffer.create 1000 in
-  let buf = Format.formatter_of_buffer buf' in
-  F.pp buf q;
-  Format.pp_print_flush buf ();
-  print_endline (Buffer.contents buf')
-
 let ep q =
     let m = F.make_cnf q in
     let solver = Sat.create () in
@@ -185,29 +382,37 @@ let ep q =
 let cnv_sat arg' =
   let ch = Hashtbl.create 255 in
   let ch' = Hashtbl.create 255 in
-  let ch'' = Hashtbl.create 255 in
+  let ch2 = Hashtbl.create 255 in
+  let ch3 = Hashtbl.create 255 in
+  let ch4 = Hashtbl.create 255 in
   let wh = Hashtbl.create 255 in
   let uh = Hashtbl.create 255 in
   let uh' = Hashtbl.create 255 in
-  let uh'' = Hashtbl.create 255 in
+  let uh2 = Hashtbl.create 255 in
+  let uh3 = Hashtbl.create 255 in
+  let uh4 = Hashtbl.create 255 in
   let ffh = Hashtbl.create 255 in
   let _,arg = Input_rewrite.parse arg' in
-  cnv_ilst {wires=wh;undef=uh;conn=ch;ff=ffh} arg;
-  Hashtbl.iter (fun (kind,conns) () -> func {wires=wh;undef=uh';conn=ch;ff=ffh} kind conns) uh;
-  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;undef=uh';conn=ch';ff=ffh} lhs' rhs') ch;
-  Hashtbl.iter (fun (kind,conns) () -> func {wires=wh;undef=uh'';conn=ch;ff=ffh} kind conns) uh';
-  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;undef=uh';conn=ch'';ff=ffh} lhs' rhs') ch';
+  cnv_ilst {wires=wh;undef=uh;conn=ch;inffop=ffh} arg;
+  Hashtbl.iter (fun (kind,conns) () -> func {wires=wh;undef=uh';conn=ch;inffop=ffh} kind conns) uh;
+  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;undef=uh';conn=ch';inffop=ffh} lhs' rhs') ch;
+  Hashtbl.iter (fun (kind,conns) () -> func {wires=wh;undef=uh2;conn=ch';inffop=ffh} kind conns) uh';
+  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;undef=uh2;conn=ch2;inffop=ffh} lhs' rhs') ch';
+  Hashtbl.iter (fun (kind,conns) () -> func {wires=wh;undef=uh3;conn=ch;inffop=ffh} kind conns) uh2;
+  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;undef=uh3;conn=ch3;inffop=ffh} lhs' rhs') ch2;
+  Hashtbl.iter (fun (kind,conns) () -> func {wires=wh;undef=uh4;conn=ch;inffop=ffh} kind conns) uh3;
+  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;undef=uh3;conn=ch4;inffop=ffh} lhs' rhs') ch3;
   let ulst=ref [] in
-  Hashtbl.iter (fun (kind,conns) () -> ulst := (kind,pinmap {wires=wh;undef=uh';conn=ch;ff=ffh} conns) :: !ulst) uh'';
+  Hashtbl.iter (fun (kind,conns) () -> ulst := (kind,pinmap {wires=wh;undef=Hashtbl.create 255;conn=Hashtbl.create 255;inffop=ffh} conns) :: !ulst) uh4;
   let clst=ref [] in
-  Hashtbl.iter (fun k x -> clst := (k,x) :: !clst) ch'';
+  Hashtbl.iter (fun k () -> clst := k :: !clst) ch4;
   let hlst=ref [] in
   Hashtbl.iter (fun k -> function
     | Some x -> hlst := (k,x) :: !hlst
     | None -> hlst := (k,F.make_atom (E.fresh())) :: !hlst; print_endline (arg'^": "^k)) wh;
-  let fflst=ref [] in
-  Hashtbl.iter (fun k () -> fflst := (k,List.assoc k !hlst) :: !fflst) ffh;
-  !clst, !hlst, !ulst, List.sort compare !fflst
+  let inffoplst=ref [] in
+  Hashtbl.iter (fun k () -> inffoplst := (k,List.assoc k !hlst) :: !inffoplst) ffh;
+  !clst, !hlst, !ulst, List.sort compare !inffoplst
 
 let rewrite_rtlil v =
   print_endline ("Parsing: "^v);
@@ -230,49 +435,25 @@ let rewrite_rtlil v =
   let fd = open_out fnam in
   print_endline ("File: "^fnam);
   fprintf fd "read_ilang %s_dump.rtlil\n" v;
-(*
-  fprintf fd "proc\n";
-  fprintf fd "opt\n";
-  fprintf fd "write_ilang %s_dump_proc.rtlil\n" v;
-  fprintf fd "write_verilog %s_dump_proc.vsynth\n" v;
-*)
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_dump_synth.rtlil\n" v;
-(*
-  fprintf fd "write_verilog %s_dump_synth.vsynth\n" v;
-*)
-  fprintf fd "read_verilog -overwrite %s\n" v;
-(*
-  fprintf fd "proc\n";
-  fprintf fd "opt\n";
-  fprintf fd "write_ilang %s_golden_proc.rtlil\n" v;
-  fprintf fd "write_verilog %s_golden_proc.vsynth\n" v;
-*)
+  fprintf fd "read_verilog -sv -overwrite %s\n" v;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
-(*
-  fprintf fd "write_verilog %s_golden_synth.vsynth\n" v;
-*)
   close_out fd;
   let _ = match Unix.system("yosys "^fnam) with
   | WEXITED errno -> if errno <> 0 then
     printf "yosys failed with error code %d\n" errno
     else
       begin
-      let clst, hlst, ulst, fflst = cnv_sat (v^"_golden_synth.rtlil") in
-      let clst', hlst', ulst', fflst' = cnv_sat (v^"_dump_synth.rtlil") in
-(*
-      let q = Array.init 3 (fun ix -> List.assoc (idx "nxt$\\q" ix) hlst) in
-      let clk = List.assoc "\\clk" hlst in
-      let q' = Array.init 3 (fun ix -> List.assoc (idx "nxt$\\q" ix) hlst') in
-      let clk' = List.assoc "\\clk" hlst' in
-      let mitre = F.make_or (List.map2 (F.make_xor) (Array.to_list q) (Array.to_list q')) in
-*)
-      let fflst1,fflst2 = List.split fflst in
-      let fflst1',fflst2' = List.split fflst' in
-      print_endline ("Golden (yosys) flipflop inputs: "^String.concat "; " fflst1);
-      print_endline ("Revised (our) flipflop inputs: "^String.concat "; " fflst1');
-      let mitre = F.make_or (List.map2 (F.make_xor) fflst2 fflst2') in
+      let clst, hlst, ulst, inffoplst = cnv_sat (v^"_golden_synth.rtlil") in
+      let clst', hlst', ulst', inffoplst' = cnv_sat (v^"_dump_synth.rtlil") in
+      let inffoplst1,inffoplst2 = List.split inffoplst in
+      let inffoplst1',inffoplst2' = List.split inffoplst' in
+      print_endline ("Golden (yosys) primary inputs/flipflop inputs/final outputs: "^String.concat "; " inffoplst1);
+      print_endline ("Revised (our) primary inputs/flipflop inputs/final outputs: "^String.concat "; " inffoplst1');
+      let xorall = List.map2 xor2 inffoplst2 inffoplst2' in
+      let mitre = if xorall <> [] then F.make_or xorall else failwith "mitre" in
       let res = ep mitre in
       match res with
       | Sat.Sat _ -> print_endline "SATISFIABLE (netlists mismatched)"
