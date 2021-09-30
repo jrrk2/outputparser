@@ -5,6 +5,8 @@ open Source_text_rewrite
 open Input
 open Input_rewrite_types
 
+let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
+
 let dbgx = ref None
 
 module Sat = Msat_sat
@@ -13,7 +15,6 @@ module F = Msat_tseitin.Make(E)
 
 type ind = {
   wires:(string, F.t option) Hashtbl.t;
-  conn:(string * string, unit) Hashtbl.t;
   inffop:(string, unit) Hashtbl.t;
   stash:(string, string * ilang list) Hashtbl.t;
 }
@@ -55,23 +56,23 @@ let addwire idx' ind string' =
 let addfunc ind string' func =
   match Hashtbl.find_opt ind.wires string' with
     | Some None ->
-        print_endline ("Installed function for wire: "^string');
+        if verbose then print_endline ("Installed function for wire: "^string');
         Hashtbl.replace ind.wires string' (Some func)
     | Some _ -> print_endline (string'^" redeclared")
     | None -> print_endline (string'^" undefined")
 
+(*
 let addconn ind lhs' rhs' =
   match getw ind rhs' with
    | Some func' -> addfunc ind lhs' func'
    | None -> Hashtbl.replace ind.conn (lhs',rhs') ()
+*)
 
 let addnxt pat ind data d q =
    let lhs' = pat^"$"^q in
    addwire 0 ind lhs';
    Hashtbl.add ind.inffop lhs' ();
-   match d with
-       | Some d -> addfunc ind lhs' d
-       | None -> Hashtbl.replace ind.conn (lhs',data) ()
+   addfunc ind lhs' d
 
 let othlst = ref []
 let othwlst = ref []
@@ -79,12 +80,25 @@ let xor' = ref None
 
 let notsupp kind lst = othlst := lst; failwith ("Not supported: "^kind)
 
+(* dump a cnf in ASCII *)
+
 let fpp q =
   let buf' = Buffer.create 1000 in
   let buf = Format.formatter_of_buffer buf' in
   F.pp buf q;
   Format.pp_print_flush buf ();
   Buffer.contents buf'
+
+(* convert and print a cnf *)
+
+let pp q =
+  let buf' = Buffer.create 1000 in
+  let buf = Format.formatter_of_buffer buf' in
+  List.iter (fun itm ->
+    List.iter (fun itm -> E.pp buf itm; Format.pp_print_space buf ()) itm;
+    Format.pp_print_flush buf ();
+    ) (F.make_cnf q);
+  print_endline (Buffer.contents buf')
 
 let and2 a b = F.make_and [a;b]
 let or2 a b = F.make_or [a;b]
@@ -102,18 +116,18 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "$_BUF_",("\\A", _, Some a) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y a
   | "$_MUX_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\S", _, Some s) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (mux2 a b s)
   | "$_NOT_",("\\A", _, Some a) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (F.make_not a)
-  | "$_DFF_PP0_",("\\C", clk, c) :: ("\\D", data, d) :: ("\\Q", q, found) :: ("\\R", rst, r) :: [] ->
+  | "$_DFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, found) :: ("\\R", rst, Some r) :: [] ->
      addff ind q;
      addnxt "nxt" ind data d q;
      addnxt "rst" ind rst r q;
-  | "$_SDFF_PP0_",("\\C", clk, c) :: ("\\D", data, d) :: ("\\Q", q, found) :: ("\\R", rst, r) :: [] ->
+  | "$_SDFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, found) :: ("\\R", rst, Some r) :: [] ->
      addff ind q;
      addnxt "nxt" ind data d q;
      addnxt "rst" ind rst r q;
-  | "$_SDFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, found) :: ("\\R", rst, r) :: [] ->
+  | "$_SDFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, found) :: ("\\R", rst, Some r) :: [] ->
      let op = addff ind q in
      let mux = mux2 op d e in
-     addnxt "nxt" ind data (Some mux) q;
+     addnxt "nxt" ind data mux q;
      addnxt "rst" ind rst r q;
   | "$_NAND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (F.make_not (and2 a b))
   | "$_NOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (F.make_not (or2 a b))
@@ -258,9 +272,9 @@ and recurse ind klst wire = function
 | Some (kind, conns) ->
   if not (List.mem kind klst) then
     begin
-    print_endline ("recurse into "^wire);
+    if verbose then print_endline ("recurse into "^wire);
     func ind (kind :: klst) kind conns;
-    print_endline ("recurse into "^wire^" returned from "^kind);
+    if verbose then print_endline ("recurse into "^wire^" returned from "^kind);
     end;
   Hashtbl.find ind.wires wire
 | None ->
@@ -391,15 +405,6 @@ let rec cnv_ilang ind = function
 
 and cnv_ilst ind lst = List.iter (cnv_ilang ind) lst
 
-let pp q =
-  let buf' = Buffer.create 1000 in
-  let buf = Format.formatter_of_buffer buf' in
-  List.iter (fun itm ->
-    List.iter (fun itm -> E.pp buf itm; Format.pp_print_space buf ()) itm;
-    Format.pp_print_flush buf ();
-    ) (F.make_cnf q);
-  print_endline (Buffer.contents buf')
-
 let ep q =
     let m = F.make_cnf q in
     let solver = Sat.create () in
@@ -407,31 +412,14 @@ let ep q =
     Sat.solve solver
 
 let cnv_sat arg' =
-  let ch = Hashtbl.create 255 in
-  let ch' = Hashtbl.create 255 in
-  let ch2 = Hashtbl.create 255 in
-  let ch3 = Hashtbl.create 255 in
-  let ch4 = Hashtbl.create 255 in
   let wh = Hashtbl.create 255 in
-(*
-  let uh = Hashtbl.create 255 in
-  let uh' = Hashtbl.create 255 in
-  let uh2 = Hashtbl.create 255 in
-  let uh3 = Hashtbl.create 255 in
-  let uh4 = Hashtbl.create 255 in
-*)
   let ffh = Hashtbl.create 255 in
   let sh = Hashtbl.create 255 in
   let _,arg = Input_rewrite.parse arg' in
-  let ind = {wires=wh;conn=ch;inffop=ffh;stash=sh} in
+  let ind = {wires=wh;inffop=ffh;stash=sh} in
   cnv_ilst ind arg;
   Hashtbl.iter (fun _ (kind,conns) -> func ind [] kind conns) sh;
-  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;conn=ch';inffop=ffh;stash=sh} lhs' rhs') ch;
-  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;conn=ch2;inffop=ffh;stash=sh} lhs' rhs') ch';
-  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;conn=ch3;inffop=ffh;stash=sh} lhs' rhs') ch2;
-  Hashtbl.iter (fun (lhs',rhs') () -> addconn {wires=wh;conn=ch4;inffop=ffh;stash=sh} lhs' rhs') ch3;
   let clst=ref [] in
-  Hashtbl.iter (fun k () -> clst := k :: !clst) ch4;
   let slst=ref [] in
   Hashtbl.iter (fun k x -> slst := (k,x) :: !slst) sh;
   let hlst=ref [] in
@@ -469,11 +457,12 @@ let rewrite_rtlil v =
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
   close_out fd;
-  let _ = match Unix.system("yosys "^fnam) with
+  let _ = match Unix.system("yosys -q "^fnam) with
   | WEXITED errno -> if errno <> 0 then
-    printf "yosys failed with error code %d\n" errno
+    print_endline ("yosys failed with error code: "^(string_of_int errno))
     else
       begin
+      print_endline "yosys succeeded";
       let clst, hlst, inffoplst, slst = cnv_sat (v^"_golden_synth.rtlil") in
       let clst', hlst', inffoplst', slst = cnv_sat (v^"_dump_synth.rtlil") in
       let inffoplst1,inffoplst2 = List.split inffoplst in
