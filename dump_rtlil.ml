@@ -423,7 +423,7 @@ and fsubst' attr arglst = function
           | oth -> unhand := Some oth; failwith "param") lst; []
     | DeclInt2 formlst -> List.map (function
 	  | Id _ as formal -> formal
-          | oth -> unhand := Some oth; failwith "param3") formlst; []
+          | oth -> unhand := Some oth; failwith "param3") formlst;
     | oth -> unhand := Some oth; failwith "fsubst'") formlst') in
   printf "fsubst1 nam: %s, len(arglst) = %d, len(formlst) = %d\n" nam (List.length arglst) (List.length formlst);
   dbgact := arglst;

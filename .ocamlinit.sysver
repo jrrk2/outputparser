@@ -37,8 +37,7 @@ open Source_text
 open Input_rewrite_types
 open Dump_rtlil
 open Matchmly
-open Source_text_main.E
-open Source_text_main.F
+open String_lit
 ;;
 
 let v = "timer.v";;

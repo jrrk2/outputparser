@@ -10,10 +10,20 @@
 include Msat.Solver_intf.FORMULA
 (** This modules implements the requirements for implementing an SAT Solver. *)
 
-type atom = bool * bool * string
+type signal =
+| PWR
+| GND
+| SCALAR of string
+| INDEXED of string * int
 
-val make : string -> t
-(** Make a proposition from a string. *)
+type atom' =
+| Fresh of int
+| Made of signal
+
+type atom = bool * atom'
+
+val make : signal -> t
+(** Make a proposition from a signal. *)
 
 (*
 val to_int : t -> int
@@ -43,3 +53,6 @@ val opaque : atom -> t
 
 val transparent : t -> atom
 (** convert to opaque type *)
+
+val string_of_signal : signal -> string
+(** dump signal as a string *)
