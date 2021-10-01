@@ -17,9 +17,19 @@ close_out fd
 ;;
 *)
 
-#directory "/Users/jonathan/.opam/default/lib/hardcaml"
-#directory "/Users/jonathan/.opam/default/lib/hardcaml_waveterm"
-#directory "/Users/jonathan/.opam/default/lib"
+#use "topfind";;
+#directory "_build";;
+#require "msat";;
+#require "msat.sat";;
+#require "msat.tseitin";;
+#print_depth 100;;
+
+#directory "/Users/jonathan/.opam/413/lib"
+#directory "/Users/jonathan/.opam/413/lib/msat/tseitin"
+#directory "/Users/jonathan/.opam/413/lib/msat/backtrack"
+#directory "/Users/jonathan/.opam/413/lib/msat/backend"
+#directory "/Users/jonathan/.opam/413/lib/msat/sat"
+#directory "/Users/jonathan/.opam/413/lib/msat"
 
 open Source_text_rewrite_types
 open Source_text_rewrite
@@ -97,6 +107,7 @@ let v = "examples/count3.v";;
 let v = "examples/count4.v";;
 let v = "examples/count5.v";;
 let v = "examples/add.v";;
+let v = "examples/arith.v";;
 
 (*
 let x = rw (parse v);;
