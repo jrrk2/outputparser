@@ -17,15 +17,13 @@ close_out fd
 ;;
 *)
 
+(*
 #use "topfind";;
-#directory "_build";;
 #require "msat";;
-#require "msat.sat";;
-#require "msat.tseitin";;
+*)
 #print_depth 100;;
 
 #directory "/Users/jonathan/.opam/413/lib"
-#directory "/Users/jonathan/.opam/413/lib/msat/tseitin"
 #directory "/Users/jonathan/.opam/413/lib/msat/backtrack"
 #directory "/Users/jonathan/.opam/413/lib/msat/backend"
 #directory "/Users/jonathan/.opam/413/lib/msat/sat"
@@ -39,6 +37,8 @@ open Source_text
 open Input_rewrite_types
 open Dump_rtlil
 open Matchmly
+open Source_text_main.E
+open Source_text_main.F
 ;;
 
 let v = "timer.v";;
@@ -106,8 +106,8 @@ let v = "examples/count2.v";;
 let v = "examples/count3.v";;
 let v = "examples/count4.v";;
 let v = "examples/count5.v";;
-let v = "examples/add.v";;
 let v = "examples/arith.v";;
+let v = "examples/add.v";;
 
 (*
 let x = rw (parse v);;

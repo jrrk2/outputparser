@@ -4,17 +4,20 @@
 (** SAT Formulas
 
     This modules implements formuals adequate for use in a pure SAT Solver.
-    Atomic formuals are represented using integers, that should allow
-    near optimal efficiency (both in terms of space and time).
+    Atomic formuals are represented using strings, for clarity at the expense of efficiency
 *)
 
 include Msat.Solver_intf.FORMULA
 (** This modules implements the requirements for implementing an SAT Solver. *)
 
+type atom = bool * bool * string
+
 val make : string -> t
 (** Make a proposition from a string. *)
 
+(*
 val to_int : t -> int
+*)
 
 val fresh : unit -> t
 (** Make a fresh atom *)
@@ -35,3 +38,8 @@ val set_sign : bool -> t -> t
 val norm : t -> t * Msat.Solver_intf.negated
 (** normalise: split out abs(t) and sign(t) *)
 
+val opaque : atom -> t
+(** convert to opaque type *)
+
+val transparent : t -> atom
+(** convert to opaque type *)

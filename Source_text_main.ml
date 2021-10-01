@@ -10,7 +10,7 @@ let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
 let dbgx = ref None
 
 module E = Msat_sat_slit.String_lit (* expressions *)
-module F = Msat_tseitin.Make(E)
+module F = Msat_tseitin.MakeCNF
 
 type ind = {
   wires:(string, F.t option) Hashtbl.t;
@@ -24,7 +24,6 @@ let othopt = ref None
 let othconn = ref None
 
 let idx s i = s^"["^string_of_int i^"]"
-let rec value str = Char.code str.[0] + 128 * (let len = String.length str in if len > 1 then value (String.sub str 1 (len-1)) else 0)
 
 let getw ind = function
   | "1'0" -> Some F.f_false
@@ -84,19 +83,28 @@ let notsupp kind lst = othlst := lst; failwith ("Not supported: "^kind)
 let fpp q =
   let buf' = Buffer.create 1000 in
   let buf = Format.formatter_of_buffer buf' in
-  if verbose then F.pp buf q;
+(*
+  if verbose then F.mypp buf q;
+*)
   Format.pp_print_flush buf ();
   Buffer.contents buf'
 
 (* convert and print a cnf *)
 
-let pp q =
+let cnfpp q =
   let buf' = Buffer.create 1000 in
   let buf = Format.formatter_of_buffer buf' in
   List.iter (fun itm ->
     List.iter (fun itm -> E.pp buf itm; Format.pp_print_space buf ()) itm;
     Format.pp_print_flush buf ();
     ) (F.make_cnf q);
+  print_endline (Buffer.contents buf')
+
+let epp itm =
+  let buf' = Buffer.create 1000 in
+  let buf = Format.formatter_of_buffer buf' in
+  E.pp buf itm;
+  Format.pp_print_flush buf ();
   print_endline (Buffer.contents buf')
 
 let and2 a b = F.make_and [a;b]
@@ -405,24 +413,6 @@ and cnv_ilst ind lst = List.iter (cnv_ilang ind) lst
 
 let cnf' = ref F.f_false
 let othh = ref F.f_false
-
-(*
-let rec mypp fmt phi =
-    match phi with
-    | F.True -> Format.fprintf fmt "true"
-    | Lit a -> F.pp fmt a
-    | Comb (Not, [f]) ->
-      Format.fprintf fmt "not (%a)" pp f
-    | Comb (And, l) -> Format.fprintf fmt "(%a)" (pp_list "and") l
-    | Comb (Or, l) ->  Format.fprintf fmt "(%a)" (pp_list "or") l
-    | Comb (Imp, [f1; f2]) ->
-      Format.fprintf fmt "(%a => %a)" pp f1 pp f2
-    | _ -> assert false
-  and pp_list sep fmt = function
-    | [] -> ()
-    | [f] -> pp fmt f
-    | f::l -> Format.fprintf fmt "%a %s %a" pp f sep (pp_list sep) l
-*)
 
 let ep form =
     if verbose then print_endline "Dumping cnf";

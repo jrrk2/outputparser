@@ -41,13 +41,14 @@ ord.ml: ord.sh output_parser.mli
 clean:
 	rm -f output_lexer.ml output_parser.mli output_parser.ml outputparser outputparser.top ord.ml *.cm? *.o
 
-################################################################################
+###############################################################################
+#  Tseitin_intf.ml 
 
-Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml Source_text_rewrite.ml dump_rtlil.ml Input.cmo Input_types.cmo Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml Source_text_main.ml
-	ocamlfind ocamlmktop -package msat,msat.tseitin -linkpkg -g -o $@ unix.cma Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml Source_text_rewrite.ml Input_types.ml Input.ml Input_rewrite_types.mli dump_rtlil.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Source_text_main.ml
+Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml Source_text_rewrite.ml dump_rtlil.ml Input.cmo Input_types.cmo Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml Source_text_main.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml
+	ocamlfind ocamlmktop -package msat -linkpkg -g -o $@ unix.cma Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml Source_text_rewrite.ml Input_types.ml Input.ml Input_rewrite_types.mli dump_rtlil.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Source_text_main.ml
 
-Source_text: Source_text.cmx Source_text_types.cmx Source_text_lex.ml Source_text_rewrite_types.mli dump_rtlil.ml Input.cmx Input_types.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml classify.ml matchmly.ml Source_text_rewrite.ml Input_dump.ml Source_text_main.ml
-	ocamlfind ocamlopt -package msat,msat.tseitin -linkpkg -g -o $@ unix.cmxa Source_text_types.cmx Source_text.cmx Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml Source_text_rewrite.ml Input_types.ml Input.ml Input_rewrite_types.mli dump_rtlil.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Source_text_main.ml
+Source_text: Source_text.cmx Source_text_types.cmx Source_text_lex.ml Source_text_rewrite_types.mli dump_rtlil.ml Input.cmx Input_types.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml classify.ml matchmly.ml Source_text_rewrite.ml Input_dump.ml Source_text_main.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml
+	ocamlfind ocamlopt -package msat -linkpkg -g -o $@ unix.cmxa Source_text_types.cmx Source_text.cmx Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml Source_text_rewrite.ml Input_types.ml Input.ml Input_rewrite_types.mli dump_rtlil.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Source_text_main.ml
 
 Source_text.mly Source_text_types.ml: V3ParseBison.output Source_text.patch
 	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string INTEGER_NUMBER=string FLOATING_HYPHEN_POINT_NUMBER=float TYPE_HYPHEN_IDENTIFIER=string IDENTIFIER_HYPHEN_COLON_COLON=string STRING=string ./output_parser $<
