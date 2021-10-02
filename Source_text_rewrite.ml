@@ -434,9 +434,9 @@ let rec descend' (attr:attr) = function
   | FopAsgnArrayRange2 (_, _, _, _) as x -> x
   | FopAsgnArraySel (s, rw, rw') -> FopAsgnArraySel (s, descend_itm attr rw, descend_itm attr rw')
   | FopAsgnArrayWid (rw, rw2, rw3, rw4) -> FopAsgnArrayWid (descend_itm attr rw, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
-  | FopAsgnConcat (_, _) as x -> x
+  | FopAsgnConcat (rwlst, rw) -> FopAsgnConcat (descend_lst attr rwlst, descend_itm attr rw)
   | ForEach (_, _) as x -> x
-  | ForLoop(rw_lst, rw2, rw3, rw4) -> ForLoop(descend_lst attr (rw_lst), descend_itm attr (rw2), descend_itm attr (rw3), descend_itm attr (rw4))
+  | ForLoop(rw_lst, rw2, rw3, rw4) -> ForLoop(descend_lst attr rw_lst, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
   | FunDecl (_, _, _) as x -> x
   | FunGuts (_, _) as x -> x
   | FunRef (_, _) as x -> x

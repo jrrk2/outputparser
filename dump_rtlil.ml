@@ -598,6 +598,7 @@ let rec recurs3 (attr: Source_text_rewrite.attr) = function
 
 let recurhash = ref (Hashtbl.create 1)
 let dbgsub = ref None
+let dbgsubst = ref []
 
 let sub' x =
    let subst' = Hashtbl.create 255 in
@@ -608,6 +609,8 @@ let sub' x =
    dbgsub := Some pass2;
    let pass3 = recurs3 {fn=recurs3; subst=subst'; pth=""} pass2 in
    dbgsub := Some pass3;
+   dbgsubst := [];
+   Hashtbl.iter (fun k x -> dbgsubst := (k,x) :: !dbgsubst) subst';
    pass3
 
 let rec vexpr typhash = function
@@ -1757,6 +1760,19 @@ let rec cnv' bufh dhash typhash inst = function
         (generate_assignment bufh typhash (dly, lhs) :: [],
          generate_assignment bufh typhash (dly, rhs) :: [],
          generate_update bufh typhash (lhs, dly) :: [])
+    | Blocking (FopAsgnConcat(lhslst, expr)) ->
+        let wid = ref 0 in
+        let dlylst = List.map (fun lhs ->
+          let dly = dlymemo bufh dhash typhash lhs in
+	  wid := !wid + width typhash lhs;
+          let lhs' = buffer' bufh typhash lhs (width typhash lhs) in
+          (generate_assignment bufh typhash (dly, lhs'),
+           generate_update bufh typhash (lhs, dly),
+          dly)) lhslst in
+        let rhs = buffer' bufh typhash expr !wid in
+        List.map (fun (p,u,d) -> p) dlylst,
+		  generate_assignment bufh typhash (GenBlock (List.map (fun (p,u,d) -> d) dlylst), rhs) :: [],
+		  List.map (fun (p,u,d) -> u) dlylst
     | CaseStmt (caselbl, itm_stmts) ->
         let lbl' = List.map (function Atom "default" as x -> x | oth -> buffer'' bufh typhash oth) caselbl in
         let lst' = List.map (cnv' bufh dhash typhash inst) itm_stmts in

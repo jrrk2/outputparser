@@ -8,6 +8,7 @@ open Input_rewrite_types
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
 
 let dbgx = ref None
+let dbgfunc = ref []
 
 module E = Msat_sat_slit.String_lit (* expressions *)
 module F = Msat_tseitin.MakeCNF
@@ -16,19 +17,30 @@ type ind = {
   wires:(E.signal, F.t option) Hashtbl.t;
   inffop:(E.signal, unit) Hashtbl.t;
   stash:(E.signal, string * string * ilang list) Hashtbl.t;
+  wid:(string, int) Hashtbl.t;
 }
 
 let oth' = ref None
 let othst = ref []
 let othopt = ref None
 let othconn = ref None
+let othstr = ref None
 
-let idx s i = E.INDEXED(s,i)
+let trim s = if s.[0] = '\\' then String.sub s 1 (String.length s - 1) else s
+let idx s i = E.INDEXED (trim s,i)
+let scalar s = E.SCALAR (trim s)
+let and2 a b = F.make_and [a;b]
+let or2 a b = F.make_or [a;b]
+let xor2 a b = F.make_xor a b
+let knot a = F.make_not a
+let mux2 a b s = or2 (and2 a (knot s)) (and2 b s)
+let atom signal = F.make_atom ( E.make signal )
 
 let cnv_pwr = function
   | "1'0" -> E.GND
-  | "1'1" -> PWR
-  | oth -> failwith "cnv_pwr"
+  | "1'1" -> E.PWR
+  | "1'x" -> E.GND
+  | oth -> othstr := Some oth; failwith "cnv_pwr"
 
 let cnv_sig = function
   | E.GND -> TokVal "1'0"
@@ -47,7 +59,7 @@ let addinp idx idx' ind signal =
   Hashtbl.add ind.inffop signal ();
   match Hashtbl.find_opt ind.wires signal with
     | Some x -> print_endline (E.string_of_signal signal^" redeclared")
-    | None -> Hashtbl.add ind.wires signal ( Some ( F.make_atom ( E.make signal )) )
+    | None -> Hashtbl.add ind.wires signal ( Some ( atom signal ) )
 
 let addoutp idx idx' ind signal =
   Hashtbl.add ind.inffop signal ();
@@ -55,7 +67,7 @@ let addoutp idx idx' ind signal =
     | Some x -> print_endline (E.string_of_signal signal^" redeclared")
     | None -> Hashtbl.add ind.wires signal None
 
-let addff ind signal = let op = F.make_atom ( E.make signal ) in Hashtbl.replace ind.wires signal ( Some op ); op
+let addff ind signal = let op = atom signal in Hashtbl.replace ind.wires signal ( Some op )
 
 let addwire idx' ind signal =
   match Hashtbl.find_opt ind.wires signal with
@@ -123,29 +135,37 @@ let epp itm =
   Format.pp_print_flush buf ();
   print_endline (Buffer.contents buf')
 
-let and2 a b = F.make_and [a;b]
-let or2 a b = F.make_or [a;b]
-let xor2 a b = F.make_xor a b
-let knot a = F.make_not a
-let mux2 a b s = or2 (and2 a (knot s)) (and2 b s)
-
 let rec func ind klst kind conns = match kind, pinmap ind klst conns with
-  | "", ["",E.GND,None] -> failwith "GND"
+  | "", ["",E.GND,None] -> failwith "GND" (* dummy to force type inference *)
   | "$_AND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (and2 a b)
   | "$_ANDNOT_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (and2 a (knot b))
   | "$_BUF_",("\\A", _, Some a) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y a
   | "$_MUX_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\S", _, Some s) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (mux2 a b s)
   | "$_NOT_",("\\A", _, Some a) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot a)
-  | "$_DFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, found) :: ("\\R", rst, Some r) :: [] -> if found = None then
-     let _ = addff ind q in (* ignore existing data *)
+  | "$_DFF_P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: [] ->
+     addnxt "nxt" ind data d q;
+  | "$_DFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
      addnxt "nxt" ind data (and2 r d) q;
-  | "$_SDFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, found) :: ("\\R", rst, Some r) :: [] -> if found = None then
-     let _ = addff ind q in (* ignore existing data *)
+  | "$_SDFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
      addnxt "nxt" ind data (and2 r d) q;
-  | "$_SDFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, found) :: ("\\R", rst, Some r) :: [] ->
-    if found = None then
-      let op = addff ind q in
-      let mux = mux2 op d e in (* recirculate existing data when enable = lo *)
+  | "$_SDFF_PN0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
+     addnxt "nxt" ind data (and2 r d) q;
+  | "$_SDFF_PN1_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
+     addnxt "nxt" ind data (and2 r d) q;
+  | "$_SDFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
+      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
+      addnxt "nxt" ind data (and2 r mux) q;
+  | "$_SDFFCE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
+      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
+      addnxt "nxt" ind data (and2 r mux) q;
+  | "$_DFFE_PP_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] ->
+      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
+      addnxt "nxt" ind data mux q;
+  | "$_SDFFCE_PP1P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
+      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
+      addnxt "nxt" ind data (and2 r mux) q;
+  | "$_SDFFCE_PN0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
+      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
       addnxt "nxt" ind data (and2 r mux) q;
   | "$_NAND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (and2 a b))
   | "$_NOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (or2 a b))
@@ -173,8 +193,6 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "$_DFFE_PP0N_",lst -> notsupp kind lst
   | "$_DFFE_PP0P_",lst -> notsupp kind lst
   | "$_DFFE_PP1N_",lst -> notsupp kind lst
-  | "$_DFFE_PP1P_",lst -> notsupp kind lst
-  | "$_DFFE_PP_",lst -> notsupp kind lst
   | "$_DFFSRE_NNNN_",lst -> notsupp kind lst
   | "$_DFFSRE_NNNP_",lst -> notsupp kind lst
   | "$_DFFSRE_NNPN_",lst -> notsupp kind lst
@@ -246,7 +264,6 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "$_SDFFCE_PN1N_",lst -> notsupp kind lst
   | "$_SDFFCE_PN1P_",lst -> notsupp kind lst
   | "$_SDFFCE_PP0N_",lst -> notsupp kind lst
-  | "$_SDFFCE_PP0P_",lst -> notsupp kind lst
   | "$_SDFFCE_PP1N_",lst -> notsupp kind lst
   | "$_SDFFCE_PP1P_",lst -> notsupp kind lst
   | "$_SDFFE_NN0N_",lst -> notsupp kind lst
@@ -290,9 +307,14 @@ and recurse ind klst signal = function
 | Some (kind, inst, conns) ->
   if not (List.mem inst klst) then
     begin
-    if verbose then print_endline ("recurse into " ^ E.string_of_signal signal);
+    if verbose then print_endline ("recurse into " ^ E.string_of_signal signal ^ " (instance: " ^ inst ^ ", kind: " ^ kind ^ " )");
     func ind (inst :: klst) kind conns;
-    if verbose then print_endline ("recurse into "^E.string_of_signal signal^" returned from "^kind);
+    if verbose then print_endline ("recurse into "^E.string_of_signal signal^" returned from " ^ kind);
+    end
+  else
+    begin
+    dbgfunc := (kind,conns,signal,Hashtbl.find ind.wires signal) :: !dbgfunc;
+    if verbose then print_endline ("instance: " ^ inst ^ " (kind : " ^ kind ^ " ) already searched")
     end;
   Hashtbl.find ind.wires signal
 | None ->
@@ -308,25 +330,32 @@ and getcon ind klst pin = function
 
 and conn' ind klst = function
   | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> let s = idx signal ix in pin, s, getcon ind klst pin s
-  | TokConn ([TokID pin], [TokID signal]) -> let s = (E.SCALAR signal) in pin, s, getcon ind klst pin s
+  | TokConn ([TokID pin], [TokID signal]) -> let s = (scalar signal) in pin, s, getcon ind klst pin s
   | TokConn ([TokID pin], [TokVal lev]) -> let s = (cnv_pwr lev) in pin, s, getcon ind klst pin s
   | oth -> othconn := Some oth; failwith "conn'"
 
 and pinmap ind klst conns = List.sort compare (List.map (conn' ind klst) conns)
 
 let stash' ind = function
-  | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> idx signal ix
-  | TokConn ([TokID pin], [TokID signal]) -> E.SCALAR signal
-  | TokConn ([TokID pin], [TokVal lev]) -> cnv_pwr lev
+  | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> pin, idx signal ix
+  | TokConn ([TokID pin], [TokID signal]) -> pin, scalar signal
+  | TokConn ([TokID pin], [TokVal lev]) -> pin, cnv_pwr lev
   | oth -> othconn := Some oth; failwith "conn'"
 
+let dbgstash = ref None
+
+let stash_ops = function TokConn ([TokID pin], _) -> (match trim pin with "Y" -> true | "Q" -> true | _ -> false) | _ -> false
+
 let stash ind kind inst conns =
-  let net = stash' ind (List.hd (List.rev conns)) in
+  dbgstash := Some (kind, inst, conns);
+  let pin, net = stash' ind (List.hd (List.filter stash_ops conns)) in
+  if trim pin = "Q" then addff ind net; (* prevent infinite recursion *)
   if Hashtbl.mem ind.stash net then failwith ("Multiple gates driving: "^E.string_of_signal net);
   Hashtbl.replace ind.stash net (kind,inst,conns)
 
 let othx = ref []
 let othxlst = ref []
+let othexp = ref None
 
 let explode_const = function
   | n::str::[] -> List.init (int_of_string n) (fun ix -> cnv_pwr ("1'"^String.make 1 str.[ix]))
@@ -337,11 +366,13 @@ let rec explode_lst = function
   | Sigspecrange (lhs, hi, lo) :: tl -> List.init (hi-lo+1) (fun ix -> idx lhs (hi-ix)) @ explode_lst tl
   | Sigspec90 (lhs, ix) :: tl -> idx lhs ix :: explode_lst tl
   | TokVal tok :: tl -> explode_const (String.split_on_char '\'' tok) @ explode_lst tl
-  | TokID id :: tl -> E.SCALAR id :: explode_lst tl
+  | TokID id :: tl -> scalar id :: explode_lst tl
+  | TokInt 1 :: tl -> E.PWR :: explode_lst tl
   | oth -> othx := oth; failwith "explode_lst"
 
-let explode_signal = function
-  | (Sigspec90 _ | Sigspecrange _ | TokVal _) as x -> explode_lst (x :: [])
+let explode_signal ind = function
+  | TokID id -> (match Hashtbl.find_opt ind.wid (trim id) with None -> scalar id :: [] | Some n -> List.init n (fun i -> idx id i))
+  | (Sigspec90 _ | Sigspecrange _ | TokVal _ | TokInt _) as x -> explode_lst (x :: [])
   | Sigspec92 conc -> explode_lst conc
   | oth -> oth' := Some oth; failwith "explode_signal"
 
@@ -350,21 +381,31 @@ let rec cnv_ilang ind = function
 | Attr_stmt(string,ilang_lst') -> ()
 | Module12(string,ilang_lst') -> print_endline string; List.iter (cnv_ilang ind) ilang_lst'
 | Wire_stmt(options,string') -> let wid = ref None and fn = ref addwire in List.iter (function
-    | Wire_optionswidth n -> wid := Some n;
+    | Wire_optionswidth n -> wid := Some n; Hashtbl.replace ind.wid (trim string') n
     | Wire_optionsinput n -> fn := addinp n;
     | Wire_optionsoutput n -> fn := addoutp n;
     | Signed -> ()
     | oth -> othopt := Some oth; failwith "options") options;
     (match !wid with
-      | None -> !fn 0 ind (E.SCALAR string')
+      | None -> !fn 0 ind (scalar string')
       | Some n -> for i = 0 to n-1 do !fn (i+1) ind (idx string' i) done); ()
 | Cell_stmt(kind,inst,params,conns) -> stash ind kind inst conns
-| Conn_stmt96 ([conc1], [conc2]) ->
-  let lhs = explode_signal conc1 in
-  let rhs = explode_signal conc2 in
+| Conn_stmt96 ([lhs], [TokInt n]) -> () (* placeholder *)
+| Conn_stmt96 ([(Sigspec92 _ | TokID _ | Sigspec90 _ | Sigspecrange _) as conc1], [(Sigspec92 _ | TokID _ | TokVal _ | Sigspecrange _) as conc2]) ->
+  let lhs = explode_signal ind conc1 in
+  let rhs = explode_signal ind conc2 in
+  if List.length lhs <> List.length rhs then
+    begin
+      let othlst = ref [] in
+      Hashtbl.iter (fun k x -> othlst := (k,x) :: !othlst) ind.wires;
+      let signal' = match conc1 with TokID id -> Hashtbl.find_opt ind.wid id | _ -> None in
+      othexp := Some (conc1,conc2,lhs,rhs,ind,signal');
+      failwith "conn_stmt_fail"
+    end;
   List.iter2 (fun lhs' rhs' -> stash ind "$_BUF_" ("$B"^string_of_int (Hashtbl.length ind.stash)) [ TokConn ([TokID "\\A"], [cnv_sig rhs']) ; TokConn ([TokID "\\Y"], [cnv_sig lhs']) ]) lhs rhs
+| Param_defval_stmt24(string,ilang_lst') -> () (* does not seem to be used yet *)
+
 (*
-| Conn_stmt96([lft],[rght]) -> ()
 | Assign_stmt67(ilang_lst,ilang_lst') -> ()
 | Attr_list56(ilang_lst,ilang_lst') -> ()
 | Case_body63(ilang_lst,ilang_lst') -> ()
@@ -384,7 +425,6 @@ let rec cnv_ilang ind = function
 | Memory_optionswidth(int') -> ()
 | Memory_stmt39(ilang_lst,string') -> ()
 | Module_body13(ilang_lst,ilang_lst') -> ()
-| Param_defval_stmt24(string,ilang_lst') -> ()
 | Param_stmt23(string,ilang_lst') -> ()
 | Proc_stmt(string,ilang_lst,ilang_lst',ilang_lst2) -> ()
 | Signed -> ()
@@ -435,23 +475,31 @@ let ep form =
     mycnf := List.map (List.map E.transparent) m;
     let solver = Msat_sat_slit.create () in
     Msat_sat_slit.assume solver m ();
-    Msat_sat_slit.solve solver
+    match Msat_sat_slit.solve solver with
+      | Msat_sat_slit.Sat _ -> if verbose then print_endline "SATISFIABLE (netlists mismatched)"; false
+      | Msat_sat_slit.Unsat _ -> if verbose then print_endline "UNSATISFIABLE (netlists match)"; true
 
 let cnv_sat arg' =
   let wh = Hashtbl.create 255 in
+  let wid = Hashtbl.create 255 in
   let ffh = Hashtbl.create 255 in
   let sh = Hashtbl.create 255 in
+  print_endline ("Reading rtlil: "^arg');
   let _,arg = Input_rewrite.parse arg' in
-  let ind = {wires=wh;inffop=ffh;stash=sh} in
+  let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
   cnv_ilst ind arg;
   Hashtbl.iter (fun _ (kind,inst,conns) -> func ind [inst] kind conns) sh;
   let hlst=ref [] in
   Hashtbl.iter (fun k -> function
     | Some x -> othh := x; hlst := (k, fpp x) :: !hlst
-    | None -> failwith (arg'^": "^E.string_of_signal k)) wh;
+    | None -> if verbose then print_endline (arg'^": "^E.string_of_signal k^" is not used")) wh;
   let inffoplst=ref [] in
-  Hashtbl.iter (fun k () -> inffoplst := (k, match Hashtbl.find wh k with Some x -> x | None -> failwith "ffh") :: !inffoplst) ffh;
-  !hlst, List.sort compare !inffoplst
+  Hashtbl.iter (fun k () -> inffoplst := (k, match Hashtbl.find wh k with
+    | Some x -> x
+    | None -> print_endline ("ffh: " ^ E.string_of_signal k^" is undefined"); atom (scalar "\\")) :: !inffoplst) ffh;
+  let widlst=ref [] in
+  Hashtbl.iter (fun k n -> widlst := (k, n) :: !widlst) wid;
+  !hlst, List.sort compare !inffoplst, !widlst
 
 let rewrite_rtlil v =
   print_endline ("Parsing: "^v);
@@ -486,18 +534,23 @@ let rewrite_rtlil v =
     else
       begin
       print_endline "yosys succeeded";
-      let hlst, inffoplst = cnv_sat (v^"_golden_synth.rtlil") in
-      let hlst', inffoplst' = cnv_sat (v^"_dump_synth.rtlil") in
+      let hlst, inffoplst, wlst = cnv_sat (v^"_golden_synth.rtlil") in
+      let hlst', inffoplst', wlst' = cnv_sat (v^"_dump_synth.rtlil") in
       let inffoplst1,inffoplst2 = List.split inffoplst in
       let inffoplst1',inffoplst2' = List.split inffoplst' in
       print_endline ("Golden (yosys) primary inputs/flipflop inputs/final outputs: "^String.concat "; " (List.map E.string_of_signal inffoplst1));
       print_endline ("Revised (our) primary inputs/flipflop inputs/final outputs: "^String.concat "; " (List.map E.string_of_signal inffoplst1'));
+      print_endline ("Endpoint comparison: "^String.concat "; " (List.map (fun (k, itm) ->
+          let k' = E.string_of_signal k in
+          match List.assoc_opt k inffoplst with
+            | Some itm' -> k' ^ ": " ^ string_of_bool ( ep (xor2 itm itm') )
+            | None -> k' ^ ": not compared"
+          ) inffoplst'))
+(*
       let xorall = List.map2 xor2 inffoplst2 inffoplst2' in
       let mitre = if xorall <> [] then F.make_or xorall else failwith "mitre" in
-      let res = ep mitre in
-      match res with
-      | Msat_sat_slit.Sat _ -> print_endline "SATISFIABLE (netlists mismatched)"
-      | Msat_sat_slit.Unsat _ -> print_endline "UNSATISFIABLE (netlists match)"
+      let res = ep mitre in ()
+*)
       end;
     errno
   | WSIGNALED signal ->
