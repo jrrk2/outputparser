@@ -391,7 +391,7 @@ let rec cnv_ilang ind = function
       | Some n -> for i = 0 to n-1 do !fn (i+1) ind (idx string' i) done); ()
 | Cell_stmt(kind,inst,params,conns) -> stash ind kind inst conns
 | Conn_stmt96 ([lhs], [TokInt n]) -> () (* placeholder *)
-| Conn_stmt96 ([(Sigspec92 _ | TokID _ | Sigspec90 _ | Sigspecrange _) as conc1], [(Sigspec92 _ | TokID _ | TokVal _ | Sigspecrange _) as conc2]) ->
+| Conn_stmt96 ([(Sigspec92 _ | TokID _ | Sigspec90 _ | Sigspecrange _) as conc1], [(Sigspec92 _ | TokID _ | Sigspec90 _ | TokVal _ | Sigspecrange _) as conc2]) ->
   let lhs = explode_signal ind conc1 in
   let rhs = explode_signal ind conc2 in
   if List.length lhs <> List.length rhs then
@@ -502,6 +502,7 @@ let cnv_sat arg' =
   !hlst, List.sort compare !inffoplst, !widlst
 
 let rewrite_rtlil v =
+  let status = ref true in
   print_endline ("Parsing: "^v);
   Matchmly.modules := [];
   let p = parse v in
@@ -530,7 +531,10 @@ let rewrite_rtlil v =
   close_out fd;
   let _ = match Unix.system("yosys -q "^fnam) with
   | WEXITED errno -> if errno <> 0 then
-    print_endline ("yosys failed with error code: "^(string_of_int errno))
+      begin
+        print_endline ("yosys failed with error code: "^(string_of_int errno));
+        status := false;
+      end
     else
       begin
       print_endline "yosys succeeded";
@@ -543,8 +547,13 @@ let rewrite_rtlil v =
       print_endline ("Endpoint comparison: "^String.concat "; " (List.map (fun (k, itm) ->
           let k' = E.string_of_signal k in
           match List.assoc_opt k inffoplst with
-            | Some itm' -> k' ^ ": " ^ string_of_bool ( ep (xor2 itm itm') )
-            | None -> k' ^ ": not compared"
+            | Some itm' -> 
+              let stat = ep (xor2 itm itm') in
+              if not stat then status := false;
+              k' ^ ": " ^ string_of_bool stat
+            | None ->
+              status := false;
+              k' ^ ": not compared"
           ) inffoplst'))
 (*
       let xorall = List.map2 xor2 inffoplst2 inffoplst2' in
@@ -555,14 +564,16 @@ let rewrite_rtlil v =
     errno
   | WSIGNALED signal ->
     printf "yosys killed by signal %d\n" signal;
+    status := false;
     signal
   | WSTOPPED signal ->
     printf "yosys killed by signal %d\n" signal;
+    status := false;
     signal in
-  !modlst, x, p, p'
+  !modlst, x, p, p', !status
 
 let _ = if Array.length Sys.argv > 1 then Array.iteri (fun ix itm -> try
-    if ix > 0 then let modlst,x,p,p' = rewrite_rtlil itm in
-    List.iter (fun (k,_) -> print_endline ("PASSED: "^itm^"("^k^")")) modlst
+    if ix > 0 then let modlst,x,p,p',status = rewrite_rtlil itm in
+    List.iter (fun (k,_) -> print_endline ((if status then "PASSED: " else "FAILED: ")^itm^"("^k^")")) modlst
     with err -> print_endline ("FAILED: "^itm)) Sys.argv
 

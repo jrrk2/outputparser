@@ -8,19 +8,20 @@ output t,output u,output v,output w,output x,output y);
    assign m = a & b;
    assign n = a | b;
    assign o = a ^ b;
-   
+
    assign p = a+b;
    assign q = a-b;
    assign r = a*b;
+/*
    assign s = a/b;
-
+*/
    assign t = a == b;
    assign u = a != b;
    assign v = a < b;
    assign w = a <= b;
    assign x = a >= b;
    assign y = a > b;
-   
+
 // dummy #(.Y_WIDTH(8)) inst1(.A(a),.B(b),.Y(z));
 
 endmodule // query

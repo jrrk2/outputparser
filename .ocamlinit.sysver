@@ -100,7 +100,6 @@ let v = "../yosys/tests/simple/values.v";;
 let v = "../yosys/tests/simple/rotate.v";;
 let v = "examples/picorv32_ref.v";;
 let v = "examples/count1.v";;
-let v = "examples/count0.v";;
 let v = "examples/count2.v";;
 let v = "examples/count3.v";;
 let v = "examples/count4.v";;
@@ -108,13 +107,15 @@ let v = "examples/count5.v";;
 let v = "examples/arith.v";;
 let v = "examples/add.v";;
 let v = "examples/multest.v";;
+let v = "examples/count0.v";;
+let v = "examples/count.v";;
 
 (*
 let x = rw (parse v);;
 *)
 
 (* *)
-let (modlst,x,p,p') = rewrite_rtlil v;;
+let (modlst,x,p,p',status) = rewrite_rtlil v;;
 (* *)
 
 let x crnt = sub' (List.assoc crnt !Matchmly.modules);;
