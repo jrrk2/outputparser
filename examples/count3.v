@@ -6,8 +6,10 @@ module count(input clk, input rst, input en, input dir, output reg [7:0] q);
 
    always @(posedge clk)
      if (rst)
+       begin
        q = 8'b0;
        state = hold;
+       end
      else
        begin
           if (en && dir) state = up;

@@ -1,6 +1,7 @@
 %{
   open Parsing
   open Source_text_types
+  let stderr = open_out "parser_stderr.log" (* to capture parser trace mode info *)
   let declst = ref []
   let packhash_add id_t = Hashtbl.add packhash id_t ()
   let typehash_add id_t = Hashtbl.add typehash id_t ()

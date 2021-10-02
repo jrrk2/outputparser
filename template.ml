@@ -168,6 +168,7 @@ let template toklst gramlst =
     fprintf mlyfile "%%{\n";
     fprintf mlyfile "  open Parsing\n";
     fprintf mlyfile "  open %s_types\n" (capitalise stem);
+    fprintf mlyfile "  let stderr = open_out \"parser_stderr.log\" (* to capture parser trace mode info *)\n";
     fprintf mlyfile "  let declst = ref []\n";
     fprintf mlyfile "  let packhash_add id_t = Hashtbl.add packhash id_t ()\n";
     fprintf mlyfile "  let typehash_add id_t = Hashtbl.add typehash id_t ()\n";

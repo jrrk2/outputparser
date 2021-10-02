@@ -18,7 +18,7 @@
 
 .PHONY: everything
 PARSER=ocamlyacc
-MENHIRFLAGS= #--trace
+MENHIRFLAGS= --trace #
 PARSER=menhir $(MENHIRFLAGS)
 
 all: output_parser output_parser.top Source_text_top Source_text

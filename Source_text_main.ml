@@ -161,6 +161,9 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "$_DFFE_PP_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] ->
       let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
       addnxt "nxt" ind data mux q;
+  | "$_DFFE_PN_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] ->
+      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
+      addnxt "nxt" ind data mux q;
   | "$_SDFFCE_PP1P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
       let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
       addnxt "nxt" ind data (and2 r mux) q;
@@ -189,7 +192,6 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "$_DFFE_PN0P_",lst -> notsupp kind lst
   | "$_DFFE_PN1N_",lst -> notsupp kind lst
   | "$_DFFE_PN1P_",lst -> notsupp kind lst
-  | "$_DFFE_PN_",lst -> notsupp kind lst
   | "$_DFFE_PP0N_",lst -> notsupp kind lst
   | "$_DFFE_PP0P_",lst -> notsupp kind lst
   | "$_DFFE_PP1N_",lst -> notsupp kind lst

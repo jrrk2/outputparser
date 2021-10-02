@@ -68,7 +68,7 @@ let coth = ref None
 let backtrace msg = print_endline ("backtrace: "^(Printexc.get_callstack 5 |> Printexc.raw_backtrace_to_string)^msg)
 
 let update typhash id expr = match id with
-  | Id id -> Hashtbl.replace typhash id expr
+  | Id id -> (* print_endline id; *) Hashtbl.replace typhash id expr
   | oth -> failwith ("Argument "^(Source_text_rewrite.getstr oth)^" of update must be Id")
   
 let is_mem typhash id = match Hashtbl.find_opt typhash id with Some (Vmem _) -> true | _ -> false
@@ -631,6 +631,7 @@ let funtyp typhash = function
 
 let id_ix = ref 1000
 let wire_lst = ref []
+let typhist = ref []
 
 let newnam () = 
   incr id_ix;
@@ -642,8 +643,11 @@ let exists_wire bufh typhash options nam signage =
     print_endline ("Warning: "^nam^" is already defined, could be obsolete syntax")
   else
     bufh.w := Wire_stmt(options, nam) :: !(bufh.w);
-  match Hashtbl.find_opt typhash nam with
+  let typ = Hashtbl.find_opt typhash nam in
+  typhist := (nam,typ) :: !typhist;
+  match typ with
     | Some (MaybePort (ix,Vsigtyp,dir)) -> update typhash (Id nam) (MaybePort (ix, signage, dir))
+    | Some (MaybePort (ix,(Unsigned|Signed),dir)) -> update typhash (Id nam) (MaybePort (ix, signage, dir))
     | Some (MaybePort (ix,_,dir)) -> ()
     | Some Unsigned -> ()
     | Some Unsigned_vector _ -> ()
@@ -1792,6 +1796,8 @@ let rec cnv' bufh dhash typhash inst = function
     | oth -> unhand := Some oth; failwith "cnv'"
 
 let dbgproc = ref None
+let dbgdecl = ref None
+let dbgtyp = ref (Hashtbl.create 1)
 
 let mapedge sync_lst = function
   | Pos (Id signal) -> Sync_list69 ([TokPos], [TokID signal], [], sync_lst)
@@ -1802,9 +1808,10 @@ let module_header modules = function
 | Modul (typ, parm_lst, port_lst, body_lst) ->
   let typhash = Hashtbl.create 255 in
   let bufh = bufhash () in
+  dbgtyp := typhash;
   List.iter (fun itm -> let _ = parm_map typhash itm in ()) parm_lst;
   List.iteri (fun ix itm -> ports typhash (ix+1) itm) port_lst;
-  List.iter (decl_template bufh typhash modules None) body_lst;
+  List.iter (fun itm -> dbgdecl := Some itm; decl_template bufh typhash modules None itm) body_lst;
   Hashtbl.iter (fun nam -> function
     | MaybePort(ix, (Unsigned_vector(hi,lo)|Signed_vector(hi,lo) as v), dir) ->
         let wid = ceval typhash hi - ceval typhash lo + 1 in 
@@ -1956,7 +1963,6 @@ let rec proc_template bufh typhash modules = function
 let body' = ref []
 let port' = ref []
 let dbgm' = ref None
-let dbgtyp = ref (Hashtbl.create 1)
 
 let template modules = function
   | Modul(nam, parm_lst, port_lst, body_lst) as m ->
@@ -1965,7 +1971,6 @@ let template modules = function
   let bufh, typhash, ports' = module_header modules m in
   let bufm = ref [] in
   bufm := Attr_stmt ("\\cells_not_processed", [TokInt 1]) :: !(bufm);
-  dbgtyp := typhash;
   port' := ports';
   body' := body_lst;
   List.iter (proc_template bufh typhash modules) body_lst;
