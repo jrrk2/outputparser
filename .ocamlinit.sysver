@@ -109,6 +109,9 @@ let v = "examples/count.v";;
 let v = "examples/count2.v";;
 let v = "examples/count3.v";;
 let v = "../yosys/tests/simple/process.v";;
+let v = "examples/query.v";;
+let v = "examples/rhs.v";;
+let v = "examples/synthcells_comb.v";;
 
 (*
 let x = rw (parse v);;

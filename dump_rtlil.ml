@@ -332,12 +332,15 @@ let simplify x =
   !rslt2
 
 let rec recurs1 (attr: Source_text_rewrite.attr) = function
-  | Modul (nam, params, args, body) -> Modul (nam, List.map (recurs1 attr) params, List.map (recurs1 attr) args, List.map (recurs1 attr) body)
+  | Modul (nam, params, args, body) -> Modul (nam, List.map (recurs1 attr) params, (let _ = Hashtbl.remove attr.subst Deflt in List.map (recurs1 attr) args), List.map (recurs1 attr) body)
 (*
-  | Itmlst lst -> Hashtbl.remove attr.subst Deflt; Itmlst (List.map (recurs1 attr) lst)
-  | Port (Deflt, nam, [], sgn) as x -> (match Hashtbl.find_opt attr.subst Deflt with Some (DeclData(dir, rng)) -> Port (dir, nam, rng, sgn) | _ -> x)
+  | Itmlst lst -> Itmlst (List.map (recurs1 attr) lst)
+ *)
+  | Port (dir, nam, [], sgn) as x -> (match Hashtbl.find_opt attr.subst Deflt with
+        | Some (DeclData(dir', rng')) -> if dir <> dir' then let _ = Hashtbl.remove attr.subst Deflt in x else Port (dir, nam, rng', sgn)
+        | _ -> x)
   | Port (dir, _, rng, _) as x -> Hashtbl.replace attr.subst Deflt (DeclData(dir, rng)); x
-*)
+(* *)
   | FunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
   | AutoFunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
   | TaskDecl(id, _, _, _) as x -> Hashtbl.replace attr.subst (TaskRef (id,[])) x; x
@@ -640,7 +643,7 @@ let newnam () =
 let exists_wire bufh typhash options nam signage =
   wire_lst := (options,nam,signage) :: !wire_lst;
   if List.filter (function Wire_stmt (_, id) -> id=nam | _ -> false) !(bufh.w) <> [] then
-    print_endline ("Warning: "^nam^" is already defined, could be obsolete syntax")
+    output_string logf ("Warning: "^nam^" is already defined, could be obsolete syntax\n")
   else
     bufh.w := Wire_stmt(options, nam) :: !(bufh.w);
   let typ = Hashtbl.find_opt typhash nam in
@@ -909,17 +912,30 @@ let rec asgnexpr' bufh typhash wid = function
 
 and asgnexpr bufh typhash x = asgnexpr' bufh typhash (width typhash x) x
 
-and signlst func typhash = List.mapi (fun ix itm -> match func,ix,signof typhash itm with
- | "shr",1,_ -> 0 (* certain function/operand combinations cannot be signed in yosys *)
- | "shl",1,_ -> 0
- | "sub",_,_ -> 0
- | _,_,Signed -> 1
- | _,_,Unsigned -> 0
- | _ -> failwith "signing")
+and signlst func typhash sgnlst =
+  let sgn' = List.mapi (fun ix itm -> match func,ix,signof typhash itm with
+    | "shr",1,_ -> 0 (* certain function/operand combinations cannot be signed in yosys *)
+    | "shl",1,_ -> 0
+    | "sub",_,_ -> 0
+    | _,_,Signed -> 1
+    | _,_,Unsigned -> 0
+    | _ -> failwith "signing") sgnlst in
+  (* if either input is unsigned, the whole thing becomes unsigned *)
+  match sgn' with
+  | [] -> []
+  | s :: [] -> sgn'
+  | a :: b :: [] when a=b -> sgn'
+  | 0 :: b :: [] -> 0 :: 0 :: []
+  | a :: 0 :: [] -> 0 :: 0 :: []
+  | a :: b :: c :: [] when a=b && b=c -> sgn'
+  | 0 :: b :: c :: [] -> 0 :: 0 :: 0 :: []
+  | a :: 0 :: c :: [] -> 0 :: 0 :: 0 :: []
+  | a :: b :: 0 :: [] -> 0 :: 0 :: 0 :: []
+  | oth -> failwith "signlst"
 
 and signparm = List.map (fun (sgn,itm) -> CellParamItem2 (itm^"_SIGNED", Number (10, 32, sgn, "")))
 
-and addprim bufh typhash typ params args templ = 
+and addprim bufh typhash typ params args templ =
   output_string logf ("addprim: "^typ^"\n");
   let args' = List.map (buffer'' bufh typhash) args in
   let wid' ix arg =
@@ -927,7 +943,7 @@ and addprim bufh typhash typ params args templ =
      let u = Char.uppercase_ascii templ.[ix] in
      if u = templ.[ix] || ix = 0 then CellParamItem2 (((if u = templ.[ix] then String.make 1 u^"_" else "")^"WIDTH"), Number(10, 32, w, "")) :: [] else [] in
   let conn' ix itm = CellPinItem2(String.make 1 (Char.uppercase_ascii templ.[ix]), itm) in
-  let args'' = match args' with 
+  let args'' = match args' with
     | a :: b :: y :: tl ->
       let w0 = width typhash a and w1 = width typhash b in
       if w0 < w1 then ExprOKL (Number(2,w1-w0,0,"") :: a :: []) :: b :: y :: tl
@@ -1006,9 +1022,7 @@ let vdir ix = function
   | oth -> unhand := Some oth; failwith "vdir"
 
 let array_port typhash ix hi lo dir nam =
-(*
-  let wid = ceval typhash hi - ceval typhash lo +1 in
-*)
+  output_string logf (nam^": array port "^string_of_int ix^" ["^string_of_int (ceval typhash hi)^" : "^string_of_int (ceval typhash lo)^"]\n");
   update typhash (Id nam) (MaybePort (ix, Unsigned_vector(hi,lo), dir))
 
 let maybe_port typhash nam ix dir typ =
@@ -1185,10 +1199,6 @@ let addconn bufh typhash  (nam, expr) =
     let rhs = buffer' bufh typhash expr 0 in
     bufh.i := TokConn (tran' nam, tran' rhs) :: !(bufh.i)
 
-let asgn bufh typhash expr lhs =
-let rhs = buffer' bufh typhash expr (width typhash lhs) in
-bufh.c := Conn_stmt96(tran' lhs, tran' rhs) :: !(bufh.c)
-
 (*
 | Concat _ as lst -> bprintf buf' "            %s <= %s; // 385	\n" (vexpr typhash lst) (asgnexpr buf' typhash expr)
 | Dot1 (lft, rght) -> bprintf buf' "            %s.%s <= %s; // 386	\n" (vexpr typhash lft) (vexpr typhash rght) (asgnexpr buf' typhash expr)
@@ -1363,7 +1373,7 @@ let rec decl_template bufh typhash modules pth = function
     | Port(PortDir(dir, Atom kind), nam, [], signed) -> addwire bufh typhash ([vdir (portpos typhash nam) dir], Id nam, signcnv (signed, Deflt))
     | Port(dir, nam, [], signed) -> addwire bufh typhash ([vdir (portpos typhash nam) dir], Id nam, signcnv (signed, Deflt))
     | Itmlst lst -> List.iter (decl_template bufh typhash modules pth) lst
-    | Port(PortDir(dir, Atom kind), nam, [AnyRange _ as x], signed) -> addwire bufh typhash (range typhash (Id nam, x) :: [vdir (portpos typhash nam) dir], Id nam, signcnv (signed, Deflt))
+    | Port(PortDir(dir, Atom kind), nam, [AnyRange _ as x], signed) -> addwire bufh typhash (range typhash (Id nam, x) :: [vdir (portpos typhash nam) dir], Id nam, signcnv (signed, x))
     | Port(dir, nam, [AnyRange _ as x], signed) -> addwire bufh typhash (range typhash (Id nam, x) :: [vdir (portpos typhash nam) dir], Id nam, signcnv (signed, x))
     | DeclReg (reg_lst, [], signed) -> List.iter (function
       | Id _ as nam -> addwire bufh typhash ([], nam, signcnv (signed, Deflt));
@@ -1673,6 +1683,9 @@ else rhs) 0 in match lhs with
   | Some Vmem {off;siz;wid} ->
       dbgeq := Some (lhs,rhs');
       Update_listmemwr("\\\\"^mem, tran' addr, tran' rhs', tran' (Number (2, wid, (1 lsl wid)-1, "")), tran' (Number(2, 0, 0, ""))) (* work in progress *)
+(*
+  | Some oth -> coth := Some oth; failwith "IdArrayed2"
+*)
   | _ -> if update then TokUpdate(tran' lhs, tran' rhs') else Assign_stmt67(tran' lhs, tran' rhs'))
 | oth -> dbgcommon := Some (lhs,rhs'); if update then TokUpdate(tran' lhs, tran' rhs') else Assign_stmt67(tran' lhs, tran' rhs')
 
@@ -1796,7 +1809,8 @@ let rec cnv' bufh dhash typhash inst = function
     | oth -> unhand := Some oth; failwith "cnv'"
 
 let dbgproc = ref None
-let dbgdecl = ref None
+let dbgdecl = ref []
+let dbgports = ref []
 let dbgtyp = ref (Hashtbl.create 1)
 
 let mapedge sync_lst = function
@@ -1804,14 +1818,32 @@ let mapedge sync_lst = function
   | Neg (Id signal) -> Sync_list69 ([TokNeg], [TokID signal], [], sync_lst)
   | oth -> unhand := Some oth; failwith "mapedge"
 
+let asgn bufh typhash expr = function
+  | IdArrayed2 (Id arr, (Id _ as sel)) ->
+    let dhash = Hashtbl.create 255 in
+    let inst = newnam() in
+    let wid = width typhash sel in
+    let body = CaseStart (CaseStart1 (sel), List.init (1 lsl wid) (fun ix ->
+        let num = Number(2,wid,ix,"") in
+        (CaseStmt ([num], EquateSelect (Id arr, num, expr) :: [])))) in
+    dbgproc := Some (typhash, dhash, inst, [], body);
+    let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
+    let sync_lst = List.sort_uniq compare s in
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.map (mapedge sync_lst) []) :: !(bufh.l)
+  | lhs ->
+    let rhs = buffer' bufh typhash expr (width typhash lhs) in
+    bufh.c := Conn_stmt96(tran' lhs, tran' rhs) :: !(bufh.c)
+
 let module_header modules = function
 | Modul (typ, parm_lst, port_lst, body_lst) ->
   let typhash = Hashtbl.create 255 in
   let bufh = bufhash () in
   dbgtyp := typhash;
   List.iter (fun itm -> let _ = parm_map typhash itm in ()) parm_lst;
-  List.iteri (fun ix itm -> ports typhash (ix+1) itm) port_lst;
-  List.iter (fun itm -> dbgdecl := Some itm; decl_template bufh typhash modules None itm) body_lst;
+  dbgports := [];
+  List.iteri (fun ix itm -> dbgports := itm :: !dbgports; ports typhash (ix+1) itm) port_lst;
+  dbgdecl := [];
+  List.iter (fun itm -> dbgdecl := itm :: !dbgdecl; decl_template bufh typhash modules None itm) body_lst;
   Hashtbl.iter (fun nam -> function
     | MaybePort(ix, (Unsigned_vector(hi,lo)|Signed_vector(hi,lo) as v), dir) ->
         let wid = ceval typhash hi - ceval typhash lo + 1 in 

@@ -1,5 +1,5 @@
-module query(input [3:0] a,b,  output [7:0] z);
+module query(input [7:0] a,b, output z);
 
-   assign z = a[b];
+   assign z = a[b[2:0]];
 
 endmodule // query

@@ -155,21 +155,30 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "$_SDFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
       let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
       addnxt "nxt" ind data (and2 r mux) q;
-  | "$_SDFFCE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
+  | "$_SDFFE_PP0N_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
       let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
       addnxt "nxt" ind data (and2 r mux) q;
+  | "$_SDFFE_PP1P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
+      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
+      addnxt "nxt" ind data (or2 r mux) q;
+  | "$_SDFFCE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
+      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
+      addnxt "nxt" ind data (and2 mux (knot r)) q;
   | "$_DFFE_PP_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] ->
       let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
       addnxt "nxt" ind data mux q;
-  | "$_DFFE_PN_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] ->
+  | "$_DFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
       let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
+      addnxt "nxt" ind data (and2 mux (knot r)) q;
+  | "$_DFFE_PN_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] ->
+      let mux = mux2 d (atom q) e in (* recirculate existing data when enable = hi *)
       addnxt "nxt" ind data mux q;
   | "$_SDFFCE_PP1P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
       let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data (and2 r mux) q;
+      addnxt "nxt" ind data (or2 r mux) q;
   | "$_SDFFCE_PN0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data (and2 r mux) q;
+      let mux = mux2 (atom q) (and2 r d) e in (* recirculate existing data when enable = lo *)
+      addnxt "nxt" ind data mux q;
   | "$_NAND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (and2 a b))
   | "$_NOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (or2 a b))
   | "$_OR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (or2 a b)
@@ -282,7 +291,6 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "$_SDFFE_PN1P_",lst -> notsupp kind lst
   | "$_SDFFE_PP0N_",lst -> notsupp kind lst
   | "$_SDFFE_PP1N_",lst -> notsupp kind lst
-  | "$_SDFFE_PP1P_",lst -> notsupp kind lst
   | "$_SDFF_NN0_",lst -> notsupp kind lst
   | "$_SDFF_NN1_",lst -> notsupp kind lst
   | "$_SDFF_NP0_",lst -> notsupp kind lst
@@ -461,9 +469,7 @@ let rec cnv_ilang ind = function
 | TokNeg -> ()
 | TokEdge -> ()
 *)
-| oth -> oth' := Some oth; failwith "cnv_ilst"
-
-and cnv_ilst ind lst = List.iter (cnv_ilang ind) lst
+| oth -> oth' := Some oth; failwith "cnv_ilang"
 
 let mycnf' = ref F.f_false
 let mycnf = ref [[E.transparent (E.fresh ())]]
@@ -482,26 +488,30 @@ let ep form =
       | Msat_sat_slit.Unsat _ -> if verbose then print_endline "UNSATISFIABLE (netlists match)"; true
 
 let cnv_sat arg' =
-  let wh = Hashtbl.create 255 in
-  let wid = Hashtbl.create 255 in
-  let ffh = Hashtbl.create 255 in
-  let sh = Hashtbl.create 255 in
   print_endline ("Reading rtlil: "^arg');
   let _,arg = Input_rewrite.parse arg' in
-  let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
-  cnv_ilst ind arg;
-  Hashtbl.iter (fun _ (kind,inst,conns) -> func ind [inst] kind conns) sh;
-  let hlst=ref [] in
-  Hashtbl.iter (fun k -> function
-    | Some x -> othh := x; hlst := (k, fpp x) :: !hlst
-    | None -> if verbose then print_endline (arg'^": "^E.string_of_signal k^" is not used")) wh;
-  let inffoplst=ref [] in
-  Hashtbl.iter (fun k () -> inffoplst := (k, match Hashtbl.find wh k with
-    | Some x -> x
-    | None -> print_endline ("ffh: " ^ E.string_of_signal k^" is undefined"); atom (scalar "\\")) :: !inffoplst) ffh;
-  let widlst=ref [] in
-  Hashtbl.iter (fun k n -> widlst := (k, n) :: !widlst) wid;
-  !hlst, List.sort compare !inffoplst, !widlst
+  List.map (fun (nam,itm) ->
+      let wh = Hashtbl.create 255 in
+      let wid = Hashtbl.create 255 in
+      let ffh = Hashtbl.create 255 in
+      let sh = Hashtbl.create 255 in
+      let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
+      print_endline ("Converting: "^nam);
+      List.iter (cnv_ilang ind) itm;
+      Hashtbl.iter (fun _ (kind,inst,conns) -> func ind [inst] kind conns) sh;
+      let hlst=ref [] in
+      Hashtbl.iter (fun k -> function
+          | Some x -> othh := x; hlst := (k, fpp x) :: !hlst
+          | None -> if verbose then print_endline (arg'^": "^E.string_of_signal k^" is not used")) wh;
+      let inffoplst=ref [] in
+      Hashtbl.iter (fun k () -> inffoplst := (k, match Hashtbl.find wh k with
+        | Some x -> x
+        | None -> print_endline ("ffh: " ^ E.string_of_signal k^" is undefined"); atom (scalar "\\")) :: !inffoplst) ffh;
+      let widlst=ref [] in
+      Hashtbl.iter (fun k n -> widlst := (k, n) :: !widlst) wid;
+      print_endline ("inffopslt length: "^string_of_int (List.length !inffoplst));
+      !hlst, List.sort compare !inffoplst, !widlst
+  ) arg
 
 let rewrite_rtlil v =
   let status = ref true in
@@ -540,8 +550,9 @@ let rewrite_rtlil v =
     else
       begin
       print_endline "yosys succeeded";
-      let hlst, inffoplst, wlst = cnv_sat (v^"_golden_synth.rtlil") in
-      let hlst', inffoplst', wlst' = cnv_sat (v^"_dump_synth.rtlil") in
+      let goldlst = cnv_sat (v^"_golden_synth.rtlil") in
+      let revlst = cnv_sat (v^"_dump_synth.rtlil") in
+      List.iter2 (fun (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') ->
       let inffoplst1,inffoplst2 = List.split inffoplst in
       let inffoplst1',inffoplst2' = List.split inffoplst' in
       print_endline ("Golden (yosys) primary inputs/flipflop inputs/final outputs: "^String.concat "; " (List.map E.string_of_signal inffoplst1));
@@ -557,6 +568,7 @@ let rewrite_rtlil v =
               status := false;
               k' ^ ": not compared"
           ) inffoplst'))
+        ) goldlst revlst;
 (*
       let xorall = List.map2 xor2 inffoplst2 inffoplst2' in
       let mitre = if xorall <> [] then F.make_or xorall else failwith "mitre" in

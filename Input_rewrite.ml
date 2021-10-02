@@ -170,7 +170,15 @@ let parse arg =
   let p = parse_output_ast_from_chan ch in
   close_in ch;
   let p' = List.rev (rw' (rw p)) in
-  p,p'
+  let mods = Hashtbl.create 255 in
+  let nam = ref "" in
+  Hashtbl.add mods !nam [];
+  List.iter (function
+      | Module12(string,ilang_lst') as x -> nam := string; Hashtbl.add mods !nam [x]
+      | oth -> Hashtbl.replace mods !nam (oth :: Hashtbl.find mods !nam)) p';
+  let mlst = ref [] in
+  Hashtbl.iter (fun k x -> if k <> "" then mlst := (k, List.rev x) :: !mlst) mods;
+  p, List.sort compare !mlst
 
 let keyword = function
 | oth -> false
