@@ -7,7 +7,6 @@ open Input
 open Input_rewrite_types
 
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
-let cnf_manual = try int_of_string (Sys.getenv "CNF_MANUAL") > 0 with err -> false
 let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
 
 let dbgx = ref None
@@ -213,7 +212,7 @@ let cnv_sat arg' =
       let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
       print_endline ("Converting: "^nam);
       List.iter (cnv_ilang ind) itm;
-      Hashtbl.iter (fun _ (kind,inst,conns) -> (if cnf_manual then Convert_manual.func else Convert.func) ind [inst] kind conns) sh;
+      Hashtbl.iter (fun _ (kind,inst,conns) -> Convert.func ind [inst] kind conns) sh;
       let hlst=ref [] in
       Hashtbl.iter (fun k -> function
           | Some x -> othh := x; hlst := (k, fpp x) :: !hlst
