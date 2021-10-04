@@ -818,6 +818,12 @@ and instance_template bufh typhash typ params inst pinlst =
 
 let buflst = ref []
 
+(* certain primitives go wrong if we equalise argument widths *)
+
+let width_mismatch_not_ok = function
+| "eq" -> false
+| oth -> true
+
 let rec asgnexpr' bufh typhash wid = function
   | (Number _ | Intgr _) as x -> x
   | Add (lhs, rhs) -> dyadic bufh typhash wid "add" [lhs;rhs] "ABY"
@@ -944,7 +950,7 @@ and addprim bufh typhash typ params args templ =
      if u = templ.[ix] || ix = 0 then CellParamItem2 (((if u = templ.[ix] then String.make 1 u^"_" else "")^"WIDTH"), Number(10, 32, w, "")) :: [] else [] in
   let conn' ix itm = CellPinItem2(String.make 1 (Char.uppercase_ascii templ.[ix]), itm) in
   let args'' = match args' with
-    | a :: b :: y :: tl ->
+    | a :: b :: y :: tl when width_mismatch_not_ok typ ->
       let w0 = width typhash a and w1 = width typhash b in
       if w0 < w1 then ExprOKL (Number(2,w1-w0,0,"") :: a :: []) :: b :: y :: tl
       else if w0 > w1 then a :: ExprOKL (Number(2,w0-w1,0,"") :: b :: []) :: y :: tl
@@ -1816,6 +1822,7 @@ let dbgtyp = ref (Hashtbl.create 1)
 let mapedge sync_lst = function
   | Pos (Id signal) -> Sync_list69 ([TokPos], [TokID signal], [], sync_lst)
   | Neg (Id signal) -> Sync_list69 ([TokNeg], [TokID signal], [], sync_lst)
+  | AlwaysSync -> Sync_listalways([], sync_lst)
   | oth -> unhand := Some oth; failwith "mapedge"
 
 let asgn bufh typhash expr = function
@@ -1829,7 +1836,7 @@ let asgn bufh typhash expr = function
     dbgproc := Some (typhash, dhash, inst, [], body);
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
     let sync_lst = List.sort_uniq compare s in
-    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.map (mapedge sync_lst) []) :: !(bufh.l)
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, [mapedge sync_lst AlwaysSync]) :: !(bufh.l)
   | lhs ->
     let rhs = buffer' bufh typhash expr (width typhash lhs) in
     bufh.c := Conn_stmt96(tran' lhs, tran' rhs) :: !(bufh.c)
@@ -1882,20 +1889,20 @@ let rec proc_template bufh typhash modules = function
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
     let sync_lst = List.sort_uniq compare s in
     bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.map (mapedge sync_lst) edglst) :: !(bufh.l)
-    | AlwaysLegacy (AtStar, body) -> let edglst = [] in 
+    | AlwaysLegacy (AtStar, body) ->
     let dhash = Hashtbl.create 255 in
     let inst = newnam() in
-    dbgproc := Some (typhash, dhash, inst, edglst, body);
+    dbgproc := Some (typhash, dhash, inst, [], body);
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
     let sync_lst = List.sort_uniq compare s in
-    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.map (mapedge sync_lst) edglst) :: !(bufh.l)
-    | AlwaysLegacy (At (EventOr (Id _ :: _)), body) -> let edglst = [] in 
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, mapedge sync_lst AlwaysSync :: []) :: !(bufh.l)
+    | AlwaysLegacy (At (EventOr (Id _ :: _)), body) ->
     let dhash = Hashtbl.create 255 in
     let inst = newnam() in
-    dbgproc := Some (typhash, dhash, inst, edglst, body);
+    dbgproc := Some (typhash, dhash, inst, [], body);
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
     let sync_lst = List.sort_uniq compare s in
-    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.map (mapedge sync_lst) edglst) :: !(bufh.l)
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, mapedge sync_lst AlwaysSync :: []) :: !(bufh.l)
 (*
     | AlwaysFF (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
   bprintf buf' "    // clocked process %d description goes here\n" !cnt;

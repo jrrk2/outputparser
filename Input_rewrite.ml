@@ -90,6 +90,7 @@ and to_lst arg2 arg3 = TLIST (rw arg3 :: (match rw arg2 with EMPTY_TOKEN -> [] |
 let rec rw' = function
 | EMPTY_TOKEN -> []
 | TOK_POSEDGE -> TokPos :: []
+| TOK_NEGEDGE -> TokNeg :: []
 | TOK_ID id -> TokID id :: []
 | TOK_INT n -> TokInt n :: []
 | TOK_VALUE v -> TokVal v :: []

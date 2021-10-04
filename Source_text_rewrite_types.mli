@@ -6,6 +6,7 @@ type rw =
   | AlwaysFF of rw * rw
   | AlwaysLatch of rw
   | AlwaysLegacy of rw * rw
+  | AlwaysSync
   | And of rw * rw
   | And2 of rw * rw
   | And3 of rw * rw
@@ -234,3 +235,13 @@ type rw =
   | WireExpr of rw * rw
   | Xnor of rw * rw
   | Xor of rw * rw
+
+module E = Msat_sat_slit.String_lit (* expressions *)
+module F = Msat_tseitin.MakeCNF
+
+type ind = {
+  wires:(E.signal, F.t option) Hashtbl.t;
+  inffop:(E.signal, unit) Hashtbl.t;
+  stash:(E.signal, string * string * Input_rewrite_types.ilang list) Hashtbl.t;
+  wid:(string, int) Hashtbl.t;
+}

@@ -2,45 +2,18 @@ open Printf
 open Source_text
 open Source_text_lex
 open Source_text_rewrite
+open Source_text_rewrite_types
 open Input
 open Input_rewrite_types
 
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
+let cnf_manual = try int_of_string (Sys.getenv "CNF_MANUAL") > 0 with err -> false
 
 let dbgx = ref None
-let dbgfunc = ref []
-
-module E = Msat_sat_slit.String_lit (* expressions *)
-module F = Msat_tseitin.MakeCNF
-
-type ind = {
-  wires:(E.signal, F.t option) Hashtbl.t;
-  inffop:(E.signal, unit) Hashtbl.t;
-  stash:(E.signal, string * string * ilang list) Hashtbl.t;
-  wid:(string, int) Hashtbl.t;
-}
 
 let oth' = ref None
-let othst = ref []
 let othopt = ref None
 let othconn = ref None
-let othstr = ref None
-
-let trim s = if s.[0] = '\\' then String.sub s 1 (String.length s - 1) else s
-let idx s i = E.INDEXED (trim s,i)
-let scalar s = E.SCALAR (trim s)
-let and2 a b = F.make_and [a;b]
-let or2 a b = F.make_or [a;b]
-let xor2 a b = F.make_xor a b
-let knot a = F.make_not a
-let mux2 a b s = or2 (and2 a (knot s)) (and2 b s)
-let atom signal = F.make_atom ( E.make signal )
-
-let cnv_pwr = function
-  | "1'0" -> E.GND
-  | "1'1" -> E.PWR
-  | "1'x" -> E.GND
-  | oth -> othstr := Some oth; failwith "cnv_pwr"
 
 let cnv_sig = function
   | E.GND -> TokVal "1'0"
@@ -69,54 +42,6 @@ let addoutp idx idx' ind signal =
 
 let addff ind signal = let op = atom signal in Hashtbl.replace ind.wires signal ( Some op )
 
-let addwire idx' ind signal =
-  match Hashtbl.find_opt ind.wires signal with
-    | Some x -> print_endline (E.string_of_signal signal^" redeclared")
-    | None -> Hashtbl.add ind.wires signal None
-
-let addfunc ind signal func =
-  match Hashtbl.find_opt ind.wires signal with
-    | Some None ->
-        if verbose then print_endline ("Installed function for wire: "^E.string_of_signal signal);
-        Hashtbl.replace ind.wires signal (Some func)
-    | Some _ -> print_endline (E.string_of_signal signal ^" redeclared")
-    | None -> print_endline (E.string_of_signal signal ^" undefined")
-
-(*
-let addconn ind lhs' rhs' =
-  match getw ind rhs' with
-   | Some func' -> addfunc ind lhs' func'
-   | None -> Hashtbl.replace ind.conn (lhs',rhs') ()
-*)
-
-let addnxt' pat = function
-| E.PWR -> E.SCALAR (pat^"$PWR")
-| GND -> E.SCALAR (pat^"$GND")
-| SCALAR string -> E.SCALAR (pat^"$"^string)
-| INDEXED (string, int) -> E.INDEXED (pat^"$"^string, int)
-
-let addnxt pat ind data d q =
-   let lhs' = addnxt' pat q in
-   addwire 0 ind lhs';
-   Hashtbl.add ind.inffop lhs' ();
-   addfunc ind lhs' d
-
-let othlst = ref []
-let othwlst = ref []
-
-let notsupp kind lst = othlst := lst; failwith ("Not supported: "^kind)
-
-(* dump a cnf in ASCII *)
-
-let fpp q =
-  let buf' = Buffer.create 1000 in
-  let buf = Format.formatter_of_buffer buf' in
-(*
-  if verbose then F.mypp buf q;
-*)
-  Format.pp_print_flush buf ();
-  Buffer.contents buf'
-
 (* convert and print a cnf *)
 
 let cnfpp q =
@@ -134,217 +59,6 @@ let epp itm =
   E.pp buf itm;
   Format.pp_print_flush buf ();
   print_endline (Buffer.contents buf')
-
-let rec func ind klst kind conns = match kind, pinmap ind klst conns with
-  | "", ["",E.GND,None] -> failwith "GND" (* dummy to force type inference *)
-  | "$_AND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (and2 a b)
-  | "$_ANDNOT_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (and2 a (knot b))
-  | "$_BUF_",("\\A", _, Some a) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y a
-  | "$_MUX_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\S", _, Some s) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (mux2 a b s)
-  | "$_NOT_",("\\A", _, Some a) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot a)
-  | "$_DFF_P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: [] ->
-     addnxt "nxt" ind data d q;
-  | "$_DFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-     addnxt "nxt" ind data (and2 r d) q;
-  | "$_SDFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-     addnxt "nxt" ind data (and2 r d) q;
-  | "$_SDFF_PN0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-     addnxt "nxt" ind data (and2 r d) q;
-  | "$_SDFF_PN1_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-     addnxt "nxt" ind data (and2 r d) q;
-  | "$_SDFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data (and2 r mux) q;
-  | "$_SDFFE_PP0N_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data (and2 r mux) q;
-  | "$_SDFFE_PP1P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data (or2 r mux) q;
-  | "$_SDFFCE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data (and2 mux (knot r)) q;
-  | "$_DFFE_PP_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] ->
-      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data mux q;
-  | "$_DFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data (and2 mux (knot r)) q;
-  | "$_DFFE_PN_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] ->
-      let mux = mux2 d (atom q) e in (* recirculate existing data when enable = hi *)
-      addnxt "nxt" ind data mux q;
-  | "$_SDFFCE_PP1P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-      let mux = mux2 (atom q) d e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data (or2 r mux) q;
-  | "$_SDFFCE_PN0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] ->
-      let mux = mux2 (atom q) (and2 r d) e in (* recirculate existing data when enable = lo *)
-      addnxt "nxt" ind data mux q;
-  | "$_NAND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (and2 a b))
-  | "$_NOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (or2 a b))
-  | "$_OR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (or2 a b)
-  | "$_ORNOT_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (or2 a (knot b))
-  | "$_XOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (xor2 a b)
-  | "$_XNOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (xor2 a b))
-  | "$_AOI3_",lst -> notsupp kind lst
-  | "$_AOI4_",lst -> notsupp kind lst
-  | "$_DFFE_NN0N_",lst -> notsupp kind lst
-  | "$_DFFE_NN0P_",lst -> notsupp kind lst
-  | "$_DFFE_NN1N_",lst -> notsupp kind lst
-  | "$_DFFE_NN1P_",lst -> notsupp kind lst
-  | "$_DFFE_NN_",lst -> notsupp kind lst
-  | "$_DFFE_NP0N_",lst -> notsupp kind lst
-  | "$_DFFE_NP0P_",lst -> notsupp kind lst
-  | "$_DFFE_NP1N_",lst -> notsupp kind lst
-  | "$_DFFE_NP1P_",lst -> notsupp kind lst
-  | "$_DFFE_NP_",lst -> notsupp kind lst
-  | "$_DFFE_PN0N_",lst -> notsupp kind lst
-  | "$_DFFE_PN0P_",lst -> notsupp kind lst
-  | "$_DFFE_PN1N_",lst -> notsupp kind lst
-  | "$_DFFE_PN1P_",lst -> notsupp kind lst
-  | "$_DFFE_PP0N_",lst -> notsupp kind lst
-  | "$_DFFE_PP0P_",lst -> notsupp kind lst
-  | "$_DFFE_PP1N_",lst -> notsupp kind lst
-  | "$_DFFSRE_NNNN_",lst -> notsupp kind lst
-  | "$_DFFSRE_NNNP_",lst -> notsupp kind lst
-  | "$_DFFSRE_NNPN_",lst -> notsupp kind lst
-  | "$_DFFSRE_NNPP_",lst -> notsupp kind lst
-  | "$_DFFSRE_NPNN_",lst -> notsupp kind lst
-  | "$_DFFSRE_NPNP_",lst -> notsupp kind lst
-  | "$_DFFSRE_NPPN_",lst -> notsupp kind lst
-  | "$_DFFSRE_NPPP_",lst -> notsupp kind lst
-  | "$_DFFSRE_PNNN_",lst -> notsupp kind lst
-  | "$_DFFSRE_PNNP_",lst -> notsupp kind lst
-  | "$_DFFSRE_PNPN_",lst -> notsupp kind lst
-  | "$_DFFSRE_PNPP_",lst -> notsupp kind lst
-  | "$_DFFSRE_PPNN_",lst -> notsupp kind lst
-  | "$_DFFSRE_PPNP_",lst -> notsupp kind lst
-  | "$_DFFSRE_PPPN_",lst -> notsupp kind lst
-  | "$_DFFSRE_PPPP_",lst -> notsupp kind lst
-  | "$_DFFSR_NNN_",lst -> notsupp kind lst
-  | "$_DFFSR_NNP_",lst -> notsupp kind lst
-  | "$_DFFSR_NPN_",lst -> notsupp kind lst
-  | "$_DFFSR_NPP_",lst -> notsupp kind lst
-  | "$_DFFSR_PNN_",lst -> notsupp kind lst
-  | "$_DFFSR_PNP_",lst -> notsupp kind lst
-  | "$_DFFSR_PPN_",lst -> notsupp kind lst
-  | "$_DFFSR_PPP_",lst -> notsupp kind lst
-  | "$_DFF_NN0_",lst -> notsupp kind lst
-  | "$_DFF_NN1_",lst -> notsupp kind lst
-  | "$_DFF_NP0_",lst -> notsupp kind lst
-  | "$_DFF_NP1_",lst -> notsupp kind lst
-  | "$_DFF_N_",lst -> notsupp kind lst
-  | "$_DFF_PN0_",lst -> notsupp kind lst
-  | "$_DFF_PN1_",lst -> notsupp kind lst
-  | "$_DFF_PP1_",lst -> notsupp kind lst
-  | "$_DFF_P_",lst -> notsupp kind lst
-  | "$_DLATCHSR_NNN_",lst -> notsupp kind lst
-  | "$_DLATCHSR_NNP_",lst -> notsupp kind lst
-  | "$_DLATCHSR_NPN_",lst -> notsupp kind lst
-  | "$_DLATCHSR_NPP_",lst -> notsupp kind lst
-  | "$_DLATCHSR_PNN_",lst -> notsupp kind lst
-  | "$_DLATCHSR_PNP_",lst -> notsupp kind lst
-  | "$_DLATCHSR_PPN_",lst -> notsupp kind lst
-  | "$_DLATCHSR_PPP_",lst -> notsupp kind lst
-  | "$_DLATCH_NN0_",lst -> notsupp kind lst
-  | "$_DLATCH_NN1_",lst -> notsupp kind lst
-  | "$_DLATCH_NP0_",lst -> notsupp kind lst
-  | "$_DLATCH_NP1_",lst -> notsupp kind lst
-  | "$_DLATCH_N_",lst -> notsupp kind lst
-  | "$_DLATCH_PN0_",lst -> notsupp kind lst
-  | "$_DLATCH_PN1_",lst -> notsupp kind lst
-  | "$_DLATCH_PP0_",lst -> notsupp kind lst
-  | "$_DLATCH_PP1_",lst -> notsupp kind lst
-  | "$_DLATCH_P_",lst -> notsupp kind lst
-  | "$_FF_",lst -> notsupp kind lst
-  | "$_MUX16_",lst -> notsupp kind lst
-  | "$_MUX4_",lst -> notsupp kind lst
-  | "$_MUX8_",lst -> notsupp kind lst
-  | "$_NMUX_",lst -> notsupp kind lst
-  | "$_OAI3_",lst -> notsupp kind lst
-  | "$_OAI4_",lst -> notsupp kind lst
-  | "$_SDFFCE_NN0N_",lst -> notsupp kind lst
-  | "$_SDFFCE_NN0P_",lst -> notsupp kind lst
-  | "$_SDFFCE_NN1N_",lst -> notsupp kind lst
-  | "$_SDFFCE_NN1P_",lst -> notsupp kind lst
-  | "$_SDFFCE_NP0N_",lst -> notsupp kind lst
-  | "$_SDFFCE_NP0P_",lst -> notsupp kind lst
-  | "$_SDFFCE_NP1N_",lst -> notsupp kind lst
-  | "$_SDFFCE_NP1P_",lst -> notsupp kind lst
-  | "$_SDFFCE_PN0N_",lst -> notsupp kind lst
-  | "$_SDFFCE_PN0P_",lst -> notsupp kind lst
-  | "$_SDFFCE_PN1N_",lst -> notsupp kind lst
-  | "$_SDFFCE_PN1P_",lst -> notsupp kind lst
-  | "$_SDFFCE_PP0N_",lst -> notsupp kind lst
-  | "$_SDFFCE_PP1N_",lst -> notsupp kind lst
-  | "$_SDFFCE_PP1P_",lst -> notsupp kind lst
-  | "$_SDFFE_NN0N_",lst -> notsupp kind lst
-  | "$_SDFFE_NN0P_",lst -> notsupp kind lst
-  | "$_SDFFE_NN1N_",lst -> notsupp kind lst
-  | "$_SDFFE_NN1P_",lst -> notsupp kind lst
-  | "$_SDFFE_NP0N_",lst -> notsupp kind lst
-  | "$_SDFFE_NP0P_",lst -> notsupp kind lst
-  | "$_SDFFE_NP1N_",lst -> notsupp kind lst
-  | "$_SDFFE_NP1P_",lst -> notsupp kind lst
-  | "$_SDFFE_PN0N_",lst -> notsupp kind lst
-  | "$_SDFFE_PN0P_",lst -> notsupp kind lst
-  | "$_SDFFE_PN1N_",lst -> notsupp kind lst
-  | "$_SDFFE_PN1P_",lst -> notsupp kind lst
-  | "$_SDFFE_PP0N_",lst -> notsupp kind lst
-  | "$_SDFFE_PP1N_",lst -> notsupp kind lst
-  | "$_SDFF_NN0_",lst -> notsupp kind lst
-  | "$_SDFF_NN1_",lst -> notsupp kind lst
-  | "$_SDFF_NP0_",lst -> notsupp kind lst
-  | "$_SDFF_NP1_",lst -> notsupp kind lst
-  | "$_SDFF_PN0_",lst -> notsupp kind lst
-  | "$_SDFF_PN1_",lst -> notsupp kind lst
-  | "$_SDFF_PP1_",lst -> notsupp kind lst
-  | "$_SR_NN_",lst -> notsupp kind lst
-  | "$_SR_NP_",lst -> notsupp kind lst
-  | "$_SR_PN_",lst -> notsupp kind lst
-  | "$_SR_PP_",lst -> notsupp kind lst
-  | "$_TBUF_",lst -> notsupp kind lst
-  | oth,lst ->
-      othlst := lst;
-      othwlst := [];
-      Hashtbl.iter (fun k -> function
-          | Some x -> othwlst := (k,fpp x) :: !othwlst
-          | None -> othwlst := (k,"") :: !othwlst) ind.wires;
-      othwlst := List.sort compare !othwlst;
-      othst := List.map (fun (pin, net, _) -> Hashtbl.find_opt ind.stash net) lst;
-      failwith ("func: unmatched "^oth)
-
-and recurse ind klst signal = function
-| Some (kind, inst, conns) ->
-  if not (List.mem inst klst) then
-    begin
-    if verbose then print_endline ("recurse into " ^ E.string_of_signal signal ^ " (instance: " ^ inst ^ ", kind: " ^ kind ^ " )");
-    func ind (inst :: klst) kind conns;
-    if verbose then print_endline ("recurse into "^E.string_of_signal signal^" returned from " ^ kind);
-    end
-  else
-    begin
-    dbgfunc := (kind,conns,signal,Hashtbl.find ind.wires signal) :: !dbgfunc;
-    if verbose then print_endline ("instance: " ^ inst ^ " (kind : " ^ kind ^ " ) already searched")
-    end;
-  Hashtbl.find ind.wires signal
-| None ->
-  print_endline ("recurse into "^E.string_of_signal signal^" failed"); None
-
-and getcon ind klst pin = function
-  | E.GND -> Some F.f_false
-  | PWR -> Some F.f_true
-  | signal -> match Hashtbl.find_opt ind.wires signal with
-    | Some (Some _ as x) -> x
-    | Some None -> if pin <> "Y" then recurse ind klst signal (Hashtbl.find_opt ind.stash signal) else None
-    | None -> failwith (E.string_of_signal signal ^" not declared")
-
-and conn' ind klst = function
-  | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> let s = idx signal ix in pin, s, getcon ind klst pin s
-  | TokConn ([TokID pin], [TokID signal]) -> let s = (scalar signal) in pin, s, getcon ind klst pin s
-  | TokConn ([TokID pin], [TokVal lev]) -> let s = (cnv_pwr lev) in pin, s, getcon ind klst pin s
-  | oth -> othconn := Some oth; failwith "conn'"
-
-and pinmap ind klst conns = List.sort compare (List.map (conn' ind klst) conns)
 
 let stash' ind = function
   | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> pin, idx signal ix
@@ -498,7 +212,7 @@ let cnv_sat arg' =
       let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
       print_endline ("Converting: "^nam);
       List.iter (cnv_ilang ind) itm;
-      Hashtbl.iter (fun _ (kind,inst,conns) -> func ind [inst] kind conns) sh;
+      Hashtbl.iter (fun _ (kind,inst,conns) -> (if cnf_manual then Convert_manual.func else Convert.func) ind [inst] kind conns) sh;
       let hlst=ref [] in
       Hashtbl.iter (fun k -> function
           | Some x -> othh := x; hlst := (k, fpp x) :: !hlst
@@ -520,31 +234,33 @@ let rewrite_rtlil v =
   let p = parse v in
   let p' = rw p in
   let x = Matchmly.mly p' in
-  let fnam = v^"_dump.rtlil" in
-  let fd = open_out fnam in
-  print_endline ("File: "^fnam);
   let modlst = ref [] in
+  let fnam = v^"_dump.ys" in
+  let fd = open_out fnam in
+  print_endline ("Yosys command file: "^fnam);
+  fprintf fd "echo on\n";
   List.iter (fun (k, x) -> dbgx := Some x;
                 let rtl = Dump_rtlil.template Matchmly.modules x in
 		modlst := (k, rtl) :: !modlst;
-                output_string fd "# Generated by Source_text_main intended for yosys consumption only, use at your own risk\n";
-                List.iter (fun itm -> output_string fd (Input_dump.dump_ilang "" itm)) rtl
+                let fnam' = v^"_dump_"^k^".rtlil" in
+                let fd' = open_out fnam' in
+                print_endline ("File: "^fnam');
+                fprintf fd "read_ilang %s\n" fnam';
+                output_string fd' "# Generated by Source_text_main intended for yosys consumption only, use at your own risk\n";
+                List.iter (fun itm -> output_string fd' (Input_dump.dump_ilang "" itm)) rtl;
+                close_out fd';
 		) !(Matchmly.modules);
-  close_out fd;
-  let fnam = v^"_dump.ys" in
-  let fd = open_out fnam in
-  print_endline ("File: "^fnam);
-  fprintf fd "read_ilang %s_dump.rtlil\n" v;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_dump_synth.rtlil\n" v;
   fprintf fd "read_verilog -sv -overwrite %s\n" v;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
   close_out fd;
-  let _ = match Unix.system("yosys -q "^fnam) with
+  let script = "yosys "^(if verbose then "" else "-q ")^fnam in
+  let _ = match Unix.system script with
   | WEXITED errno -> if errno <> 0 then
       begin
-        print_endline ("yosys failed with error code: "^(string_of_int errno));
+        print_endline ("yosys failed with error code: "^string_of_int errno^" (while executing "^script^")");
         status := false;
       end
     else
@@ -577,11 +293,11 @@ let rewrite_rtlil v =
       end;
     errno
   | WSIGNALED signal ->
-    printf "yosys killed by signal %d\n" signal;
+    print_endline ("yosys killed by signal "^string_of_int signal^" (while executing "^script^")");
     status := false;
     signal
   | WSTOPPED signal ->
-    printf "yosys killed by signal %d\n" signal;
+    printf "yosys stopped by signal %d\n" signal;
     status := false;
     signal in
   !modlst, x, p, p', !status

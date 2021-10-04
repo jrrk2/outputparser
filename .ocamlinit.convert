@@ -1,0 +1,19 @@
+open Source_text
+open Source_text_convert
+open Source_text_rewrite_types
+
+let modlst,x,p,p',status = rewrite_sat "../yosys/share/simcells.v" "convert.ml"
+
+let grep nam = let cmd = "grep "^String.sub nam 1 (String.length nam - 1)^"., Source_text_main.ml" in print_endline cmd; Unix.system cmd
+
+let trial' sel = let buf = Buffer.create 1000 in dump_sat buf sel; let _ = grep (fst sel) in print_endline (Buffer.contents buf);;
+
+let trial n = let sel = List.nth modlst n in trial' sel
+
+let by nam = let nam' = "$_"^nam^"_" in List.iter trial' (List.filter (function (nam'', _) -> nam' = nam'') modlst);;
+
+(*
+let _ = List.init (List.length modlst) trial;;
+*)
+
+let _ = by "DFF_P";;

@@ -93,3 +93,8 @@
 (*
 let x = classify' v;;
 *)
+
+(*
+#use ".ocamlinit.convert"
+*)
+

@@ -37,8 +37,10 @@ open Source_text
 open Input_rewrite_types
 open Dump_rtlil
 open Matchmly
-open Source_text_main.F
+open Source_text_rewrite_types.E
+open Source_text_rewrite_types.F
 open String_lit
+open Convert
 ;;
 
 let v = "timer.v";;
@@ -111,7 +113,8 @@ let v = "examples/count3.v";;
 let v = "../yosys/tests/simple/process.v";;
 let v = "examples/query.v";;
 let v = "examples/rhs.v";;
-let v = "examples/synthcells_comb.v";;
+let v = "examples/synthcells_seq.v";;
+let v = "../yosys/share/simcells.v";;
 
 (*
 let x = rw (parse v);;

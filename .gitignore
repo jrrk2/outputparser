@@ -90,6 +90,7 @@ Source_text_lex.ml
 Source_text_top
 Source_text_types.ml
 Source_text.mly.edited
+Source_text_convert
 mungelst.ml
 *_dump.v
 *.synth
