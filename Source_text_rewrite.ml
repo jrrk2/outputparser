@@ -42,7 +42,7 @@ let addnxt' pat = function
 | SCALAR string -> E.SCALAR (pat^"$"^string)
 | INDEXED (string, int) -> E.INDEXED (pat^"$"^string, int)
 
-let addnxt pat ind data d q =
+let addnxt pat ind d q =
    let lhs' = addnxt' pat q in
    addwire 0 ind lhs';
    Hashtbl.add ind.inffop lhs' ();

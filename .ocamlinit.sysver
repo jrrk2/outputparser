@@ -110,11 +110,11 @@ let v = "examples/count0.v";;
 let v = "examples/count.v";;
 let v = "examples/count2.v";;
 let v = "examples/count3.v";;
+let v = "../yosys/share/simcells.v";;
 let v = "../yosys/tests/simple/process.v";;
 let v = "examples/query.v";;
 let v = "examples/rhs.v";;
-let v = "examples/synthcells_seq.v";;
-let v = "../yosys/share/simcells.v";;
+let v = "examples/synthcells.v";;
 
 (*
 let x = rw (parse v);;

@@ -136,14 +136,13 @@ let dump_sat buf (nam, (ports, itms)) =
   bprintf buf "  | \"%s\"," nam;
   itmlst := itms;
   let itms' = List.map (function
-      | InOut (In, "D") -> sprintf "(\"\\\\D\", data, Some d) :: "
-      | InOut (In, a) -> sprintf "(\"\\\\%s\", _, Some %s) :: " a (dump_expr (Ident a))
-      | InOut (Out, y) -> sprintf "(\"\\\\%s\", %s, found) :: " y (dump_expr (Ident y))
+      | InOut (In, ipin) -> sprintf "(\"\\\\%s\", _, Some %s) :: " ipin (dump_expr (Ident ipin))
+      | InOut (Out, opin) -> sprintf "(\"\\\\%s\", %s, found) :: " opin (dump_expr (Ident opin))
       | Reg (Out, "Q") -> sprintf "(\"\\\\Q\", q, Some _) :: "
       | Reg (Out, y) -> sprintf "(\"\\\\%s\", %s, found) :: " y (dump_expr (Ident y))
       | Assign ([y], [expr]) -> sprintf "[] -> if found = None then addfunc ind %s (%s)\n" (dump_expr y) (dump_expr expr);
-      | Edge ((Posedge _ | Negedge _) :: _, [Assign ([Ident "Q"], [expr])]) -> sprintf "[] -> addnxt \"nxt\" ind data (atom q) (q)\n"
-      | Edge ([], [Assign ([Ident "Q"], [expr])]) -> sprintf "[] -> addnxt \"nxt\" ind (%s) (atom q) (q)\n" (dump_expr expr)
+      | Edge ((Posedge _ | Negedge _) :: _, [Assign ([Ident "Q"], [expr])]) -> sprintf "[] -> addnxt \"nxt\" ind (%s) (q)\n" (dump_expr expr)
+      | Edge ([], [Assign ([Ident "Q"], [expr])]) -> sprintf "[] -> addnxt \"nxt\" ind (%s) (q)\n" (dump_expr expr)
       | oth -> othdump := Some oth; failwith "dump_sat") itms in
   let itms' = List.sort compare itms' in
   List.iter (Buffer.add_string buf) itms'

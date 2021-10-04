@@ -16,20 +16,20 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "$_BUF_",("\\A", _, Some a) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y a
   | "$_MUX_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\S", _, Some s) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (mux2 a b s)
   | "$_NOT_",("\\A", _, Some a) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot a)
-  | "$_DFF_P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind data d q
-  | "$_DFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (and2 r d) q
-  | "$_SDFF_PP0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (and2 r d) q
-  | "$_SDFF_PN0_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (and2 r d) q
-  | "$_SDFF_PN1_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (and2 r d) q
-  | "$_SDFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (and2 r (mux2 (atom q) d e)) q
-  | "$_SDFFE_PP0N_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (and2 r (mux2 (atom q) d e)) q
-  | "$_SDFFE_PP1P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (or2 r (mux2 (atom q) d e)) q
-  | "$_SDFFCE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (and2 (mux2 (atom q) d e) (knot r)) q
-  | "$_DFFE_PP_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind data (mux2 (atom q) d e) q
-  | "$_DFFE_PP0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (and2 (mux2 (atom q) d e) (knot r)) q
-  | "$_DFFE_PN_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind data (mux2 d (atom q) e) q
-  | "$_SDFFCE_PP1P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (or2 r (mux2 (atom q) d e)) q
-  | "$_SDFFCE_PN0P_",("\\C", clk, c) :: ("\\D", data, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind data (mux2 (atom q) (and2 r d) e) q
+  | "$_DFF_P_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind d q
+  | "$_DFF_PP0_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (and2 r d) q
+  | "$_SDFF_PP0_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (and2 r d) q
+  | "$_SDFF_PN0_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (and2 r d) q
+  | "$_SDFF_PN1_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (and2 r d) q
+  | "$_SDFFE_PP0P_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (and2 r (mux2 (atom q) d e)) q
+  | "$_SDFFE_PP0N_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (and2 r (mux2 (atom q) d e)) q
+  | "$_SDFFE_PP1P_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (or2 r (mux2 (atom q) d e)) q
+  | "$_SDFFCE_PP0P_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (and2 (mux2 (atom q) d e) (knot r)) q
+  | "$_DFFE_PP_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (atom q) d e) q
+  | "$_DFFE_PP0P_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (and2 (mux2 (atom q) d e) (knot r)) q
+  | "$_DFFE_PN_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 d (atom q) e) q
+  | "$_SDFFCE_PP1P_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (or2 r (mux2 (atom q) d e)) q
+  | "$_SDFFCE_PN0P_",("\\C", clk, c) :: ("\\D", _, Some d) :: ("\\E", enable, Some e) :: ("\\Q", q, Some _) :: ("\\R", rst, Some r) :: [] -> addnxt "nxt" ind (mux2 (atom q) (and2 r d) e) q
   | "$_NAND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (and2 a b))
   | "$_NOR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (or2 a b))
   | "$_OR_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (or2 a b)
