@@ -116,8 +116,8 @@ let v = "examples/query.v";;
 let v = "examples/rhs.v";;
 let v = "examples/synthcells.v";;
 let v = "examples/picorv32_ref.v";;
-let v = "junk.pp";;
 let v = "../picorv32/picorv32.v";;
+let v = "junk.pp";;
 
 (*
 let x = rw (parse v);;

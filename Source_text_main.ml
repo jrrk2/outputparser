@@ -278,7 +278,7 @@ let rewrite_rtlil v =
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
   close_out fd;
-  let script = "yosys "^(if verbose then "" else "-q ")^fnam in
+  let script = "yosys "^(if verbose then "-X " else "-q ")^fnam in
   let _ = match Unix.system script with
   | WEXITED errno -> if errno <> 0 then
       begin

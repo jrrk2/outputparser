@@ -343,24 +343,7 @@ let simplify x =
   done;
   !rslt2
 
-let rec recurs1 (attr: Source_text_rewrite.attr) = function
-  | Modul (nam, params, args, body) -> Modul (nam, List.map (recurs1 attr) params, (let _ = Hashtbl.remove attr.subst Deflt in List.map (recurs1 attr) args), List.map (recurs1 attr) body)
-(*
-  | Itmlst lst -> Itmlst (List.map (recurs1 attr) lst)
- *)
-  | Port (dir, nam, [], sgn) as x -> (match Hashtbl.find_opt attr.subst Deflt with
-        | Some (DeclData(dir', rng')) -> if dir <> dir' then let _ = Hashtbl.remove attr.subst Deflt in x else Port (dir, nam, rng', sgn)
-        | _ -> x)
-  | Port (dir, _, rng, _) as x -> Hashtbl.replace attr.subst Deflt (DeclData(dir, rng)); x
-(* *)
-  | FunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
-  | AutoFunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
-  | TaskDecl(id, _, _, _) as x -> Hashtbl.replace attr.subst (TaskRef (id,[])) x; x
-  | ParamDecl (Atom "Parameter", lst) as x ->
-      List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl") lst; x
-  | Param (nam, expr, _) as x -> Hashtbl.add attr.Source_text_rewrite.subst (Id nam) expr; x
-  | oth -> Source_text_rewrite.descend' {attr with fn=recurs1} oth
-
+let othx = ref None
 let dbgform = ref []
 let dbgact = ref []
 let dbgloop = ref None
@@ -385,6 +368,29 @@ let dbgwids = ref 0
 let dbgmem = ref None
 let dbgpar = ref []
 let dbgatom = ref ""
+
+let rec recurs1 (attr: Source_text_rewrite.attr) = function
+  | Modul (nam, params, args, body) -> Modul (nam, List.map (recurs1 attr) params, (let _ = Hashtbl.remove attr.subst Deflt in List.map (recurs1 attr) args), List.map (recurs1 attr) body)
+(*
+  | Itmlst lst -> Itmlst (List.map (recurs1 attr) lst)
+ *)
+  | Port (dir, nam, [], sgn) as x -> (match Hashtbl.find_opt attr.subst Deflt with
+        | Some (DeclData(dir', rng')) -> if dir <> dir' then let _ = Hashtbl.remove attr.subst Deflt in x else Port (dir, nam, rng', sgn)
+        | _ -> x)
+  | Port (dir, _, rng, _) as x -> Hashtbl.replace attr.subst Deflt (DeclData(dir, rng)); x
+(* *)
+  | FunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
+  | AutoFunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
+  | TaskDecl(id, _, _, _) as x -> Hashtbl.replace attr.subst (TaskRef (id,[])) x; x
+  | ParamDecl (Atom ("Parameter"|"localparam"), lst) as x ->
+      List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl1") lst; x
+  | ParamDecl (LocalParamTyp (Typ8 (Atom "integer", Deflt)), lst) as x ->
+      List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl2") lst; x
+  | ParamDecl (Param ("localparam", Deflt, [AnyRange _]), lst) as x ->
+      List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl3") lst; x
+  | ParamDecl _ as x -> othx := Some x; failwith "recurs1"
+  | Param (nam, expr, _) as x -> Hashtbl.add attr.Source_text_rewrite.subst (Id nam) expr; x
+  | oth -> Source_text_rewrite.descend' {attr with fn=recurs1} oth
 
 let rec recurs2 (attr: Source_text_rewrite.attr) = function
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs2 attr exp)
@@ -625,12 +631,38 @@ let rec recurs3 (attr: Source_text_rewrite.attr) = function
                                      | Id nam -> let nam = npth attr nam in Id nam
 				     | oth' -> failwith (Source_text_rewrite.getstr oth')) lst)
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs3 attr exp)
+  | (Query _ | Add _ | Sub _ | Mult _ | Div _ | And _ | Or _) as x -> simplify (simplify (simplify (simplify (simplify x))))
+(*
   | ParamDecl (Atom "Parameter", lst) as x ->
       List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl") lst; x
-(*
   | oth' -> failwith (Source_text_rewrite.getstr oth')
 *)
   | oth -> Source_text_rewrite.descend' {attr with fn=recurs3} oth
+
+and simplify = function
+| Add(Intgr lft, Intgr rght) -> Intgr (lft+rght)
+| Add(x, Intgr 0) -> x
+| Add(Intgr 0, x) -> x
+| Sub(Intgr lft, Intgr rght) -> Intgr (lft-rght)
+| Sub(x, Intgr 0) -> x
+| Mult(Intgr lft, Intgr rght) -> Intgr (lft*rght)
+| Mult(x, Intgr 1) -> x
+| Mult(_, Intgr 0) -> Intgr 0
+| Mult(Intgr 0, _) -> Intgr 0
+| Mult(Intgr 1, x) -> x
+| Add(lft,rght) -> Add(simplify lft, simplify rght)
+| Sub(lft,rght) -> Sub(simplify lft, simplify rght)
+| And2(Intgr lft, Intgr rght) -> Intgr (lft land rght)
+| And2(x, Intgr 1) -> x
+| And2(_, Intgr 0) -> Intgr 0
+| And2(Intgr 0, _) -> Intgr 0
+| And2(Intgr 1, x) -> x
+| Or2(Intgr lft, Intgr rght) -> Intgr (lft lor rght)
+| Or2(x, Intgr 0) -> x
+| Or2(Intgr 0, x) -> x
+| Or2(lft,rght) -> Or2(simplify lft, simplify rght)
+| Query(Intgr cond, lft, rght) -> if cond <> 0 then simplify lft else simplify rght
+| oth -> oth
 
 let sub' x =
    let subst' = Hashtbl.create 255 in
@@ -1442,21 +1474,24 @@ let rec decl_template bufh typhash modules pth = function
     | ParamDecl (Atom ("Localparam_real"|"Parameter_real"), [ParamAsgn1 (nam, expr)]) -> update typhash (Id nam) (Vreal (match expr with Float f -> f | Number(_,_,n,_) -> float_of_int n | oth -> failwith "realparam"))
     | ParamDecl (Atom ("Parameter"|"localparam"), param_lst) -> List.iter (function
           | ParamAsgn1 (nam, expr) ->
-              dbgpar := (nam,expr) :: !dbgpar;
-              addwire bufh typhash ([], Id nam, Unsigned); 
+              let wid = width typhash expr in
+              dbgpar := (nam,expr,wid) :: !dbgpar;
+              addwire bufh typhash ([Wire_optionswidth wid], Id nam, Vlocal(wid, expr)); 
               addconn bufh typhash (Id nam, expr)
 	  | oth -> unhand := Some oth; failwith "localparam") param_lst;
     | ParamDecl (Param ("localparam", sgn, (AnyRange _ as x) :: []), param_lst) -> List.iter (function
           | ParamAsgn1 (nam, expr) ->
-              dbgpar := (nam,expr) :: !dbgpar;
+              let wid = width typhash expr in
+              dbgpar := (nam,expr,wid) :: !dbgpar;
               addwire' bufh typhash nam x;
               addconn bufh typhash (Id nam, expr)
 	  | oth -> unhand := Some oth; failwith "localparam") param_lst;
     | ParamDecl (LocalParamTyp (Typ8 (Atom kind, Deflt)), param_lst) -> List.iter (function
           | ParamAsgn1 (nam, expr) ->
-              dbgpar := (nam,expr) :: !dbgpar;
+              let wid = width typhash expr in
+              dbgpar := (nam,expr,wid) :: !dbgpar;
               let wid = atom_width kind in
-              addwire bufh typhash ([Wire_optionswidth wid], Id nam, Vlocal (wid-1, expr));
+              addwire bufh typhash ([Wire_optionswidth wid], Id nam, Vlocal (wid, expr));
               addconn bufh typhash (Id nam, expr)
 	  | oth -> unhand := Some oth; failwith "localparam_int") param_lst;
     | NetDecl (Atom "wire" :: [], wire_lst) -> List.iter (function
@@ -1472,6 +1507,7 @@ let rec decl_template bufh typhash modules pth = function
     | DeclInt2 id_lst -> List.iter (function
 	| Id _ as nam -> addwire bufh typhash ([Wire_optionswidth 32], nam, Unsigned_vector(Intgr 31, Intgr 0))
         | VarDeclAsgn (nam, expr) -> update typhash (nam) (Vint (ceval typhash expr))
+        | Intgr _ -> () (* residue from loop unrolling can be ignored *)
         | oth -> unhand := Some oth; failwith "DeclInt2") id_lst
 (*
     | Itmlst (id_lst) -> List.iter (function

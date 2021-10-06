@@ -1109,7 +1109,7 @@ let ord = function
 
 let import_seen = ref false
 
-let tok arg = if verbose then Printf.printf "tokenToBison  TOKEN {c%d-%d:}=%d %s\n" (!lincnt+1) (!lincnt+1) (ord arg) (tok' arg);
+let tok arg = if verbose then Printf.printf "tokenToBison  TOKEN {c%d-%d:}=%d %s %s\n" (!lincnt+1) (!lincnt+1) (ord arg) (tok' arg) (match arg with INTEGER_NUMBER n -> n | _ -> "");
   import_seen := (match arg with Import -> true | Package -> true | IDENTIFIER_HYPHEN_COLON_COLON _ -> false | _ -> !import_seen);
   arg
 }
@@ -1117,7 +1117,7 @@ let tok arg = if verbose then Printf.printf "tokenToBison  TOKEN {c%d-%d:}=%d %s
 let ident = ['a'-'z' 'A'-'Z' '$' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$']*
 let escaped = '\\'[^' ']*' '
 let fltnum = ['0'-'9']+'.'['E' '-' '+' '0'-'9']*
-let sizednumber = ['0'-'9']+'\''['s']*['b' 'd' 'h' 'o'][' ']*[ '0'-'9' 'a'-'f' 'x' 'z' 'A'-'F' 'X' 'Z' '_' '?']+
+let sizednumber = ['0'-'9']+'\''['s']*['b' 'd' 'h' 'o' 'x'][' ']*[ '0'-'9' 'a'-'f' 'x' 'z' 'A'-'F' 'X' 'Z' '_' '?']+
 let number = ['0'-'9']['0'-'9' '_']*
 let dfltnum = '''['0'-'9' 'b' 'd' 'h' 'o' 'x' 'X']['0'-'9' 'a'-'f' 'A'-'F' 'x' '?']*
 let space = [' ' '\t' '\r']+

@@ -89,6 +89,7 @@ and basing = ref 0
 and converting = ref true in
 for idx = 0 to String.length(str)-1 do let ch = Char.lowercase_ascii(str.[idx]) in begin
 match ch with
+| ' ' -> ()
 | '_' -> ()
 | '?' -> value := !value * !base
 | '\'' -> converting := false; basing := idx+1;
