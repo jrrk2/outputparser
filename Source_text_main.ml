@@ -9,7 +9,7 @@ open Input_rewrite_types
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
 let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
 
-let dbgx = ref None
+let dbgx = ref []
 
 let oth' = ref None
 let othopt = ref None
@@ -231,7 +231,10 @@ let rewrite_rtlil v =
   let status = ref true in
   print_endline ("Parsing: "^v);
   Matchmly.modules := [];
-  let p = parse v in
+(*
+  let p = Source_text_preproc.parse' Source_text_rewrite.parse_output_ast_from_function v in
+*)
+  let p = Source_text_rewrite.parse_output_ast_from_pipe v in
   let p' = rw p in
   let x = Matchmly.mly p' in
   let modlst = ref [] in
@@ -245,7 +248,8 @@ let rewrite_rtlil v =
       print_endline ("File: "^fnam');
       fprintf fd "read_ilang %s\n" fnam';
     end;
-  List.iter (fun (k, x) -> dbgx := Some x;
+  List.iter (fun (k, x) ->
+                dbgx := x :: !dbgx;
                 let rtl = Dump_rtlil.template Matchmly.modules x in
 		modlst := (k, rtl) :: !modlst;
                 if sep_rtl then

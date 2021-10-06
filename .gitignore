@@ -91,6 +91,12 @@ Source_text_top
 Source_text_types.ml
 Source_text.mly.edited
 Source_text_convert
+Source_text_preproc
+Source_text_preproc_lexer.ml
+Source_text_preproc_grammar.ml
+Source_text_preproc_grammar.mli
+Source_text_rewrite_new.ml
+Source_text_rewrite_types_new.mli
 mungelst.ml
 *_dump.v
 *.synth

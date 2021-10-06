@@ -1124,9 +1124,7 @@ let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let qstring = '"'[^'"']*'"'
 let comment = '/''/'[^'\n']*
-let definition = '`'['a'-'z' 'A'-'Z' '$'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$']*
-let define = "`define"[^'\n']*
-let include = "`include"[^'\n']*
+let line = '`'[^'\n']*
 let colon_begin = ':'[' ']*"begin"
    
 rule token = parse
@@ -1193,11 +1191,7 @@ rule token = parse
 | '|' { tok ( VBAR ) }
 | '~' { tok ( TILDE ) }
 
-| define { token lexbuf }
-| include { token lexbuf }
-| "`ifdef" { ifdef lexbuf }
-| "`ifndef" { ifndef lexbuf }
-| definition as s { tok (IDENTIFIER s) }
+| line { token lexbuf }
 | "/*" { comment lexbuf }
 | "(* " { comment lexbuf }
 

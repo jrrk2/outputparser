@@ -5,6 +5,7 @@ open Source_text
 let modules = ref []
 let mlst = ref []
 let attlst = ref []
+let othpat = ref None
 let othpat1 = ref None
 let othpat2 = ref None
 let othpat3 = ref None
@@ -782,10 +783,16 @@ let rec mly = function
   (match arg1, arg2, arg3 with
        | IDENTIFIER id, TLIST rng, EMPTY_TOKEN -> NetDecl(rml rng, Id id :: [])
        | oth -> othpat3 := Some oth; failwith "netSig507")
-| TUPLE4(STRING("net_dataTypeE193"), arg1, arg2, arg3) as oth -> mayfail oth  "net_dataTypeE193"
+| TUPLE4(STRING("net_dataTypeE193"), arg1, arg2, arg3) ->
+  (match arg1, arg2, arg3 with
+     | EMPTY_TOKEN, TLIST rng, EMPTY_TOKEN -> Itmlst (rml rng)
+     | oth -> othpat3 := Some oth; failwith "net_dataTypeE193")
 | TUPLE4(STRING("net_declaration186"), arg1, arg2, SEMICOLON) ->
   (match arg1, arg2 with
-    | TUPLE6 (STRING "net_declarationFront187", EMPTY_TOKEN, (Wire as typ), EMPTY_TOKEN, EMPTY_TOKEN, dly), TLIST lst -> NetDecl(mly typ :: [], rml lst)
+    | TUPLE6 (STRING "net_declarationFront187", EMPTY_TOKEN, (Wire as typ), EMPTY_TOKEN, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst ->
+      NetDecl(mly typ :: [], rml lst)
+    | TUPLE6 (STRING "net_declarationFront187", EMPTY_TOKEN, (Wire as typ), EMPTY_TOKEN, EMPTY_TOKEN, rng), TLIST lst ->
+      (match mly rng with Itmlst rng -> NetDecl(mly typ :: rng, rml lst) | oth -> othpat := Some oth; failwith "net_declaration186'")
     | oth -> othpat2 := Some oth; failwith "net_declaration186")
 | TUPLE4(STRING("open_range_list744"), arg1, COMMA, arg3) -> OpenRange(match mly arg1, mly arg3 with
      | OpenRange lst, OpenRange lst' -> lst @ lst'

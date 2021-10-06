@@ -21,7 +21,8 @@ close_out fd
 #use "topfind";;
 #require "msat";;
 *)
-#print_depth 100;;
+#print_depth 100000;;
+#print_length 100000;;
 
 #directory "/Users/jonathan/.opam/413/lib"
 #directory "/Users/jonathan/.opam/413/lib/msat/backtrack"
@@ -99,7 +100,6 @@ let v = "../yosys/tests/simple/omsp_dbg_uart.v";;
 let v = "../yosys/tests/simple/specify.v";;
 let v = "../yosys/tests/simple/values.v";;
 let v = "../yosys/tests/simple/rotate.v";;
-let v = "examples/picorv32_ref.v";;
 let v = "examples/count1.v";;
 let v = "examples/count4.v";;
 let v = "examples/count5.v";;
@@ -115,6 +115,9 @@ let v = "../yosys/tests/simple/process.v";;
 let v = "examples/query.v";;
 let v = "examples/rhs.v";;
 let v = "examples/synthcells.v";;
+let v = "examples/picorv32_ref.v";;
+let v = "junk.pp";;
+let v = "../picorv32/picorv32.v";;
 
 (*
 let x = rw (parse v);;

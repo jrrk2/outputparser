@@ -16,7 +16,8 @@
 #*                                                                        *)
 #**************************************************************************)
 
-.PHONY: everything
+.PHONY: everything convert
+
 PARSER=ocamlyacc
 MENHIRFLAGS= --trace #
 PARSER=menhir $(MENHIRFLAGS)
@@ -44,14 +45,20 @@ clean:
 ###############################################################################
 #  Tseitin_intf.ml 
 
-Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml Source_text_rewrite.ml dump_rtlil.ml Input.cmo Input_types.cmo Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml Source_text_main.ml convert.ml  ./Source_text_convert
-	ocamlfind ocamlmktop -package msat -linkpkg -g -o $@ unix.cma Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Source_text_rewrite.ml Input_types.ml Input.ml Input_rewrite_types.mli dump_rtlil.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml convert.ml Source_text_main.ml
+Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml Source_text_preproc.ml Source_text_rewrite.ml dump_rtlil.ml Input.cmo Input_types.cmo Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml Source_text_main.ml convert.ml
+	ocamlfind ocamlmktop -package msat -linkpkg -g -o $@ unix.cma Source_text_types.cmo Source_text.cmo Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Source_text_rewrite.ml Source_text_preproc.ml Input_types.ml Input.ml Input_rewrite_types.mli dump_rtlil.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml convert.ml Source_text_main.ml
 
-Source_text: Source_text.cmx Source_text_types.cmx Source_text_lex.ml Source_text_rewrite_types.mli dump_rtlil.ml Input.cmx Input_types.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml classify.ml matchmly.ml Source_text_rewrite.ml Input_dump.ml Source_text_main.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml convert.ml ./Source_text_convert
-	ocamlfind ocamlopt -package msat -linkpkg -g -o $@ unix.cmxa Source_text_types.cmx Source_text.cmx Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Source_text_rewrite.ml Input_types.ml Input.ml Input_rewrite_types.mli dump_rtlil.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml convert.ml Source_text_main.ml
+Source_text: Source_text.cmx Source_text_types.cmx Source_text_lex.ml Source_text_rewrite_types.mli dump_rtlil.ml Input.cmx Input_types.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml classify.ml matchmly.ml Source_text_preproc.ml Source_text_rewrite.ml Input_dump.ml Source_text_main.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml convert.ml
+	ocamlfind ocamlopt -package msat -linkpkg -g -o $@ unix.cmxa Source_text_types.cmx Source_text.cmx Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Source_text_rewrite.ml Source_text_preproc.ml Input_types.ml Input.ml Input_rewrite_types.mli dump_rtlil.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml convert.ml Source_text_main.ml
 
 Source_text_convert: Source_text.ml Source_text_types.ml Source_text_lex.ml Source_text_rewrite_types.mli dump_rtlil.ml Input.ml Input_types.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml classify.ml matchmly.ml Source_text_rewrite.ml Source_text_convert.ml
 	ocamlfind ocamlopt -package msat -linkpkg -g -o $@ unix.cmxa Source_text_types.ml Source_text.ml Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml String_lit.{mli,ml} Msat_tseitin.{mli,ml} Source_text_rewrite.ml Source_text_convert.ml
+
+Source_text_preproc: Source_text_preproc.ml Source_text_preproc_grammar.ml Source_text_preproc_lexer.ml Source_text_preproc.ml Source_text_preproc_main.ml
+	ocamlfind ocamlopt -package menhir,menhirlib -linkpkg -g -o $@ Source_text_preproc_grammar.{mli,ml} Source_text_preproc_lexer.ml Source_text_preproc.ml Source_text_preproc_main.ml
+
+convert: convert.ml
+	@echo 'make convert.ml'
 
 convert.ml: ../yosys/share/simcells.v
 	./Source_text_convert ../yosys/share/simcells.v $@
@@ -69,8 +76,14 @@ Source_text.cmx: Source_text_types.ml Source_text.ml Source_text.mli
 Source_text_lex.ml: Source_text_lex.mll
 	ocamllex $<
 
+Source_text_preproc_lexer.ml: Source_text_preproc_lexer.mll
+	ocamllex $<
+
 Source_text.ml: Source_text.mly
 	menhir $(MENHIRFLAGS) $<
+
+Source_text_preproc_grammar.ml: Source_text_preproc_grammar.mly
+	menhir $<
 
 dump.cmo: Source_text_rewrite_types.cmi
 

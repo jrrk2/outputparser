@@ -147,6 +147,12 @@ let dump_sat buf (nam, (ports, itms)) =
   let itms' = List.sort compare itms' in
   List.iter (Buffer.add_string buf) itms'
 
+let parse arg =
+  let ch = open_in arg in
+  let rslt = parse_output_ast_from_chan ch in
+  close_in ch;
+  rslt
+
 let rewrite_sat v fil =
   print_endline ("Parsing: "^v);
   Matchmly.modules := [];
