@@ -344,6 +344,7 @@ let simplify x =
   !rslt2
 
 let othx = ref None
+let dbgsplit = ref None
 let dbgform = ref []
 let dbgact = ref []
 let dbgasgn = ref []
@@ -1052,7 +1053,7 @@ and memrd bufh typhash options id sel =
   "ABITS", Intgr (clog2 options.tot) ;
   "CLK_ENABLE", Intgr 0 ;
   "CLK_POLARITY", Intgr 0 ;
-  "MEMID", String ("\\\\"^id) ;
+  "MEMID", String ("\\"^id) ;
   "TRANSPARENT", Intgr 0 ;
   "WIDTH", Intgr options.wid ;
   ] in
@@ -1757,41 +1758,42 @@ else rhs) 0 in match lhs with
 	 | Id mask -> Id mask
          | Add _ as x -> buffer' bufh typhash x 0 
          | oth -> unhand := Some oth; failwith "PlusColon" in
-      Update_listmemwr("\\\\"^mem, tran' addr, tran' rhs', tran' lo, tran' (Number(2, 0, 0, ""))) :: []
+      if update then Update_listmemwr("\\"^mem, tran' addr, tran' rhs', tran' lo, tran' (Number(2, 0, 0, ""))) :: [] else []
   | _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: [])
 | IdArrayedColon (IdArrayed2 (Id mem, (Id _ as addr)), (Intgr hi|Number(_,_,hi,_)), (Intgr lo|Number(_,_,lo,_))) ->
 (match Hashtbl.find_opt typhash mem with
   | Some Vmem {off;siz;wid} ->
       let lo = Number (2, wid, ((1 lsl wid)-1) lsl lo, "") in
-      Update_listmemwr("\\\\"^mem, tran' addr, tran' rhs', tran' lo, tran' (Number(2, 0, 0, ""))) :: []
+      if update then Update_listmemwr("\\"^mem, tran' addr, tran' rhs', tran' lo, tran' (Number(2, 0, 0, ""))) :: [] else []
   | _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: [])
 | IdArrayed1 (Id mem, addr, Number(_,_,abit,_)) -> 
 (match Hashtbl.find_opt typhash mem with
   | Some Vmem {off;siz;wid} ->
       dbgeq := Some (lhs,rhs');
-      Update_listmemwr("\\\\"^mem, tran' addr, tran' rhs', tran' (Number (2, wid, (1 lsl abit), "")), tran' (Number(2, 0, 0, ""))) :: []
+      if update then Update_listmemwr("\\"^mem, tran' addr, tran' rhs', tran' (Number (2, wid, (1 lsl abit), "")), tran' (Number(2, 0, 0, ""))) :: [] else []
   | _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: [])
 | IdArrayed1 (Id mem, addr, abit) -> 
 (match Hashtbl.find_opt typhash mem with
   | Some Vmem {off;siz;wid} ->
       dbgeq := Some (lhs,rhs');
-      Update_listmemwr("\\\\"^mem, tran' addr, tran' rhs', tran' abit, tran' (Number(2, 0, 0, ""))) :: [] (* work in progress *)
+      if update then Update_listmemwr("\\"^mem, tran' addr, tran' rhs', tran' abit, tran' (Number(2, 0, 0, ""))) :: [] (* work in progress *) else []
   | _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: [])
 | IdArrayed2 (Id mem, (Number _ as addr)) -> 
 (match Hashtbl.find_opt typhash mem with
   | Some Vmem {off;siz;wid} ->
       dbgeq := Some (lhs,rhs');
-      Update_listmemwr("\\\\"^mem, tran' addr, tran' rhs', tran' (Number (2, wid, (1 lsl wid)-1, "")), tran' (Number(2, 0, 0, ""))) :: [] (* work in progress *)
+      if update then Update_listmemwr("\\"^mem, tran' addr, tran' rhs', tran' (Number (2, wid, (1 lsl wid)-1, "")), tran' (Number(2, 0, 0, ""))) :: [] (* work in progress *) else []
 (*
   | Some oth -> coth := Some oth; failwith "IdArrayed2"
 *)
   | Some Unsigned_vector _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: []
   | oth -> otha := Some oth; failwith "arr")
-| IdArrayed2 (Id mem, addr) -> 
+| IdArrayed2 (Id mem, addr) as x -> 
+dbgsplit := Some x;
 (match Hashtbl.find_opt typhash mem with
   | Some Vmem {off;siz;wid} ->
       dbgeq := Some (lhs,rhs');
-      Update_listmemwr("\\\\"^mem, tran' addr, tran' rhs', tran' (Number (2, wid, (1 lsl wid)-1, "")), tran' (Number(2, 0, 0, ""))) :: [] (* work in progress *)
+      if update then Update_listmemwr("\\"^mem, tran' addr, tran' rhs', tran' (Number (2, wid, (1 lsl wid)-1, "")), tran' (Number(2, 0, 0, ""))) :: [] (* work in progress *) else []
 (*
   | Some oth -> coth := Some oth; failwith "IdArrayed2"
 *)
@@ -1849,8 +1851,11 @@ and cnv' bufh dhash typhash inst = function
         (generate_assignment bufh typhash (dly, lhs),
          generate_assignment bufh typhash (IdArrayed2(dly,sel), rhs),
          generate_update bufh typhash (lhs, dly))
-    | EquateSelect (lhs, sel, expr) ->
-         asgn' bufh dhash typhash inst lhs sel expr
+    | EquateSelect (Id lhs, sel, expr) ->
+        let rhs = buffer' bufh typhash expr 0 in
+        if is_mem typhash lhs then
+        ([], [], generate_update bufh typhash (IdArrayed2(Id lhs,sel), rhs)) else
+         asgn' bufh dhash typhash inst (Id lhs) sel expr
     | EquateSelect2 (IdArrayed2(lhs, sel'), sel, expr) ->
         let dly = dlymemo bufh dhash typhash lhs in
         let rhs = buffer' bufh typhash expr 0 in
@@ -1858,24 +1863,24 @@ and cnv' bufh dhash typhash inst = function
          generate_assignment bufh typhash (IdArrayed1(lhs,sel',sel), rhs),
          generate_update bufh typhash (lhs, dly))
     | EquateSlice (lhs, ((Number _| Intgr _) as hi), ((Number _| Intgr _) as lo), expr) ->
-(*        let dly = dlymemo bufh dhash typhash lhs in
-*)        let rhs = buffer' bufh typhash expr 0 in
-        ([],
+         let rhs = buffer' bufh typhash expr 0 in
+         ([],
          generate_assignment bufh typhash (IdArrayedColon(lhs,hi,lo), rhs),
          [])
     | EquateSlicePlus (lhs, (lo), (Intgr _ | Number _ as wid), expr)
     | Blocking(FopAsgnArrayWid (lhs, (lo), (Intgr _ | Number _ as wid), expr)) ->
-(*        let dly = dlymemo bufh dhash typhash lhs in
-*)        let rhs = buffer' bufh typhash expr 0 in
-        ([],
-         generate_assignment bufh typhash (IdArrayedPlusColon(lhs,lo,wid), rhs),
-         [])
-    | Blocking (FopAsgnArraySel(lhs, sel, expr)) ->
-        let dly = dlymemo bufh dhash typhash lhs in
         let rhs = buffer' bufh typhash expr 0 in
-        (generate_assignment bufh typhash (dly, lhs),
-         generate_assignment bufh typhash (IdArrayed2(lhs,sel), rhs),
-         generate_update bufh typhash (lhs, dly))
+        ([],
+         [],
+         generate_assignment bufh typhash (IdArrayedPlusColon(lhs,lo,wid), rhs))
+    | Blocking (FopAsgnArraySel(Id lhs, sel, expr)) ->
+        let rhs = buffer' bufh typhash expr 0 in
+        if is_mem typhash lhs then
+        ([], generate_assignment bufh typhash (IdArrayed2(Id lhs,sel), rhs), []) else
+        let dly = dlymemo bufh dhash typhash (Id lhs) in
+        (generate_assignment bufh typhash (dly, Id lhs),
+         generate_assignment bufh typhash (IdArrayed2(Id lhs,sel), rhs),
+         generate_update bufh typhash (Id lhs, dly))
     | Blocking (FopAsgn (lhs, (Number _ as expr))) ->
         let dly = dlymemo bufh dhash typhash lhs in
         (generate_assignment bufh typhash (dly, lhs),

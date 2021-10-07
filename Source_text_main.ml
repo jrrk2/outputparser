@@ -243,10 +243,14 @@ let rewrite_rtlil v =
   print_endline ("Yosys command file: "^fnam);
   let fnam' = v^"_dump.rtlil" in
   let fd' = open_out fnam' in
+  fprintf fd "read_verilog -sv -overwrite %s\n" v;
+  fprintf fd "write_ilang %s_golden_proc.rtlil\n" v;
+  fprintf fd "synth\n";
+  fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
   if not sep_rtl then
     begin
       print_endline ("File: "^fnam');
-      fprintf fd "read_ilang %s\n" fnam';
+      fprintf fd "read_ilang -overwrite %s\n" fnam';
     end;
   List.iter (fun (k, x) ->
                 dbgx := x :: !dbgx;
@@ -274,9 +278,6 @@ let rewrite_rtlil v =
     end;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_dump_synth.rtlil\n" v;
-  fprintf fd "read_verilog -sv -overwrite %s\n" v;
-  fprintf fd "synth\n";
-  fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
   close_out fd;
   let script = "yosys "^(if verbose then "-X " else "-q ")^fnam in
   let _ = match Unix.system script with
