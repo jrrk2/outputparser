@@ -1,6 +1,6 @@
-module arith(input [3:0] a,input[3:0] b, output f, output g, output [3:0] m, output[3:0] n, output [3:0] o,
-output [7:0] p, output [7:0] q, output [7:0] r, output [7:0] s,
-output t,output u,output v,output w,output x,output y);
+module arith(input [3:0] a,input[3:0] b, output f, g, output [3:0] m, output[3:0] n, output [3:0] o,
+output [7:0] p, output [7:0] q, r, /* output [7:0] s, */
+output t,output u,output signed v, w,output x,output y);
 
    assign f = a && b;
    assign g = a || b;

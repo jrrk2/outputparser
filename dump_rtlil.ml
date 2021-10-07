@@ -230,16 +230,17 @@ and signof' = function
 | (Signed, Signed) -> Signed
 | _ -> Unsigned
 
+and signoff'' s = function
+    | Some (Signed|Signed_vector _) -> Signed
+    | Some (Unsigned|Unsigned_vector _) -> Unsigned
+    | Some MaybePort (_, typ, _) -> signoff'' s (Some typ)
+    | Some x -> Unsigned
+    | None -> print_endline ("Not found: "^s); Unsigned
+
 and signof typhash = function
 | Intgr n -> Signed
 | Number _ -> Unsigned
-| Id s -> 
-  let sign = match Hashtbl.find_opt typhash s with
-    | Some (Signed|Signed_vector _) -> Signed
-    | Some (Unsigned|Unsigned_vector _) -> Unsigned
-    | Some x -> Unsigned
-    | None -> print_endline ("Not found: "^s); Unsigned in
-  sign
+| Id s -> signoff'' s (Hashtbl.find_opt typhash s)
 | Add (lhs, rhs) -> signof' (signof typhash lhs, signof typhash rhs)
 | Sub (lhs, rhs) -> signof' (signof typhash lhs, signof typhash rhs)
 | Mult (lhs, rhs) -> signof' (signof typhash lhs, signof typhash rhs)
@@ -373,14 +374,6 @@ let dbgatom = ref ""
 
 let rec recurs1 (attr: Source_text_rewrite.attr) = function
   | Modul (nam, params, args, body) -> Modul (nam, List.map (recurs1 attr) params, (let _ = Hashtbl.remove attr.subst Deflt in List.map (recurs1 attr) args), List.map (recurs1 attr) body)
-(*
-  | Itmlst lst -> Itmlst (List.map (recurs1 attr) lst)
- *)
-  | Port (dir, nam, [], sgn) as x -> (match Hashtbl.find_opt attr.subst Deflt with
-        | Some (DeclData(dir', rng')) -> if dir <> dir' then let _ = Hashtbl.remove attr.subst Deflt in x else Port (dir, nam, rng', sgn)
-        | _ -> x)
-  | Port (dir, _, rng, _) as x -> Hashtbl.replace attr.subst Deflt (DeclData(dir, rng)); x
-(* *)
   | FunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
   | AutoFunDecl(id, _, _) as x -> Hashtbl.replace attr.subst (FunRef (id,[])) x; x
   | TaskDecl(id, _, _, _) as x -> Hashtbl.replace attr.subst (TaskRef (id,[])) x; x
@@ -409,12 +402,8 @@ let rec recurs2 (attr: Source_text_rewrite.attr) = function
       Hashtbl.remove attr.subst (Id id);
       rslt
   | CondGen1 (cond, true', false') -> recurs2 attr (if elabeval attr cond <> 0 then true' else false')
-(*
-  | Port (Deflt, nam, [], sgn) as x -> (match Hashtbl.find_opt attr.subst Deflt with Some (DeclData(dir, rng)) -> Port (dir, nam, rng, sgn) | _ -> x)
-*)
   | FunRef (id, arglst) -> fsubst attr arglst id
   | TaskRef (id, arglst) -> tsubst attr arglst id
-  | Port (dir, _, rng, _) as x -> Hashtbl.replace attr.subst Deflt (DeclData(dir, rng)); x
 (* *)
   | FunDecl(id, _, _) -> FunDecl(id, Deflt, Deflt)
   | AutoFunDecl(id, _, _) -> AutoFunDecl(id, Deflt, Deflt)
@@ -633,12 +622,6 @@ let rec recurs3 (attr: Source_text_rewrite.attr) = function
                                      | Id nam -> let nam = npth attr nam in Id nam
 				     | oth' -> failwith (Source_text_rewrite.getstr oth')) lst)
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs3 attr exp)
-  | (Query _ | Add _ | Sub _ | Mult _ | Div _ | And _ | Or _) as x -> simplify (simplify (simplify (simplify (simplify x))))
-(*
-  | ParamDecl (Atom "Parameter", lst) as x ->
-      List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl") lst; x
-  | oth' -> failwith (Source_text_rewrite.getstr oth')
-*)
   | oth -> Source_text_rewrite.descend' {attr with fn=recurs3} oth
 
 and simplify = function
@@ -672,10 +655,11 @@ let sub' x =
    let pass1 = recurs1 {fn=recurs1; subst=subst'; pth=""} x in
    let pass2 = recurs2 {fn=recurs2; subst=subst'; pth=""} pass1 in
    let pass3 = recurs3 {fn=recurs3; subst=subst'; pth=""} pass2 in
-   dbgsub := pass3 :: !dbgsub;
+   let pass4 = simplify (simplify (simplify (simplify (simplify (pass3))))) in
+   dbgsub := pass4 :: !dbgsub;
    dbgsubst := [];
    Hashtbl.iter (fun k x -> dbgsubst := (k,x) :: !dbgsubst) subst';
-   pass3
+   pass4
 
 let rec vexpr typhash = function
 | oth -> unhand := Some oth; failwith "vexpr"
@@ -1744,7 +1728,7 @@ and restrict_lst typhash wid = function
   | [] -> []
   | hd :: tl -> let hdwid = width typhash hd in if hdwid = wid then hd :: [] else if hdwid < wid then hd :: restrict_lst typhash (wid-hdwid) tl else restrict typhash wid hd :: []
 
-let rec generate_assignment_common bufh typhash (lhs, rhs) update : ilang list =
+let rec generate_assignment_common update bufh typhash (lhs, rhs) : ilang list =
 let lhswid = width typhash lhs in
 let rhswid = width typhash rhs in
 let rhs' = buffer' bufh typhash (if lhswid < rhswid then restrict typhash lhswid rhs
@@ -1808,8 +1792,8 @@ and dlymapwid bufh dhash typhash wid lhs : ilang list * ilang list * rw =
   let dly = dlymemo bufh dhash typhash lhs in
   wid := !wid + width typhash lhs;
   let lhs' = buffer' bufh typhash lhs (width typhash lhs) in
-  (generate_assignment bufh typhash (dly, lhs'),
-   generate_update bufh typhash (lhs, dly),
+  (generate_assignment_common false bufh typhash (dly, lhs'),
+   generate_assignment_common true bufh typhash (lhs, dly),
    dly)
 
 and cnv' bufh dhash typhash inst = function
@@ -1832,78 +1816,79 @@ and cnv' bufh dhash typhash inst = function
         let dlylst = List.map (dlymapwid bufh dhash typhash wid) lhslst in
         let rhs = buffer' bufh typhash expr !wid in
         List.flatten (List.map (fun (p,u,d) -> p) dlylst),
-	generate_assignment bufh typhash (GenBlock (List.map (fun (p,u,d) -> d) dlylst), rhs),
+	generate_assignment_common false bufh typhash (GenBlock (List.map (fun (p,u,d) -> d) dlylst), rhs),
 	List.flatten (List.map (fun (p,u,d) -> u) dlylst)
     | Equate (lhs, (Number _ as expr)) ->
         let dly = dlymemo bufh dhash typhash lhs in
-        (generate_assignment bufh typhash (dly, lhs),
-         generate_assignment bufh typhash (dly, expr),
-         generate_update bufh typhash (lhs, dly))
+        (generate_assignment_common false bufh typhash (dly, lhs),
+         generate_assignment_common false bufh typhash (dly, expr),
+         generate_assignment_common true bufh typhash (lhs, dly))
     | Equate (lhs, expr) ->
         let dly = dlymemo bufh dhash typhash lhs in
         let rhs = buffer' bufh typhash expr (width typhash lhs) in
-        (generate_assignment bufh typhash (dly, lhs),
-         generate_assignment bufh typhash (dly, rhs),
-         generate_update bufh typhash (lhs, dly))
+        (generate_assignment_common false bufh typhash (dly, lhs),
+         generate_assignment_common false bufh typhash (dly, rhs),
+         generate_assignment_common true bufh typhash (lhs, dly))
     | EquateSelect (lhs, (Number _ as sel), expr) ->
         let dly = dlymemo bufh dhash typhash lhs in
         let rhs = buffer' bufh typhash expr 0 in
-        (generate_assignment bufh typhash (dly, lhs),
-         generate_assignment bufh typhash (IdArrayed2(dly,sel), rhs),
-         generate_update bufh typhash (lhs, dly))
+        (generate_assignment_common false bufh typhash (dly, lhs),
+         generate_assignment_common false bufh typhash (IdArrayed2(dly,sel), rhs),
+         generate_assignment_common true bufh typhash (lhs, dly))
     | EquateSelect (Id lhs, sel, expr) ->
         let rhs = buffer' bufh typhash expr 0 in
+        let sel' = buffer' bufh typhash sel 0 in
         if is_mem typhash lhs then
-        ([], [], generate_update bufh typhash (IdArrayed2(Id lhs,sel), rhs)) else
+        ([], [], generate_assignment_common true bufh typhash (IdArrayed2(Id lhs,sel'), rhs)) else
          asgn' bufh dhash typhash inst (Id lhs) sel expr
     | EquateSelect2 (IdArrayed2(lhs, sel'), sel, expr) ->
         let dly = dlymemo bufh dhash typhash lhs in
         let rhs = buffer' bufh typhash expr 0 in
-        (generate_assignment bufh typhash (dly, lhs),
-         generate_assignment bufh typhash (IdArrayed1(lhs,sel',sel), rhs),
-         generate_update bufh typhash (lhs, dly))
+        (generate_assignment_common false bufh typhash (dly, lhs),
+         generate_assignment_common false bufh typhash (IdArrayed1(lhs,sel',sel), rhs),
+         generate_assignment_common true bufh typhash (lhs, dly))
     | EquateSlice (lhs, ((Number _| Intgr _) as hi), ((Number _| Intgr _) as lo), expr) ->
          let rhs = buffer' bufh typhash expr 0 in
          ([],
-         generate_assignment bufh typhash (IdArrayedColon(lhs,hi,lo), rhs),
+         generate_assignment_common false bufh typhash (IdArrayedColon(lhs,hi,lo), rhs),
          [])
     | EquateSlicePlus (lhs, (lo), (Intgr _ | Number _ as wid), expr)
     | Blocking(FopAsgnArrayWid (lhs, (lo), (Intgr _ | Number _ as wid), expr)) ->
         let rhs = buffer' bufh typhash expr 0 in
         ([],
          [],
-         generate_assignment bufh typhash (IdArrayedPlusColon(lhs,lo,wid), rhs))
+         generate_assignment_common false bufh typhash (IdArrayedPlusColon(lhs,lo,wid), rhs))
     | Blocking (FopAsgnArraySel(Id lhs, sel, expr)) ->
         let rhs = buffer' bufh typhash expr 0 in
         if is_mem typhash lhs then
-        ([], generate_assignment bufh typhash (IdArrayed2(Id lhs,sel), rhs), []) else
+        ([], generate_assignment_common false bufh typhash (IdArrayed2(Id lhs,sel), rhs), []) else
         let dly = dlymemo bufh dhash typhash (Id lhs) in
-        (generate_assignment bufh typhash (dly, Id lhs),
-         generate_assignment bufh typhash (IdArrayed2(Id lhs,sel), rhs),
-         generate_update bufh typhash (Id lhs, dly))
+        (generate_assignment_common false bufh typhash (dly, Id lhs),
+         generate_assignment_common false bufh typhash (IdArrayed2(Id lhs,sel), rhs),
+         generate_assignment_common true bufh typhash (Id lhs, dly))
     | Blocking (FopAsgn (lhs, (Number _ as expr))) ->
         let dly = dlymemo bufh dhash typhash lhs in
-        (generate_assignment bufh typhash (dly, lhs),
-         generate_assignment bufh typhash (dly, expr),
-         generate_update bufh typhash (lhs, dly))
+        (generate_assignment_common false bufh typhash (dly, lhs),
+         generate_assignment_common false bufh typhash (dly, expr),
+         generate_assignment_common true bufh typhash (lhs, dly))
     | Blocking (FopAsgn (lhs, expr)) ->
         let dly = dlymemo bufh dhash typhash lhs in
         let rhs = buffer' bufh typhash expr (width typhash lhs) in
-        (generate_assignment bufh typhash (dly, lhs),
-         generate_assignment bufh typhash (dly, rhs),
-         generate_update bufh typhash (lhs, dly))
+        (generate_assignment_common false bufh typhash (dly, lhs),
+         generate_assignment_common false bufh typhash (dly, rhs),
+         generate_assignment_common true bufh typhash (lhs, dly))
     | Blocking (FopAsgnConcat(lhslst, expr)) ->
         let wid = ref 0 in
         let dlylst = List.map (fun lhs ->
           let dly = dlymemo bufh dhash typhash lhs in
 	  wid := !wid + width typhash lhs;
           let lhs' = buffer' bufh typhash lhs (width typhash lhs) in
-          (generate_assignment bufh typhash (dly, lhs'),
-           generate_update bufh typhash (lhs, dly),
+          (generate_assignment_common false bufh typhash (dly, lhs'),
+           generate_assignment_common true bufh typhash (lhs, dly),
           dly)) lhslst in
         let rhs = buffer' bufh typhash expr !wid in
         List.flatten (List.map (fun (p,u,d) -> p) dlylst),
-		  generate_assignment bufh typhash (GenBlock (List.map (fun (p,u,d) -> d) dlylst), rhs),
+		  generate_assignment_common false bufh typhash (GenBlock (List.map (fun (p,u,d) -> d) dlylst), rhs),
 		  List.flatten (List.map (fun (p,u,d) -> u) dlylst)
     | CaseStmt (caselbl, itm_stmts) ->
         let lbl' = List.map (simplify_default bufh typhash) caselbl in
@@ -1950,10 +1935,6 @@ and asgn'' bufh typhash arr sel expr =
     let dhash = Hashtbl.create 255 in
     let inst = newnam() in
     inst, asgn' bufh dhash typhash (Id inst) arr sel expr
-
-
-and generate_assignment bufh typhash (lhs, rhs) : ilang list = generate_assignment_common bufh typhash (lhs, rhs) false
-and generate_update bufh typhash (lhs, rhs) : ilang list = generate_assignment_common bufh typhash (lhs, rhs) true
 
 and mapedge sync_lst = function
   | Pos (Id signal) -> Sync_list69 ([TokPos], [TokID signal], [], sync_lst)

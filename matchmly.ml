@@ -122,7 +122,10 @@ let rec event_lst = function
 | oth, EventOr lst -> EventOr (oth :: lst)
 | oth, oth' -> EventOr (oth :: [oth'])
 
+let dbgitms = ref []
 let dbgportitms = ref []
+let dbgportdecl = ref []
+let dbgportitms' = ref []
 
 let rec mly = function
 | Wire -> Atom "wire"
@@ -1027,10 +1030,11 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE5(STRING("parameter_value_assignment60"), HASH, LPAREN, arg3, RPAREN) as oth -> mayfail oth  "parameter_value_assignment60"
 | TUPLE5(STRING("parameter_value_assignmentClass65"), HASH, LPAREN, arg3, RPAREN) as oth -> mayfail oth  "parameter_value_assignmentClass65"
 | TUPLE5(STRING("patternOne755"), arg1, LBRACE, arg3, RBRACE) as oth -> mayfail oth  "patternOne755"
-| TUPLE5(STRING("port92"), dir, port, arg3, arg4) ->
-    (match arg3, arg4, port with
-      | EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(mly dir, port, [], Deflt)
-      | oth -> othpat3 := Some oth; failwith "port92")
+| TUPLE5(STRING("port92"), arg2, port, arg3, arg4) ->
+    (match arg2, arg3, arg4, port with
+      | EMPTY_TOKEN, EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(Deflt, port, [], mly arg3)
+      | (Input|Output), EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(mly arg2, port, [], mly arg3)
+      | oth -> othpat4 := Some oth; failwith "port92")
 | TUPLE5(STRING("port_declaration221"), dir, arg2, arg3, arg4) ->
     (match arg3, arg4 with
       | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic as x), EMPTY_TOKEN, rng), TLIST lst ->
@@ -1305,7 +1309,10 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
       | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: rml lst, Deflt)
       | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst'), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, rml lst, []) :: rml lst', Deflt)
       | oth -> othpat2 := Some oth; failwith "port87")
-| TUPLE6(STRING("port90"), arg1, arg2, arg3, arg4, arg5) as oth -> mayfail oth  "port90"
+| TUPLE6(STRING("port90"), arg1, arg2, arg3, arg4, arg5) ->
+  (match  arg1, arg2, arg3, arg4, arg5 with
+     | Source_text.Output, Source_text.Signed, IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN -> Port(mly arg1, id, [], Atom "signed")
+     | oth -> othpat5 := Some oth; failwith "port90")
 | TUPLE6(STRING("port_declaration223"), arg1, arg2, Var, arg4, arg5) as oth -> mayfail oth  "port_declaration223"
 | TUPLE6(STRING("port_declaration225"), arg1, arg2, Var, arg4, arg5) as oth -> mayfail oth  "port_declaration225"
 | TUPLE6(STRING("port_declaration227"), dir, arg2, arg3, arg4, nam) ->
@@ -1710,23 +1717,28 @@ and parmf = function
      | TUPLE3 (STRING "importsAndParametersE56", TLIST importlst, params) -> let pkg = rml importlst in List.map (fun itm -> PackageParam(pkg, itm)) (parmf params)
      | oth -> othpat1 := Some oth; failwith "param1532"
 
-and itemsf portlst itmlst =	      
+and itemsf portlst itmlst =
 	      let itms = match itmlst with TLIST itmlst -> rml itmlst | EMPTY_TOKEN -> [] | oth -> mly oth :: [] in
+              (* flatten top-level items *)
+              let itms = List.flatten (List.map (function Itmlst lst -> lst | oth -> [oth]) itms) in
+              dbgitms := itms;
 	      let portdecl, itms = List.partition (function DeclLogic (Port _ :: _) -> true | _ -> false) itms in
               let porthash = Hashtbl.create 255 in
               let _ = List.iter (function DeclLogic lst -> List.iter (function Port(dir, nam, dimlst, xlst) -> Hashtbl.add porthash nam (dir,dimlst) | _ -> ()) lst | _ -> ()) portdecl in
 	      let ports = rml portlst in
+              dbgportdecl := portdecl;
               dbgportitms := ports;
               (* deal with ANSI default port syntax *)
-	      let ports' = let dir' = ref Deflt in List.map (function
+	      let ports' = let dir',dim',sgn' = ref Deflt, ref [], ref Deflt in List.map (function
 				      | Id port -> let dir,dims = Hashtbl.find porthash port in Port(dir, port, dims, Deflt)
-				      | Port (Deflt, port, dims, xlst) -> Port (!dir', port, dims, xlst)
-				      | Port (dir, port, dims, xlst) as x -> dir' := dir; x
+				      | Port (Deflt, port, [], Deflt) -> Port (!dir', port, !dim', !sgn')
+				      | Port (dir, port, dims, xlst) as x -> dir' := dir; dim' := dims; sgn' := xlst; x
                                       | Dot3 _ as x -> x (* placeholder *)
                                       | DotBus _ as x -> x (* placeholder *)
 				      | oth -> remap := Some oth; failwith "ports") ports in
+              dbgportitms' := ports';
 	      ports', itms
-	      
+
 and rml pat = List.rev_map mly pat
 
 and prior_all lst = prior12 (prior11 (prior10 (prior9 (prior8 (prior7 (prior6 (prior5 (prior4 (prior3 (prior2 (prior1 lst)))))))))))

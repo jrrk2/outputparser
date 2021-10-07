@@ -120,6 +120,7 @@ let rec rw' = function
 | TUPLE4(STRING("memory_options40"),arg1,TOK_WIDTH,TOK_INT arg3) -> Memory_optionswidth(arg3) :: rw'' arg1
 | TUPLE4(STRING("memory_options41"),arg1,TOK_SIZE,TOK_INT arg3) -> Memory_optionssize(arg3) :: rw'' arg1
 | TUPLE4(STRING("memory_options42"),arg1,TOK_OFFSET,TOK_INT arg3) -> Memory_optionsoffset(arg3) :: rw'' arg1
+| TUPLE3(STRING("param_stmt23"),TOK_PARAMETER,TOK_ID arg2) -> Param_stmt23(arg2,[]) :: []
 | TUPLE4(STRING("param_stmt23"),TOK_PARAMETER,TOK_ID arg2,arg3) -> Param_stmt23(arg2,rw'' arg3) :: []
 | TUPLE4(STRING("sigspec92"),LBRACE,arg2,RBRACE) -> Sigspec92(rw'' arg2) :: []
 | TUPLE4(STRING("wire_options29"),arg1,TOK_WIDTH,TOK_INT arg3) -> Wire_optionswidth(arg3) :: rw'' arg1

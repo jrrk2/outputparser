@@ -42,6 +42,7 @@ open Source_text_rewrite_types.E
 open Source_text_rewrite_types.F
 open String_lit
 open Convert
+open Ver_dump
 ;;
 
 let v = "timer.v";;
@@ -87,7 +88,6 @@ let v = "../yosys/tests/simple/aes_kexp128.v";;
 let v = "../yosys/tests/simple/arraycells.v";;
 let v = "../yosys/tests/simple/attrib01_module.v";;
 let v = "../yosys/tests/simple/attrib09_case.v";;
-let v = "../yosys/tests/simple/carryadd.v";;
 let v = "../yosys/tests/simple/arrays01.v";;
 let v = "../yosys/tests/simple/case_expr_const.v";;
 let v = "../yosys/tests/simple/case_large.v";;
@@ -104,9 +104,7 @@ let v = "examples/count1.v";;
 let v = "examples/count4.v";;
 let v = "examples/count5.v";;
 let v = "examples/arith.v";;
-let v = "examples/add.v";;
 let v = "examples/multest.v";;
-let v = "examples/count0.v";;
 let v = "examples/count.v";;
 let v = "examples/count2.v";;
 let v = "examples/count3.v";;
@@ -116,10 +114,16 @@ let v = "examples/query.v";;
 let v = "examples/rhs.v";;
 let v = "examples/synthcells.v";;
 let v = "examples/picorv32_ref.v";;
-let v = "../picorv32/picorv32.v";;
 let v = "junk.pp";;
 let v = "../yosys/tests/simple/memory.v";;
 let v = "examples/memtest01.v";;
+let v = "examples/add.v";;
+let v = "examples/arith.v";;
+let v = "examples/count0.v";;
+let v = "examples/process.v";;
+let v = "../picorv32/picorv32.v";;
+let v = "../yosys/tests/simple/carryadd.v";;
+let v = "examples/carryadd2.v";;
 
 (*
 let x = rw (parse v);;

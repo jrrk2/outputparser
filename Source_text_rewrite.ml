@@ -15,6 +15,7 @@ let mux2 a b s = or2 (and2 a (knot s)) (and2 b s)
 let atom signal = F.make_atom ( E.make signal )
 
 let othstr = ref None
+let othxlst = ref []
 let (othlst:(string * Source_text_rewrite_types.E.signal * Source_text_rewrite_types.F.t option) list ref) = ref []
 
 let cnv_pwr = function
@@ -22,6 +23,14 @@ let cnv_pwr = function
   | "1'1" -> E.PWR
   | "1'x" -> E.GND
   | oth -> othstr := Some oth; failwith "cnv_pwr"
+
+(* split a constant into individual bits *)
+
+let explode_const = function
+  | n::str::[] -> List.init (int_of_string n) (fun ix -> cnv_pwr ("1'"^String.make 1 str.[ix]))
+  | oth -> othxlst := oth; failwith "explode_const"
+
+let explode_const tok = explode_const (String.split_on_char '\'' tok)
 
 let addwire idx' ind signal =
   match Hashtbl.find_opt ind.wires signal with
