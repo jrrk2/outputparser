@@ -185,17 +185,17 @@ let mycnf' = ref F.f_false
 let mycnf = ref [[E.transparent (E.fresh ())]]
 let othh = ref F.f_false
 
-let ep form =
-    if verbose > 1 then print_endline "Dumping cnf";
+let ep k' form =
+    if verbose > 2 then print_endline "Dumping cnf";
     mycnf' := form;
-    if verbose > 1 then print_endline "Building cnf";
+    if verbose > 2 then print_endline "Building cnf";
     let m = F.make_cnf form in
     mycnf := List.map (List.map E.transparent) m;
     let solver = Msat_sat_slit.create () in
     Msat_sat_slit.assume solver m ();
     match Msat_sat_slit.solve solver with
-      | Msat_sat_slit.Sat _ -> if verbose > 1 then print_endline "SATISFIABLE (netlists mismatched)"; false
-      | Msat_sat_slit.Unsat _ -> if verbose > 1 then print_endline "UNSATISFIABLE (netlists match)"; true
+      | Msat_sat_slit.Sat _ -> if verbose > 1 then print_endline ("SATISFIABLE (endpoint "^k'^" mismatched)"); false
+      | Msat_sat_slit.Unsat _ -> if verbose > 1 then print_endline ("UNSATISFIABLE (endpoint "^k'^" match)"); true
 
 let cnv_sat arg' =
   if verbose > 1 then print_endline ("Reading rtlil: "^arg');
@@ -292,12 +292,13 @@ let rewrite_rtlil v =
 		) !(Matchmly.modules);
   if not sep_rtl then
     begin
-      close_out fd'
+      close_out fd';
+      close_out fd'';
     end;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_dump_synth.rtlil\n" v;
   close_out fd;
-  let script = "yosys "^(if verbose > 1 then "-X " else "-q ")^fnam in
+  let script = "yosys "^(if verbose > 3 then "-X " else "-q ")^fnam in
   let _ = match Unix.system script with
   | WEXITED errno -> if errno <> 0 then
       begin
@@ -320,7 +321,7 @@ let rewrite_rtlil v =
           let k' = E.string_of_signal k in
           match List.assoc_opt k inffoplst with
             | Some itm' -> 
-              let stat = ep (xor2 itm itm') in
+              let stat = ep k' (xor2 itm itm') in
               if not stat then status := false;
               k' ^ ": " ^ string_of_bool stat
             | None ->

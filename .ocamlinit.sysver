@@ -119,12 +119,15 @@ let v = "examples/memtest01.v";;
 let v = "examples/add.v";;
 let v = "examples/arith.v";;
 let v = "examples/count0.v";;
-let v = "../picorv32/picorv32.v";;
 let v = "../yosys/tests/simple/carryadd.v";;
 let v = "examples/carryadd2.v";;
 let v = "../yosys/share/simcells.v";;
-let v = "examples/process.v";;
 let v = "examples/blocking_cond.v";;
+let v = "examples/process.v";;
+let v = "examples/regindex_bits.v";;
+let v = "examples/cpuregs_wrdata.v";;
+let v = "examples/memtest01.v";;
+let v = "../picorv32/picorv32.v";;
 
 (*
 let x = rw (parse v);;

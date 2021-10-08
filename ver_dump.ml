@@ -2,24 +2,30 @@ open Printf
 open Input
 open Input_rewrite_types
 
+type opt = {mutable opt:int;mutable siz:int;mutable wid:int}
+
 type ver_dump = 
 | Oth of ilang list * string
 | Attr of ilang list
-| Input of int option * string
-| Output of int option * string
-| Wire of int option * string
 | Cell of string * string * ilang list * ilang list
 | Conn of ilang list * ilang list
+| Input of int option * string
+| Mem of string * opt
+| Output of int option * string
 | Proc of string * ilang list * ilang list * ilang list
+| Wire of int option * string
 
-type ind = {mod':(string,ilang list)Hashtbl.t;
+type ind = {
             attr:(string,ver_dump)Hashtbl.t;
-            ports:(int,ver_dump)Hashtbl.t;
-            wires:(string,ver_dump)Hashtbl.t;
-            regs:(string,unit)Hashtbl.t;
             cells:(string,ver_dump)Hashtbl.t;
+            conn:(ver_dump,unit)Hashtbl.t;
+            mem:(string,ver_dump)Hashtbl.t;
+            mod':(string,ilang list)Hashtbl.t;
+            ports:(int,ver_dump)Hashtbl.t;
             proc:(string,ver_dump)Hashtbl.t;
-            conn:(ver_dump,unit)Hashtbl.t}
+            regs:(string,unit)Hashtbl.t;
+            wires:(string,ver_dump)Hashtbl.t;
+}
 
 let othv = ref None
 let othedg = ref None
@@ -28,10 +34,17 @@ let dbgports = ref []
 
 let tokval s = String.concat "'b" (String.split_on_char '\'' s)
 
+let mem_opt opt = function
+| Memory_optionsoffset(int') -> opt.wid <- int'
+| Memory_optionssize(int') -> opt.siz <- int'
+| Memory_optionswidth(int') -> opt.wid <- int'
+| oth -> othv := Some oth; failwith "mem_opt"
+
 let rec dump_ver (ind:ind) = function
 | Attr_stmt(string,ilang_lst') -> Hashtbl.add ind.attr string (Attr ilang_lst')
 | Cell_stmt(string,string',ilang_lst,ilang_lst') -> Hashtbl.add ind.cells string' (Cell (string, string', ilang_lst, List.sort compare ilang_lst'))
 | Conn_stmt96(ilang_lst,ilang_lst') -> Hashtbl.add ind.conn (Conn(ilang_lst,ilang_lst')) ()
+| Memory_stmt39(ilang_lst,string') -> let opt = {opt=0;siz=0;wid=0} in List.iter (mem_opt opt) ilang_lst; Hashtbl.add ind.mem string' (Mem(string', opt))
 | Module12(string,ilang_lst') -> Hashtbl.add ind.mod' string ilang_lst'
 | Proc_stmt(string,ilang_lst,ilang_lst',ilang_lst2) -> Hashtbl.add ind.proc string (Proc (string, ilang_lst,ilang_lst',ilang_lst2))
 | TokConn(ilang_lst,ilang_lst') -> Hashtbl.add ind.conn (Conn(ilang_lst,ilang_lst')) ()
@@ -84,10 +97,12 @@ let tokkind = function
 
 let rec tokop = function
 | TokID a -> "\\"^a^" "
+| TokInt n -> string_of_int n
 | TokVal b -> tokval b
 | Sigspec90 (id, ix) -> "\\"^id^" [ "^string_of_int ix^" ]"
 | Sigspecrange (id, hi, lo) -> "\\"^id^" [ "^string_of_int hi^" : "^string_of_int lo^" ]"
 | Sigspec92 lst -> " { " ^ String.concat ", " (List.map tokop lst) ^ " } "
+| TokStr a -> "\\"^a^" "
 | oth -> othv := Some oth; failwith "tokop"
 
 let toksgn = function
@@ -122,6 +137,7 @@ let dump_conn ind = function
 let portmap ind = function
 | Oth(lst,nam) -> failwith "oth"
 | Attr _ -> failwith "attr"
+| Mem(mem, {opt;siz;wid}) -> "reg ["^string_of_int (wid-1)^":0] "^mem^" ["^string_of_int (siz)^"]"
 | Input (Some n,nam) -> "input ["^string_of_int (n - 1)^":0] \\"^nam^" "
 | Output (Some n,nam) -> "output "^is_reg ind nam^"["^string_of_int (n - 1)^":0] \\"^nam^" "
 | Wire (Some n,nam) -> is_reg' ind nam ^"["^string_of_int (n - 1)^":0] \\"^nam^" "
@@ -183,14 +199,15 @@ let conns = List.filter (function TokConn _ -> true | _ -> false) conns' in
   String.concat ";\n" (List.mapi (fun ix itm -> bodymap ind itm ^ ixcomment ix) lst1) ^ ";\n" ^
   String.concat ";\n" (List.mapi (fun ix -> function
                                     | Assign_stmt67 ([], []) -> ""
+                                    | TokConn ([lft], [rght]) -> reg ind lft; tokop lft^" = " ^ tokop rght ^ ixcomment ix
                                     | TokUpdate ([lft], [rght]) -> reg ind lft; tokop lft^" = " ^ tokop rght ^ ixcomment ix
-                                    | Update_listmemwr (mem, [adr], [data], [mask], [arg]) -> mem ^ " [ " ^ tokop adr ^ " ] = " ^ tokop data
                                     | oth -> othv := Some oth; failwith "update") (List.sort_uniq compare ulst)) ^ ";\nend\n"
 
 let ind' () = {
                attr=Hashtbl.create 255;
                cells=Hashtbl.create 255;
                conn=Hashtbl.create 255;
+               mem=Hashtbl.create 255;
                mod'=Hashtbl.create 255;
                ports=Hashtbl.create 255;
                proc=Hashtbl.create 255;
@@ -212,6 +229,7 @@ let dump fd rtl =
       Hashtbl.iter (fun k x -> Buffer.add_string buf (portmap ind x^"\n")) ind.proc;
       output_string fd ("module "^ mod'^"("^String.concat ", " (List.map (portmap ind) ports)^");\n\n");
       Hashtbl.iter (fun k x -> output_string fd (portmap ind x^";\n")) ind.wires;
+      Hashtbl.iter (fun k x -> output_string fd (portmap ind x^";\n")) ind.mem;
       Hashtbl.iter (fun k x -> output_string fd (portmap ind x^";\n")) ind.cells;
       Hashtbl.iter (fun x () -> output_string fd (portmap ind x^";\n")) ind.conn;
       output_string fd (Buffer.contents buf);
