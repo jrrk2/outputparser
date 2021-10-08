@@ -6,7 +6,7 @@ open Source_text_rewrite_types
 open Input
 open Input_rewrite_types
 
-let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
+let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") with err -> 0
 let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
 let dumpver = try int_of_string (Sys.getenv "DUMP_VER") > 0 with err -> false
 
@@ -186,19 +186,19 @@ let mycnf = ref [[E.transparent (E.fresh ())]]
 let othh = ref F.f_false
 
 let ep form =
-    if verbose then print_endline "Dumping cnf";
+    if verbose > 1 then print_endline "Dumping cnf";
     mycnf' := form;
-    if verbose then print_endline "Building cnf";
+    if verbose > 1 then print_endline "Building cnf";
     let m = F.make_cnf form in
     mycnf := List.map (List.map E.transparent) m;
     let solver = Msat_sat_slit.create () in
     Msat_sat_slit.assume solver m ();
     match Msat_sat_slit.solve solver with
-      | Msat_sat_slit.Sat _ -> if verbose then print_endline "SATISFIABLE (netlists mismatched)"; false
-      | Msat_sat_slit.Unsat _ -> if verbose then print_endline "UNSATISFIABLE (netlists match)"; true
+      | Msat_sat_slit.Sat _ -> if verbose > 1 then print_endline "SATISFIABLE (netlists mismatched)"; false
+      | Msat_sat_slit.Unsat _ -> if verbose > 1 then print_endline "UNSATISFIABLE (netlists match)"; true
 
 let cnv_sat arg' =
-  print_endline ("Reading rtlil: "^arg');
+  if verbose > 1 then print_endline ("Reading rtlil: "^arg');
   let _,arg = Input_rewrite.parse arg' in
   List.map (fun (nam,itm) ->
       let wh = Hashtbl.create 255 in
@@ -206,20 +206,20 @@ let cnv_sat arg' =
       let ffh = Hashtbl.create 255 in
       let sh = Hashtbl.create 255 in
       let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
-      print_endline ("Converting: "^nam);
+      if verbose > 1 then print_endline ("Converting: "^nam);
       List.iter (cnv_ilang ind) itm;
       Hashtbl.iter (fun _ (kind,inst,conns) -> Convert.func ind [inst] kind conns) sh;
       let hlst=ref [] in
       Hashtbl.iter (fun k -> function
           | Some x -> othh := x; hlst := (k, fpp x) :: !hlst
-          | None -> if verbose then print_endline (arg'^": "^E.string_of_signal k^" is not used")) wh;
+          | None -> if verbose > 0 then print_endline (arg'^": "^E.string_of_signal k^" is not used")) wh;
       let inffoplst=ref [] in
       Hashtbl.iter (fun k () -> inffoplst := (k, match Hashtbl.find wh k with
         | Some x -> x
         | None -> print_endline ("ffh: " ^ E.string_of_signal k^" is undefined"); atom (scalar "\\")) :: !inffoplst) ffh;
       let widlst=ref [] in
       Hashtbl.iter (fun k n -> widlst := (k, n) :: !widlst) wid;
-      print_endline ("inffopslt length: "^string_of_int (List.length !inffoplst));
+      if verbose > 1 then print_endline ("inffopslt length: "^string_of_int (List.length !inffoplst));
       !hlst, List.sort compare !inffoplst, !widlst
   ) arg
 
@@ -228,7 +228,7 @@ let dbgmatch = ref Deflt
 
 let rewrite_rtlil v =
   let status = ref true in
-  print_endline ("Parsing: "^v);
+  if verbose > 1 then print_endline ("Parsing: "^v);
   Matchmly.modules := [];
 (*
   let p = Source_text_preproc.parse' Source_text_rewrite.parse_output_ast_from_function v in
@@ -241,23 +241,24 @@ let rewrite_rtlil v =
   let modlst = ref [] in
   let fnam = v^"_dump.ys" in
   let fd = open_out fnam in
-  print_endline ("Yosys command file: "^fnam);
-  let fnam' = if dumpver then v^"_dump.v"
-    else v^"_dump.rtlil" in
+  if verbose > 1 then print_endline ("Yosys command file: "^fnam);
+  let fnam' = v^"_dump.v" in
+  let fnam'' = v^"_dump.rtlil" in
   let fd' = open_out fnam' in
+  let fd'' = open_out fnam'' in
   fprintf fd "read_verilog -sv -overwrite %s\n" v;
   fprintf fd "write_ilang %s_golden_proc.rtlil\n" v;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
   if not sep_rtl then
     begin
-      print_endline ("File: "^fnam');
+      if verbose > 1 then print_endline ("File: "^fnam');
       if dumpver then
         begin
         fprintf fd "read_verilog -overwrite %s\n" fnam';
         fprintf fd "write_ilang %s.ilang\n" fnam';
         end
-      else fprintf fd "read_ilang -overwrite %s\n" fnam';
+      else fprintf fd "read_ilang -overwrite %s\n" fnam'';
     end;
   List.iter (fun (k, x) ->
                 dbgx := x :: !dbgx;
@@ -265,23 +266,28 @@ let rewrite_rtlil v =
 		modlst := (k, rtl) :: !modlst;
                 if sep_rtl then
                     begin
-                      let fnam' = if dumpver then v^"_dump_"^k^".v"
-                        else v^"_dump_"^k^".rtlil" in
+                      let fnam' = v^"_dump_"^k^".v" in
+                      let fnam'' = v^"_dump_"^k^".rtlil" in
                       let fd' = open_out fnam' in
-                      print_endline ("File: "^fnam');
+                      let fd'' = open_out fnam'' in
+                      if dumpver then print_endline ("File: "^fnam')
+                          else print_endline ("File: "^fnam'');
                       if dumpver then
                         begin
                         fprintf fd "read_verilog -overwrite %s\n" fnam';
                         fprintf fd "write_ilang %s.ilang\n" fnam';
                         end
                       else
-                        fprintf fd "read_ilang -overwrite %s\n" fnam';
-                      if dumpver then Ver_dump.dump fd' rtl else Input_dump.dump fd' rtl;
+                        fprintf fd "read_ilang -overwrite %s\n" fnam'';
+                      Ver_dump.dump fd' rtl;
+                      Input_dump.dump fd'' rtl;
                       close_out fd';
+                      close_out fd'';
                       end
                 else
                   begin
-                      if dumpver then Ver_dump.dump fd' rtl else Input_dump.dump fd' rtl;
+                      Ver_dump.dump fd' rtl;
+                      Input_dump.dump fd'' rtl;
                     end
 		) !(Matchmly.modules);
   if not sep_rtl then
@@ -291,7 +297,7 @@ let rewrite_rtlil v =
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_dump_synth.rtlil\n" v;
   close_out fd;
-  let script = "yosys "^(if verbose then "-X " else "-q ")^fnam in
+  let script = "yosys "^(if verbose > 1 then "-X " else "-q ")^fnam in
   let _ = match Unix.system script with
   | WEXITED errno -> if errno <> 0 then
       begin
@@ -300,13 +306,13 @@ let rewrite_rtlil v =
       end
     else
       begin
-      print_endline "yosys succeeded";
+      if verbose > 1 then print_endline "yosys succeeded";
       let goldlst = cnv_sat (v^"_golden_synth.rtlil") in
       let revlst = cnv_sat (v^"_dump_synth.rtlil") in
       List.iter2 (fun (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') ->
       let inffoplst1,inffoplst2 = List.split inffoplst in
       let inffoplst1',inffoplst2' = List.split inffoplst' in
-      if verbose then begin
+      if verbose > 0 then begin
       print_endline ("Golden (yosys) primary inputs/flipflop inputs/final outputs: "^String.concat "; " (List.map E.string_of_signal inffoplst1));
       print_endline ("Revised (our) primary inputs/flipflop inputs/final outputs: "^String.concat "; " (List.map E.string_of_signal inffoplst1'));
       end;
@@ -321,7 +327,7 @@ let rewrite_rtlil v =
               status := false;
               k' ^ ": not compared"
           ) inffoplst' in
-      if verbose then print_endline ("Endpoint comparison: "^String.concat "; " ep_comparison;
+      if verbose > 0 then print_endline ("Endpoint comparison: "^String.concat "; " ep_comparison;
         )) goldlst revlst;
       print_endline ("Overall comparison: "^ string_of_bool !status);
 (*

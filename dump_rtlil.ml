@@ -1246,7 +1246,7 @@ let fn_arg typhash = function
                    sprintf "%s %s %s" (match kind' with Atom typ -> typ | oth -> "") primtyp id;
 		   *)
 		   | Deflt -> ""
-                   | oth -> unhand := Some oth; failwith "fn_arg"		   
+                   | oth -> unhand := Some oth; failwith "fn_arg"
 
 let buffer' bufh typhash expr wid =
   let wid' = max wid (width typhash expr) in

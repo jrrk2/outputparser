@@ -23,7 +23,7 @@ type model =
   | Not of model list
   | Z
 
-let verbose = try int_of_string (Sys.getenv "CONVERT_VERBOSE") > 0 with err -> false
+let verbose = try int_of_string (Sys.getenv "CONVERT_VERBOSE") with err -> 0
 
 let othx = ref None
 let itmlst = ref []
@@ -99,6 +99,7 @@ let rec scan_itms' = function
 | Xor (a, b) -> Xor2 (scan_itms a, scan_itms b) :: []
 | ContAsgn (Asgn1 (y, expr) :: []) -> Assign(scan_itms y, scan_itms expr) :: []
 | AlwaysLegacy (At (EventOr ((Pos _ | Neg _) :: _ as edg)), stmts) -> Edge (List.flatten (List.map (scan_itms) edg), scan_itms stmts) :: []
+| AlwaysLegacy (At (EventOr edg), stmts) -> Edge (List.flatten (List.map (scan_itms) edg), scan_itms stmts) :: []
 | AlwaysLegacy (AtStar, stmt) -> Edge([], scan_itms stmt) :: []
 | oth -> othx := Some oth; failwith "scan_itms"
 
@@ -141,8 +142,7 @@ let dump_sat buf (nam, (ports, itms)) =
       | Reg (Out, "Q") -> sprintf "(\"\\\\Q\", q, Some _) :: "
       | Reg (Out, y) -> sprintf "(\"\\\\%s\", %s, found) :: " y (dump_expr (Ident y))
       | Assign ([y], [expr]) -> sprintf "[] -> if found = None then addfunc ind %s (%s)\n" (dump_expr y) (dump_expr expr);
-      | Edge ((Posedge _ | Negedge _) :: _, [Assign ([Ident "Q"], [expr])]) -> sprintf "[] -> addnxt \"nxt\" ind (%s) (q)\n" (dump_expr expr)
-      | Edge ([], [Assign ([Ident "Q"], [expr])]) -> sprintf "[] -> addnxt \"nxt\" ind (%s) (q)\n" (dump_expr expr)
+      | Edge (_, [Assign ([Ident "Q"], [expr])]) -> sprintf "[] -> addnxt \"nxt\" ind (%s) (q)\n" (dump_expr expr)
       | oth -> othdump := Some oth; failwith "dump_sat") itms in
   let itms' = List.sort compare itms' in
   List.iter (Buffer.add_string buf) itms'
@@ -171,7 +171,7 @@ let rewrite_sat v fil =
   bprintf buf "open Source_text_rewrite_types\n";
   bprintf buf "open Source_text_rewrite\n";
   bprintf buf "\n";
-  bprintf buf "let verbose = try int_of_string (Sys.getenv \"CNF_VERBOSE\") > 0 with err -> false\n";
+  bprintf buf "let verbose = try int_of_string (Sys.getenv \"CNF_VERBOSE\") with err -> 0\n";
   bprintf buf "\n";
   bprintf buf "let dbgfunc = ref []\n";
   bprintf buf "let othst = ref []\n";
@@ -197,14 +197,14 @@ let rewrite_sat v fil =
   bprintf buf "| Some (kind, inst, conns) ->\n";
   bprintf buf "  if not (List.mem inst klst) then\n";
   bprintf buf "    begin\n";
-  bprintf buf "    if verbose then print_endline (\"recurse into \" ^ E.string_of_signal signal ^ \" (instance: \" ^ inst ^ \", kind: \" ^ kind ^ \" )\");\n";
+  bprintf buf "    if verbose > 2 then print_endline (\"recurse into \" ^ E.string_of_signal signal ^ \" (instance: \" ^ inst ^ \", kind: \" ^ kind ^ \" )\");\n";
   bprintf buf "    func ind (inst :: klst) kind conns;\n";
-  bprintf buf "    if verbose then print_endline (\"recurse into \"^E.string_of_signal signal^\" returned from \" ^ kind);\n";
+  bprintf buf "    if verbose > 2 then print_endline (\"recurse into \"^E.string_of_signal signal^\" returned from \" ^ kind);\n";
   bprintf buf "    end\n";
   bprintf buf "  else\n";
   bprintf buf "    begin\n";
   bprintf buf "    dbgfunc := (kind,conns,signal,Hashtbl.find ind.wires signal) :: !dbgfunc;\n";
-  bprintf buf "    if verbose then print_endline (\"instance: \" ^ inst ^ \" (kind : \" ^ kind ^ \" ) already searched\")\n";
+  bprintf buf "    if verbose > 2 then print_endline (\"instance: \" ^ inst ^ \" (kind : \" ^ kind ^ \" ) already searched\")\n";
   bprintf buf "    end;\n";
   bprintf buf "  Hashtbl.find ind.wires signal\n";
   bprintf buf "| None ->\n";
@@ -229,5 +229,3 @@ let rewrite_sat v fil =
   Buffer.output_buffer fd buf;
   close_out fd;
   modlst, x, p, p', Buffer.contents buf
-
-let modlst,x,p,p',status = rewrite_sat Sys.argv.(1) Sys.argv.(2)

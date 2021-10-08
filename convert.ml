@@ -2,7 +2,7 @@ open Input_rewrite_types
 open Source_text_rewrite_types
 open Source_text_rewrite
 
-let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
+let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") with err -> 0
 
 let dbgfunc = ref []
 let othst = ref []
@@ -90,6 +90,7 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "$_DLATCH_PP0_",("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\Q", q, Some _) :: ("\\R", _, Some r) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) ((e))) (F.f_false) ((r))) (q)
   | "$_DLATCH_PP1_",("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\Q", q, Some _) :: ("\\R", _, Some r) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) ((e))) (F.f_true) ((r))) (q)
   | "$_DLATCH_P_",("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (atom q) (d) ((e))) (q)
+  | "$_FF_",("\\D", _, Some d) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (d) (q)
   | "$_MUX16_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\F", _, Some f) :: ("\\G", _, Some g) :: ("\\H", _, Some h) :: ("\\I", _, Some i) :: ("\\J", _, Some j) :: ("\\K", _, Some k) :: ("\\L", _, Some l) :: ("\\M", _, Some m) :: ("\\N", _, Some n) :: ("\\O", _, Some o) :: ("\\P", _, Some p) :: ("\\S", _, Some s) :: ("\\T", _, Some t) :: ("\\U", _, Some u) :: ("\\V", _, Some v) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (mux2 (mux2 (mux2 (mux2 (a) (b) (s)) (mux2 (c) (d) (s)) (t)) (mux2 (mux2 (e) (f) (s)) (mux2 (g) (h) (s)) (t)) (u)) (mux2 (mux2 (mux2 (i) (j) (s)) (mux2 (k) (l) (s)) (t)) (mux2 (mux2 (m) (n) (s)) (mux2 (o) (p) (s)) (t)) (u)) (v))
   | "$_MUX4_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\S", _, Some s) :: ("\\T", _, Some t) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (mux2 (mux2 (a) (b) (s)) (mux2 (c) (d) (s)) (t))
   | "$_MUX8_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\F", _, Some f) :: ("\\G", _, Some g) :: ("\\H", _, Some h) :: ("\\S", _, Some s) :: ("\\T", _, Some t) :: ("\\U", _, Some u) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (mux2 (mux2 (mux2 (a) (b) (s)) (mux2 (c) (d) (s)) (t)) (mux2 (mux2 (e) (f) (s)) (mux2 (g) (h) (s)) (t)) (u))
@@ -163,14 +164,14 @@ and recurse ind klst signal = function
 | Some (kind, inst, conns) ->
   if not (List.mem inst klst) then
     begin
-    if verbose then print_endline ("recurse into " ^ E.string_of_signal signal ^ " (instance: " ^ inst ^ ", kind: " ^ kind ^ " )");
+    if verbose > 2 then print_endline ("recurse into " ^ E.string_of_signal signal ^ " (instance: " ^ inst ^ ", kind: " ^ kind ^ " )");
     func ind (inst :: klst) kind conns;
-    if verbose then print_endline ("recurse into "^E.string_of_signal signal^" returned from " ^ kind);
+    if verbose > 2 then print_endline ("recurse into "^E.string_of_signal signal^" returned from " ^ kind);
     end
   else
     begin
     dbgfunc := (kind,conns,signal,Hashtbl.find ind.wires signal) :: !dbgfunc;
-    if verbose then print_endline ("instance: " ^ inst ^ " (kind : " ^ kind ^ " ) already searched")
+    if verbose > 2 then print_endline ("instance: " ^ inst ^ " (kind : " ^ kind ^ " ) already searched")
     end;
   Hashtbl.find ind.wires signal
 | None ->
