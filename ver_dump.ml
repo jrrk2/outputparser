@@ -187,6 +187,7 @@ let conns = List.filter (function TokConn _ -> true | _ -> false) conns' in
 | Proc (nam, _, lst1, lst2) as x -> proc := Some x;
   let edg' = function TokPos -> "pos" | TokNeg -> "neg" | oth -> failwith "edg'" in
   let edg,ulst = match lst2 with
+    | [] -> "\nalways @*\n", []
     | Sync_list69 ([TokPos|TokNeg as e], [TokID clk], [], ulst) :: [] -> "\nalways @("^edg' e^"edge "^clk^")\n",ulst
     | Sync_listalways ([], ulst) :: [] -> "\nalways @*\n", ulst
     | Sync_list69 ([TokPos|TokNeg as e], [TokID clk], [], ulst) :: Sync_list69 ([TokPos|TokNeg as e'], [TokID rst], [], ulst') :: [] ->

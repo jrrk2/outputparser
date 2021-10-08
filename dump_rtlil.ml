@@ -1527,11 +1527,13 @@ let rec restrict' typhash wid nam = function
   | MaybePort(ix, typ, _) -> restrict' typhash wid nam typ
   | (Signed | Unsigned) -> Id nam
   | Vint n -> Number(2,min 32 wid,n mod (1 lsl wid),"")
+  | Vlocal (w', Number(b,w,n,_)) -> Number(b,min w wid,n mod (1 lsl wid),"")
   | oth -> coth := Some oth; failwith "restrict'"
 
 let rec restrict typhash wid = function
   | Number(b,w,n,_) -> Number(b,min w wid,n mod (1 lsl wid),"")
   | Id s -> (match Hashtbl.find_opt typhash s with Some x -> restrict' typhash wid s x | None -> Id s)
+  | IdArrayed2 (Id s,ix) -> (match Hashtbl.find_opt typhash s with Some x -> restrict' typhash wid s x | None -> Id s)
   | Atom "default" as x -> x
   | Intgr n -> Number(2,wid,n mod (1 lsl wid),"")
   | ExprOKL lst -> ExprOKL (List.rev (restrict_lst typhash wid (List.rev lst)))
@@ -2000,7 +2002,7 @@ and asgn bufh typhash expr = function
   | IdArrayed2 (Id _ as arr, (Id _ as sel)) ->
     let inst, (p,u,s) = asgn'' bufh typhash expr arr sel in
     let sync_lst = List.sort_uniq compare s in
-    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, [mapedge sync_lst AlwaysSync]) :: !(bufh.l)
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, mapedge sync_lst AlwaysSync) :: !(bufh.l)
   | lhs ->
     let rhs = buffer' bufh typhash expr (width typhash lhs) in
     bufh.c := Conn_stmt96(tran' lhs, tran' rhs) :: !(bufh.c)
@@ -2025,9 +2027,9 @@ and asgn'' bufh typhash arr sel expr =
     inst, asgn' bufh dhash typhash (Id inst) arr sel expr
 
 and mapedge sync_lst = function
-  | Pos (Id signal) -> Sync_list69 ([TokPos], [TokID signal], [], sync_lst)
-  | Neg (Id signal) -> Sync_list69 ([TokNeg], [TokID signal], [], sync_lst)
-  | AlwaysSync -> Sync_listalways([], sync_lst)
+  | Pos (Id signal) -> Sync_list69 ([TokPos], [TokID signal], [], sync_lst) :: []
+  | Neg (Id signal) -> Sync_list69 ([TokNeg], [TokID signal], [], sync_lst) :: []
+  | AlwaysSync -> if sync_lst <> [] then Sync_listalways([], sync_lst) :: [] else []
   | oth -> unhand := Some oth; failwith "mapedge"
 
 (*
@@ -2110,21 +2112,21 @@ let rec proc_template bufh typhash modules = function
     dbgproc := Some (typhash, dhash, inst, edglst, body);
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
     let sync_lst = List.sort_uniq compare s in
-    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.map (mapedge sync_lst) edglst) :: !(bufh.l)
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.flatten (List.map (mapedge sync_lst) edglst)) :: !(bufh.l)
     | AlwaysLegacy (AtStar, body) ->
     let dhash = Hashtbl.create 255 in
     let inst = newnam() in
     dbgproc := Some (typhash, dhash, inst, [], body);
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
     let sync_lst = List.sort_uniq compare s in
-    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, mapedge sync_lst AlwaysSync :: []) :: !(bufh.l)
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, mapedge sync_lst AlwaysSync) :: !(bufh.l)
     | AlwaysLegacy (At (EventOr (Id _ :: _)), body) ->
     let dhash = Hashtbl.create 255 in
     let inst = newnam() in
     dbgproc := Some (typhash, dhash, inst, [], body);
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
     let sync_lst = List.sort_uniq compare s in
-    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, mapedge sync_lst AlwaysSync :: []) :: !(bufh.l)
+    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, mapedge sync_lst AlwaysSync) :: !(bufh.l)
 (*
     | AlwaysFF (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
   bprintf buf' "    // clocked process %d description goes here\n" !cnt;
@@ -2210,8 +2212,8 @@ let rec proc_template bufh typhash modules = function
     | ParamDecl _ -> ()
     | TaskDecl _ -> ()
     | AutoFunDecl _ -> () (* placeholder *)
-    | Initial _ -> bufh.l := Attr_stmt ("// initial is not implemented\n", []) :: !(bufh.l)
-    | Final _ -> bufh.l := Attr_stmt ("// final is not implemented\n", []) :: !(bufh.l)
+    | Initial _ -> () (* bufh.l := Attr_stmt ("initial_is_not_implemented", []) :: !(bufh.l) *)
+    | Final _ -> () (* bufh.l := Attr_stmt ("final_is_not_implemented", []) :: !(bufh.l) *)
     | PkgImport _ -> ()
     | DeclData _ -> ()
     | AssertProperty -> ()
