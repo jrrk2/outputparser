@@ -21,8 +21,8 @@ close_out fd
 #use "topfind";;
 #require "msat";;
 *)
-#print_depth 100000;;
-#print_length 100000;;
+#print_depth 1000000;;
+#print_length 10000000;;
 
 #directory "/Users/jonathan/.opam/413/lib"
 #directory "/Users/jonathan/.opam/413/lib/msat/backtrack"
@@ -128,6 +128,7 @@ let v = "examples/regindex_bits.v";;
 let v = "examples/cpuregs_wrdata.v";;
 let v = "examples/memtest01.v";;
 let v = "../picorv32/picorv32.v";;
+let v = "examples/pcpi_fast_mul.v";;
 
 (*
 let x = rw (parse v);;

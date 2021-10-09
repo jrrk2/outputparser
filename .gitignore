@@ -110,3 +110,4 @@ examples/*.verilog
 junk.v
 .DS_Store
 logfile.txt
+sat_example

@@ -159,7 +159,7 @@ and width typhash = function
 | Number (_,w,_,_) -> w
 | Id s -> widthsel typhash s (Hashtbl.find_opt typhash s)
 | IdArrayed2 (IdArrayed2 (Id mem, Id addr), Id abit) -> 1
-| IdArrayed2 (Id s, _) -> widthsel typhash s (Hashtbl.find_opt typhash s)
+| IdArrayed2 (Id s, _) -> widthsel' typhash s (Hashtbl.find_opt typhash s)
 (* csiz' typhash (match Hashtbl.find_opt typhash s with Some x -> x | None -> print_endline ("Not found: "^s); Unsigned) *)
 | Add (lhs, rhs) -> max (width typhash lhs) (width typhash rhs)
 | Sub (lhs, rhs) -> max (width typhash lhs) (width typhash rhs)
@@ -224,6 +224,11 @@ and widthsel typhash s = function
     | Some (Vmem {off;siz;wid}) -> wid
     | Some (MaybePort (n,typ,_)) -> csiz' typhash typ
     | Some x -> csiz' typhash x
+    | None -> print_endline ("Not found: "^s); 1
+
+and widthsel' typhash s = function
+    | Some (Vmem {off;siz;wid}) -> wid
+    | Some x -> 1
     | None -> print_endline ("Not found: "^s); 1
 
 and signof' = function
@@ -937,6 +942,8 @@ let buflst = ref []
 
 let width_mismatch_not_ok = function
 | "eq" -> false
+| "shl" -> false
+| "shr" -> false
 | oth -> true
 
 let rec asgnexpr' bufh typhash wid = function
@@ -1352,15 +1359,15 @@ let rec dump_deps buf' kind = function
 | Pos clk :: Pos rst :: [] -> bprintf buf' "%s @(posedge %s or posedge %s)\n" kind clk rst
 | oth :: _ -> unhand := Some oth; failwith "dump_deps"
 
-let rec dump_deps_comb buf' typhash kind lst = 
+let rec dump_deps_comb buf' typhash kind lst =
 bprintf buf' "%s @(%s)\n" kind (String.concat " or " (List.map (cexpr typhash) lst))
 
 let rec stmt_clause buf' typhash = function
-      | Itmlst lst -> List.iter (stmt_clause buf' typhash) lst      
+      | Itmlst lst -> List.iter (stmt_clause buf' typhash) lst
       | BeginBlock lst -> List.iter (stmt_clause buf' typhash) lst
       | If2 (condition, if_lst, else_lst) ->
   bprintf buf' "        if (%s) then\n" (vexpr typhash condition);
-    (match if_lst with BeginBlock if_lst -> List.iter (stmt_clause buf' typhash) if_lst | _ -> stmt_clause buf' typhash if_lst);       
+    (match if_lst with BeginBlock if_lst -> List.iter (stmt_clause buf' typhash) if_lst | _ -> stmt_clause buf' typhash if_lst);
   bprintf buf' "        else\n";
     (match else_lst with BeginBlock else_lst -> List.iter (stmt_clause buf' typhash) else_lst | _ -> stmt_clause buf' typhash else_lst);
   bprintf buf' "        end if; // 772	\n";
@@ -1544,8 +1551,15 @@ and restrict_lst typhash wid = function
   | [] -> []
   | hd :: tl -> let hdwid = width typhash hd in if hdwid = wid then hd :: [] else if hdwid < wid then hd :: restrict_lst typhash (wid-hdwid) tl else restrict typhash wid hd :: []
 
+let conn_lst  = ref []
+
 let addconn bufh typhash  (nam, expr) =
-    let rhs = restrict typhash (width typhash nam) (buffer' bufh typhash expr 0) in
+    let lhsw = width typhash nam in
+    let expr' = buffer' bufh typhash expr 0 in
+    let expw = width typhash expr' in
+    let rhs = restrict typhash lhsw expr' in
+    let rhsw = width typhash rhs in
+    conn_lst := (lhsw, expw, rhsw, nam, rhs) :: !conn_lst;
     bufh.i := TokConn (tran' nam, tran' rhs) :: !(bufh.i)
 
 let rec decl_template bufh typhash modules pth = function
@@ -2004,8 +2018,10 @@ and asgn bufh typhash expr = function
     let sync_lst = List.sort_uniq compare s in
     bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, mapedge sync_lst AlwaysSync) :: !(bufh.l)
   | lhs ->
-    let rhs = buffer' bufh typhash expr (width typhash lhs) in
-    bufh.c := Conn_stmt96(tran' lhs, tran' rhs) :: !(bufh.c)
+    let wid = width typhash lhs in
+    let rhs = buffer' bufh typhash expr wid in
+    let rhs' = restrict typhash wid rhs in
+    bufh.c := Conn_stmt96(tran' lhs, tran' rhs') :: !(bufh.c)
 
 and asgn' bufh dhash typhash inst arr sel expr =
     let wida = width typhash arr in

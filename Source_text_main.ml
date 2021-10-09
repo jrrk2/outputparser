@@ -80,20 +80,25 @@ let stash ind kind inst conns =
 
 let othx = ref []
 let othexp = ref None
+let explst = ref []
 
-let rec explode_lst = function
+let rec explode_lst ind = function
   | [] -> []
-  | Sigspecrange (lhs, hi, lo) :: tl -> List.init (hi-lo+1) (fun ix -> idx lhs (hi-ix)) @ explode_lst tl
-  | Sigspec90 (lhs, ix) :: tl -> idx lhs ix :: explode_lst tl
-  | TokVal tok :: tl -> explode_const tok @ explode_lst tl
-  | TokID id :: tl -> scalar id :: explode_lst tl
-  | TokInt 1 :: tl -> E.PWR :: explode_lst tl
+  | Sigspecrange (lhs, hi, lo) :: tl -> List.init (hi-lo+1) (fun ix -> idx lhs (hi-ix)) @ explode_lst ind tl
+  | Sigspec90 (lhs, ix) :: tl -> idx lhs ix :: explode_lst ind tl
+  | TokVal tok :: tl -> explode_const tok @ explode_lst ind tl
+  | TokID _ as id :: tl -> explode_signal ind id @ explode_lst ind tl
+  | TokInt 1 :: tl -> E.PWR :: explode_lst ind tl
   | oth -> othx := oth; failwith "explode_lst"
 
-let explode_signal ind = function
-  | TokID id -> (match Hashtbl.find_opt ind.wid (trim id) with None -> scalar id :: [] | Some n -> List.init n (fun i -> idx id i))
-  | (Sigspec90 _ | Sigspecrange _ | TokVal _ | TokInt _) as x -> explode_lst (x :: [])
-  | Sigspec92 conc -> explode_lst conc
+and explode_signal ind = function
+  | TokID id ->
+      let id' = trim id in
+      let found = Hashtbl.find_opt ind.wid id' in
+      explst := (id',found) :: !explst;
+      (match found with None -> scalar id :: [] | Some n -> List.init n (fun i -> idx id (n-1-i)))
+  | (Sigspec90 _ | Sigspecrange _ | TokVal _ | TokInt _) as x -> explode_lst ind (x :: [])
+  | Sigspec92 conc -> explode_lst ind conc
   | oth -> oth' := Some oth; failwith "explode_signal"
 
 let rec cnv_ilang ind = function
@@ -116,10 +121,9 @@ let rec cnv_ilang ind = function
   let rhs = explode_signal ind conc2 in
   if List.length lhs <> List.length rhs then
     begin
-      let othlst = ref [] in
-      Hashtbl.iter (fun k x -> othlst := (k,x) :: !othlst) ind.wires;
-      let signal' = match conc1 with TokID id -> Hashtbl.find_opt ind.wid id | _ -> None in
-      othexp := Some (conc1,conc2,lhs,rhs,ind,signal');
+      let widlst = ref [] in
+      Hashtbl.iter (fun k x -> widlst := (k,x) :: !widlst) ind.wid;
+      othexp := Some (conc1,conc2,lhs,rhs,!widlst);
       failwith "conn_stmt_fail"
     end;
   List.iter2 (fun lhs' rhs' -> stash ind "$_BUF_" ("$B"^string_of_int (Hashtbl.length ind.stash)) [ TokConn ([TokID "\\A"], [cnv_sig rhs']) ; TokConn ([TokID "\\Y"], [cnv_sig lhs']) ]) lhs rhs
@@ -195,7 +199,7 @@ let ep k' form =
     Msat_sat_slit.assume solver m ();
     match Msat_sat_slit.solve solver with
       | Msat_sat_slit.Sat _ -> if verbose > 1 then print_endline ("SATISFIABLE (endpoint "^k'^" mismatched)"); false
-      | Msat_sat_slit.Unsat _ -> if verbose > 1 then print_endline ("UNSATISFIABLE (endpoint "^k'^" match)"); true
+      | Msat_sat_slit.Unsat _ -> if verbose > 1 then print_endline ("UNSATISFIABLE (endpoint "^k'^" matched)"); true
 
 let cnv_sat arg' =
   if verbose > 1 then print_endline ("Reading rtlil: "^arg');

@@ -231,7 +231,8 @@ let dump fd rtl =
       output_string fd ("module "^ mod'^"("^String.concat ", " (List.map (portmap ind) ports)^");\n\n");
       Hashtbl.iter (fun k x -> output_string fd (portmap ind x^";\n")) ind.wires;
       Hashtbl.iter (fun k x -> output_string fd (portmap ind x^";\n")) ind.mem;
-      Hashtbl.iter (fun k x -> output_string fd (portmap ind x^";\n")) ind.cells;
+      let clst = ref [] in Hashtbl.iter (fun k x -> clst := (portmap ind x^";\n") :: !clst) ind.cells;
+      List.iter (output_string fd) (List.sort compare !clst);
       Hashtbl.iter (fun x () -> output_string fd (portmap ind x^";\n")) ind.conn;
       output_string fd (Buffer.contents buf);
       output_string fd ("endmodule\n");
