@@ -42,7 +42,7 @@ type rw =
   | CondGen1 of rw * rw * rw
   | ContAsgn of rw list
   | DeclAsgn of rw * rw list
-  | DeclData of rw * rw list
+  | DeclData of rw * rw * rw list
   | DeclInt2 of rw list
   | DeclLogic of rw list
   | DeclLogic2 of rw list * rw list
@@ -102,6 +102,7 @@ type rw =
   | Genvar of rw list
   | Greater of rw * rw
   | GtEq of rw * rw
+  | Hash of rw
   | HyphenGt of rw * rw
   | Id of string
   | IdArrayed1 of rw * rw * rw
@@ -158,6 +159,7 @@ type rw =
   | PackageBody of string * rw list
   | PackageParam of rw list * rw
   | PackageParam2 of string * string * rw list * rw
+  | PackageRef of string * rw
   | Param of string * rw * rw list
   | ParamAsgn1 of string * rw
   | ParamAsgn2 of string * rw list * rw
@@ -203,6 +205,7 @@ type rw =
   | TF_variable of rw * rw * rw * rw
   | TaskDecl of string * rw * rw * rw
   | TaskRef of string * rw list
+  | TaskRef2 of string * rw
   | Tilde of rw
   | TildeAnd of rw
   | TildeOr of rw

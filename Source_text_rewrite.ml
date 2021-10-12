@@ -401,6 +401,7 @@ let rec rw = function
 | Foreach
 | Final
 | Specparam | Specify | Endspecify
+| Static
 | HYPHEN_COLON
 | HYPHEN_EQ
 | FLOATING_HYPHEN_POINT_NUMBER _
@@ -454,7 +455,7 @@ let rec descend' (attr:attr) = function
   | CondGen1(rw1, rw2, rw3) -> CondGen1(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
   | ContAsgn(rw_lst1) -> ContAsgn(descend_lst attr rw_lst1)
   | DeclAsgn(rw1, rw_lst2) -> DeclAsgn(descend_itm attr rw1, descend_lst attr rw_lst2)
-  | DeclData(rw1, rw_lst2) -> DeclData(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | DeclData(rw1, rw2, rw_lst3) -> DeclData(descend_itm attr rw1, descend_itm attr rw2, descend_lst attr rw_lst3)
   | DeclInt2(rw_lst1) -> DeclInt2(descend_lst attr rw_lst1)
   | DeclLogic(rw_lst1) -> DeclLogic(descend_lst attr rw_lst1)
   | DeclLogic2(rw_lst1, rw_lst2) -> DeclLogic2(descend_lst attr rw_lst1, descend_lst attr rw_lst2)
@@ -570,6 +571,7 @@ let rec descend' (attr:attr) = function
   | PackageBody(string1, rw_lst2) -> PackageBody(string1, descend_lst attr rw_lst2)
   | PackageParam(rw_lst1, rw2) -> PackageParam(descend_lst attr rw_lst1, descend_itm attr rw2)
   | PackageParam2(string1, string2, rw_lst3, rw4) -> PackageParam2(string1, string2, descend_lst attr rw_lst3, descend_itm attr rw4)
+  | PackageRef(string1, rw2) -> PackageRef(string1, descend_itm attr rw2)
   | Param(string1, rw2, rw_lst3) -> Param(string1, descend_itm attr rw2, descend_lst attr rw_lst3)
   | ParamAsgn1(string1, rw2) -> ParamAsgn1(string1, descend_itm attr rw2)
   | ParamAsgn2(string1, rw_lst2, rw3) -> ParamAsgn2(string1, descend_lst attr rw_lst2, descend_itm attr rw3)

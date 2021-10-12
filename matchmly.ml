@@ -126,6 +126,7 @@ let dbgitms = ref []
 let dbgportitms = ref []
 let dbgportdecl = ref []
 let dbgportitms' = ref []
+let dbgfor = ref None
 
 let rec mly = function
 | Wire -> Atom "wire"
@@ -141,6 +142,9 @@ let rec mly = function
 | Unsigned -> Atom "unsigned"
 | String -> Atom "string"
 | Signed -> Atom "signed"
+| Automatic -> Atom "automatic"
+| Static -> Atom "static"
+| Const -> Atom "const"
 | Bit -> Atom "bit"
 | Real -> Atom "real"
 | Wand -> Atom "wand"
@@ -180,8 +184,13 @@ let rec mly = function
 | LT_LT_EQ -> Atom "<<="
 | AMPERSAND_AMPERSAND -> Atom "&&"
 | INTEGER_NUMBER n -> widthnum n
+| DLR_error -> Atom "$error"
+| DLR_fatal -> Atom "$fatal"
+| DLR_fclose -> Atom "$fclose"
+| DLR_fwrite -> Atom "$fwrite"
 | DLR_finish -> Atom "$finish"
 | DLR_display -> Atom "$display"
+| DLR_warning -> Atom "$warning"
 | DLR_write -> Atom "$write"
 | DLR_stop -> Atom "$stop"
 | DLR_readmemh -> Atom "$readmemh"
@@ -220,7 +229,7 @@ let rec mly = function
     | oth -> othpat2 := Some oth; failwith "data_typeBasic264")
 | TUPLE3(STRING("data_typeNoRef267"), arg1, arg2) -> Typ8(mly arg1, mly arg2)
 | TUPLE3(STRING("data_typeNoRef273"), Virtual_HYPHEN_then_HYPHEN_identifier, arg2) as oth -> mayfail oth  "data_typeNoRef273"
-| TUPLE3(STRING("delay_control492"), HASH, arg2) as oth -> mayfail oth  "delay_control492"
+| TUPLE3(STRING("delay_control492"), HASH, arg2) -> Atom("hash")
 | TUPLE3(STRING("delay_value496"), arg1, arg2) as oth -> mayfail oth  "delay_value496"
 | TUPLE3(STRING("dpi_importLabelE1099"), arg1, EQUALS) as oth -> mayfail oth  "dpi_importLabelE1099"
 | TUPLE3(STRING("elaboration_system_task1006"), arg1, SEMICOLON) -> ElabTask(mly arg1)
@@ -278,7 +287,7 @@ let rec mly = function
        | oth -> othpat1 := Some oth; failwith "exprOrDataTypeEqE1106")
 | TUPLE3(STRING("exprScope1328"), arg1, arg2) ->
 (match arg1, arg2 with
-       | TLIST lst, IDENTIFIER member -> (match rml lst with PackageBody (id_cc, []) :: [] -> PackageBody (id_cc, Id member :: []) | _ -> failwith "exprScope1328")
+       | TLIST lst, IDENTIFIER member -> (match rml lst with PackageRef(id_cc, _) :: _ -> PackageRef (id_cc, Id member) | _ -> failwith "exprScope1328")
        | TLIST lst, TUPLE7  (STRING "idArrayed2504", _, _, _, _, _, _) -> IdArrayed3(rml lst, mly arg2)
        | oth -> othpat2 := Some oth; failwith "exprScope1328")
 | TUPLE3(STRING("fIdScoped1051"), arg1, arg2) as oth -> mayfail oth  "fIdScoped1051"
@@ -371,7 +380,7 @@ let rec mly = function
 | TUPLE3(STRING("packageClassScope2588"), arg1, COLON_COLON) as oth -> mayfail oth  "packageClassScope2588"
 | TUPLE3(STRING("packageClassScopeItem2593"), arg1, COLON_COLON) ->
     (match arg1 with 
-        | IDENTIFIER_HYPHEN_COLON_COLON id_cc -> PackageBody (id_cc, [])
+        | IDENTIFIER_HYPHEN_COLON_COLON id_cc -> PackageRef (id_cc, Atom "::")
         | oth -> othpat1 := Some oth; failwith "packageClassScopeItem2593")
 | TUPLE3(STRING("package_or_generate_item_declaration36"), arg1, SEMICOLON) -> mly arg1
 | TUPLE3(STRING("packedSigningE322"), Packed, EMPTY_TOKEN) -> mly Packed
@@ -450,6 +459,7 @@ let rec mly = function
        | TUPLE7(STRING str, arg1, LPAREN, arg3, COMMA, arg5, RPAREN) when g str "system_t_call" ->
            SysTaskRef(mly arg1, List.map mly [arg3;arg5])
        | TUPLE6(STRING str, arg1, arg2, arg3, arg4, arg5) when g str "system_t_call" -> SysTaskRef(mly arg1, List.map mly [arg2;arg3;arg4;arg5])
+       | TUPLE5(STRING str, arg1, LPAREN, (IDENTIFIER _ as id), RPAREN) when g str "system_t_call" -> SysTaskRef(mly arg1, mly id :: [])
        | TUPLE5(STRING str, arg1, LPAREN, TLIST lst, RPAREN) when g str "system_t_call" -> SysTaskRef(mly arg1, List.map mly lst)
        | TUPLE4(STRING str, arg1, arg2, arg3) when g str "system_t_call" -> SysTaskRef(mly arg1, List.map mly [arg2;arg3])
        | TUPLE3(STRING str, arg1, arg2) when g str "system_t_call" -> SysTaskRef(mly arg1, List.map mly [arg2])
@@ -576,8 +586,8 @@ let rec mly = function
     | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst), TLIST lst' -> Typ2(typ_id, rml lst, rml lst')
     | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst -> Typ3(typ_id, rml lst)
     | TUPLE6 (STRING "enumDecl323", Enum, base_type, LBRACE, TLIST lst, RBRACE), TLIST lst' -> TypEnum4(mly base_type, rml lst, rml lst')
-    | TUPLE3 (STRING "data_declarationVarFront356", Automatic, base_type), TLIST lst -> DeclData(mly base_type, rml lst)
-    | TUPLE4 (STRING "data_declarationVarFront357", Const, EMPTY_TOKEN, base_type), TLIST lst -> DeclData(mly base_type, rml lst)
+    | TUPLE3 (STRING "data_declarationVarFront356", (Automatic|Static as t), base_type), TLIST lst -> DeclData(mly t, mly base_type, rml lst)
+    | TUPLE4 (STRING "data_declarationVarFront357", (Const as t), EMPTY_TOKEN, base_type), TLIST lst -> DeclData(mly t, mly base_type, rml lst)
     | TUPLE4 (STRING "data_type261", TLIST lst, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst'), TLIST lst'' -> Typ4(typ_id, rml lst, rml lst', rml lst'')
     | TUPLE3 (STRING "data_typeNoRef267", struct_decl, TLIST lst), TLIST lst' -> Typ5(mly struct_decl, rml lst')
     | TUPLE3 (STRING "data_typeNoRef267", struct_decl, EMPTY_TOKEN), TLIST lst' -> Typ6(mly struct_decl)
@@ -785,18 +795,21 @@ let rec mly = function
 | TUPLE4(STRING("mpInstnameParen555"), arg1, arg2, arg3) as oth -> mayfail oth  "mpInstnameParen555"
 | TUPLE4(STRING("netSig507"), arg1, arg2, arg3) ->
   (match arg1, arg2, arg3 with
-       | IDENTIFIER id, TLIST rng, EMPTY_TOKEN -> NetDecl(rml rng, Id id :: [])
+       | IDENTIFIER id, TLIST rng, (EMPTY_TOKEN|TUPLE3(STRING "delay_control492",_,_)) -> NetDecl(rml rng, Id id :: [])
        | oth -> othpat3 := Some oth; failwith "netSig507")
 | TUPLE4(STRING("net_dataTypeE193"), arg1, arg2, arg3) ->
   (match arg1, arg2, arg3 with
-     | EMPTY_TOKEN, TLIST rng, EMPTY_TOKEN -> Itmlst (rml rng)
+     | EMPTY_TOKEN, TLIST rng, (EMPTY_TOKEN|TUPLE3(STRING "delay_control492",_,_)) -> Itmlst (rml rng)
      | oth -> othpat3 := Some oth; failwith "net_dataTypeE193")
 | TUPLE4(STRING("net_declaration186"), arg1, arg2, SEMICOLON) ->
   (match arg1, arg2 with
     | TUPLE6 (STRING "net_declarationFront187", EMPTY_TOKEN, (Wire as typ), EMPTY_TOKEN, EMPTY_TOKEN, EMPTY_TOKEN), TLIST lst ->
       NetDecl(mly typ :: [], rml lst)
     | TUPLE6 (STRING "net_declarationFront187", EMPTY_TOKEN, (Wire as typ), EMPTY_TOKEN, EMPTY_TOKEN, rng), TLIST lst ->
-      (match mly rng with Itmlst rng -> NetDecl(mly typ :: rng, rml lst) | oth -> othpat := Some oth; failwith "net_declaration186'")
+      (match mly rng with
+         | Itmlst rng -> NetDecl(mly typ :: rng, rml lst)
+         | Atom "hash" -> NetDecl(mly typ :: [], rml lst)
+         | oth -> othpat := Some oth; failwith "net_declaration186'")
     | oth -> othpat2 := Some oth; failwith "net_declaration186")
 | TUPLE4(STRING("open_range_list744"), arg1, COMMA, arg3) -> OpenRange(match mly arg1, mly arg3 with
      | OpenRange lst, OpenRange lst' -> lst @ lst'
@@ -943,14 +956,18 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
         | oth -> othpat3 := Some oth; failwith "foperator_assignment690")
 | TUPLE5(STRING("for_initializationItem774"), arg1, arg2, EQUALS, arg4) ->
 (match arg1, arg2, arg4 with
-  | TUPLE4 (STRING "data_typeBasic263", Logic, EMPTY_TOKEN, TLIST lst), IDENTIFIER k, expr -> Typ9(k, rml lst, mly Logic)
-  | TUPLE3 (STRING "data_typeBasic264", Int, Unsigned), IDENTIFIER k, expr -> Typ7(k, Atom "unsigned_int")
-  | TUPLE3 (STRING "data_typeBasic264", Int, EMPTY_TOKEN), IDENTIFIER k, expr -> Typ7(k, Atom "int")
+  | TUPLE4 (STRING "data_typeBasic263", Logic, EMPTY_TOKEN, TLIST lst), IDENTIFIER k, expr -> Typ9(k, Atom "logic" :: rml lst, mly expr)
+  | TUPLE3 (STRING "data_typeBasic264", Int, Unsigned), IDENTIFIER k, expr -> Typ9(k, Atom "unsigned" :: Atom "int" :: [], mly expr)
+  | TUPLE3 (STRING "data_typeBasic264", Int, EMPTY_TOKEN), IDENTIFIER k, expr -> Typ9(k, Atom "int" :: [], mly expr)
   | oth -> othpat3 := Some oth; failwith "for_initializationItem774")
 | TUPLE5(STRING("funcRef787"), arg1, LPAREN, arg3, RPAREN) ->
 ( match arg1, arg3 with
 	 | IDENTIFIER id, TLIST ((IDENTIFIER _|INTEGER_NUMBER _|STRING _) :: _ as lst) -> FunRef(id, rml lst)
 	 | IDENTIFIER id, TLIST (TUPLE5 _::_ as lst) -> FunRef(id, rml lst)
+         | IDENTIFIER id, TLIST (TUPLE3 (STRING "expr1112", _, _) :: _ as lst) -> FunRef(id, rml lst)
+         | IDENTIFIER id, TLIST (TUPLE4 (STRING "exprScope1329", _, _, _) :: _ as lst) -> FunRef(id, rml lst)
+         | IDENTIFIER id, TLIST (TUPLE6 (STRING "expr1162", _, _, _, _, _) :: _ as lst) -> FunRef(id, rml lst)
+         | IDENTIFIER id, TLIST (TUPLE7 (STRING "idArrayed2504", _, _, _, _, _, _) :: _ as lst) -> FunRef(id, rml lst)
          | IDENTIFIER id, TLIST (TUPLE4 (STRING "argsExprListE1359", lft, COMMA, rght) :: []) ->
 	     FunRef(id, match (mly lft, mly rght) with
 		  | Itmlst lst, Itmlst lst' -> lst@lst'
@@ -1033,7 +1050,8 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE5(STRING("port92"), arg2, port, arg3, arg4) ->
     (match arg2, arg3, arg4, port with
       | EMPTY_TOKEN, EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(Deflt, port, [], mly arg3)
-      | (Input|Output), EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(mly arg2, port, [], mly arg3)
+      | (Input|Output|Inout), EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(mly arg2, port, [], mly arg3)
+      | TUPLE3 (STRING "portDirNetE100", _, _), EMPTY_TOKEN, EMPTY_TOKEN, IDENTIFIER port -> Port(mly arg2, port, [], mly arg3)
       | oth -> othpat4 := Some oth; failwith "port92")
 | TUPLE5(STRING("port_declaration221"), dir, arg2, arg3, arg4) ->
     (match arg3, arg4 with
@@ -1173,6 +1191,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE5(STRING("taskRef785"), arg1, LPAREN, arg3, RPAREN) ->
 (match arg1, arg3 with
 	 | IDENTIFIER tid, TLIST (IDENTIFIER _ :: _ as lst) -> TaskRef(tid, rml lst)
+         | IDENTIFIER tid, TLIST (TUPLE6 (STRING "expr1162", Byte, QUOTE, LPAREN, rng, RPAREN) :: []) -> TaskRef2(tid, mly rng)
          | IDENTIFIER tid, TLIST (TUPLE4 (STRING "argsExprListE1359", lft, COMMA, rght) :: []) ->
 	     TaskRef(tid, match (mly lft, mly rght) with
 		  | Itmlst lst, Itmlst lst' -> lst@lst'
@@ -1263,10 +1282,9 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("for_initializationItem775"), Var, arg2, arg3, EQUALS, arg5) as oth -> mayfail oth  "for_initializationItem775"
 | TUPLE6(STRING("funcRef788"), arg1, arg2, LPAREN, arg4, RPAREN) ->
 (match arg1, arg2, arg4 with
-(*
  | TLIST lst, IDENTIFIER id, (EMPTY_TOKEN | TLIST [EMPTY_TOKEN]) -> FunRef(id, rml lst)
  | TLIST lst, IDENTIFIER id, TLIST lst' -> FunRef2(id, rml lst, rml lst')
-*) | oth -> othpat3 := Some oth; failwith "funcRef788")
+ | oth -> othpat3 := Some oth; failwith "funcRef788")
 | TUPLE6(STRING("function_prototype1026"), Function, arg2, LPAREN, arg4, RPAREN) as oth -> mayfail oth  "function_prototype1026"
 | TUPLE6(STRING("function_subroutine_callNoMethod794"), arg1, With_HYPHEN_then_HYPHEN_LPAREN, LPAREN, arg4, RPAREN) as oth -> mayfail oth  "function_subroutine_callNoMethod794"
 | TUPLE6(STRING("function_subroutine_callNoMethod795"), arg1, With_HYPHEN_then_HYPHEN_LPAREN, LPAREN, arg4, RPAREN) as oth -> mayfail oth  "function_subroutine_callNoMethod795"
@@ -1596,7 +1614,7 @@ m
 | TUPLE9(STRING("foperator_assignment692"), arg1, EQUALS, DLR_fopen, LPAREN, arg5, COMMA, arg7, RPAREN) -> Asgn1(mly arg1, Sys("$fopen", Itmlst(rml(arg5::arg7::[]))))
 | TUPLE9(STRING("port94"), arg1, Var, arg3, arg4, arg5, arg6, EQUALS, arg8) as oth -> mayfail oth  "port94"
 | TUPLE9(STRING("port95"), arg1, Var, arg3, arg4, arg5, arg6, EQUALS, arg8) as oth -> mayfail oth  "port95"
-| TUPLE9(STRING("statementFor687"), For, LPAREN, arg3, stop, SEMICOLON, inc, RPAREN, stmts) ->
+| TUPLE9(STRING("statementFor687"), For, LPAREN, arg3, stop, SEMICOLON, inc, RPAREN, stmts) -> dbgfor := Some arg3;
   (match arg3 with
     | TUPLE2 (TLIST strtlst, SEMICOLON) -> ForLoop (rml strtlst, mly stop, mly inc, mly stmts)
     | TUPLE3 (STRING "for_initialization770", TLIST strtlst, SEMICOLON) -> ForLoop (rml strtlst, mly stop, mly inc, mly stmts)

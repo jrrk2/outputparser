@@ -57,7 +57,6 @@ let v = "prec.sv";;
 let v = "casetest.sv";;
 let v = "apb_uart.vsyn";;
 let v = "insider.sv";;
-let v = "ariane_preproc.sv";;
 let v = "apb_uart.sv";;
 let v = "examples/count.v";;
 let v = "examples/count0.v";;
@@ -129,6 +128,8 @@ let v = "examples/cpuregs_wrdata.v";;
 let v = "examples/memtest01.v";;
 let v = "../picorv32/picorv32.v";;
 let v = "examples/pcpi_fast_mul.v";;
+let v = "examples/ariane_preproc.sv";;
+let v = "examples/initpat.sv";;
 
 (*
 let x = rw (parse v);;

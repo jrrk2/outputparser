@@ -4,7 +4,7 @@ open Input_rewrite_types
 
 type opt = {mutable opt:int;mutable siz:int;mutable wid:int}
 
-type ver_dump = 
+type ver_dump =
 | Oth of ilang list * string
 | Attr of ilang list
 | Cell of string * string * ilang list * ilang list
@@ -54,7 +54,7 @@ let rec dump_ver (ind:ind) = function
 | Wire_stmt([Wire_optionsinput ix], nam) -> Hashtbl.replace ind.ports ix (Input (None,nam))
 | Wire_stmt([Wire_optionswidth w], nam) -> Hashtbl.replace ind.wires nam (Wire (Some w,nam))
 | Wire_stmt([], nam) -> Hashtbl.replace ind.wires nam (Wire (None,nam))
-| Wire_stmt(oth, nam) -> failwith nam
+| Wire_stmt _ as oth -> othv := Some oth; failwith ("unhandled wire_stmt")
 | oth -> othv := Some oth; failwith "dump_ver"
 
 let conn = ref None
@@ -128,11 +128,11 @@ let cellh = Hashtbl.create 255
 
 let dump_parm ind = function
   | TokParam(TokID s::[],[arg]) -> "."^String.sub s 1 (String.length s - 1)^"("^tokop arg^")"
-  | oth -> othv := Some oth; failwith "dumpconn"
+  | oth -> othv := Some oth; failwith "dump_parm"
 
 let dump_conn ind = function
   | TokConn([conn],[arg]) -> "."^tokop conn^"("^tokop arg^")"
-  | oth -> othv := Some oth; failwith "dumpconn"
+  | oth -> othv := Some oth; failwith "dump_conn"
 
 let portmap ind = function
 | Oth(lst,nam) -> failwith "oth"
