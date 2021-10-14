@@ -219,6 +219,8 @@ type rw =
   | Typ8 of rw * rw
   | Typ9 of string * rw list * rw
   | Typ10 of string * rw list * string
+  | Typ11 of rw * rw list * rw list
+  | Typ12 of rw list * rw * rw list
   | TypEnum3 of rw list
   | TypEnum4 of rw * rw list * rw list
   | TypEnum5 of rw

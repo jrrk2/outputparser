@@ -135,12 +135,13 @@ let v = "examples/initpat.sv";;
 let x = rw (parse v);;
 *)
 
+let t id = Hashtbl.find !dbgtyp id;;
+
 (* *)
 let (modlst,x,p,p',status) = rewrite_rtlil v;;
 (* *)
 
 let x crnt = sub' (List.assoc crnt !Matchmly.modules);;
-let t id = Hashtbl.find !dbgtyp id;;
 let u = snd (List.hd modlst);;
 let m crnt = List.assoc crnt !(Matchmly.modules);;
 let p u = output_string stdout (Input_dump.dump_ilst "\n" u);;

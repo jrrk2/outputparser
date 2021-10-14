@@ -172,6 +172,7 @@ let getstr = function
   | Genvar _ -> "GenItem"
   | Greater _ -> "Greater"
   | GtEq _ -> "GtEq"
+  | Hash _ -> "Hash"
   | HyphenGt _ -> "HyphenGt"
   | Id _ -> "Id"
   | IdArrayed1 _ -> "IdArrayed1"
@@ -228,6 +229,7 @@ let getstr = function
   | PackageBody _ -> "PackageBody"
   | PackageParam _ -> "PackageParam"
   | PackageParam2 _ -> "PackageParam2"
+  | PackageRef _ -> "PackageRef"
   | Param _ -> "Param"
   | ParamAsgn1 _ -> "ParamAsgn1"
   | ParamAsgn2 _ -> "ParamAsgn2"
@@ -273,6 +275,7 @@ let getstr = function
   | TF_variable _ -> "TF_variable"
   | TaskDecl _ -> "TaskDecl"
   | TaskRef _ -> "TaskRef"
+  | TaskRef2 _ -> "TaskRef2"
   | SysTaskRef _ -> "SysTaskRef"
   | Tilde _ -> "Tilde"
   | TildeAnd _ -> "TildeAnd"
@@ -287,6 +290,8 @@ let getstr = function
   | Typ8 _ -> "Typ8"
   | Typ9 _ -> "Typ9"
   | Typ10 _ -> "Typ10"
+  | Typ11 _ -> "Typ11"
+  | Typ12 _ -> "Typ12"
   | TypEnum3 _ -> "TypEnum3"
   | TypEnum4 _ -> "TypEnum4"
   | TypEnum5 _ -> "TypEnum5"
@@ -515,6 +520,7 @@ let rec descend' (attr:attr) = function
   | Genvar(rw_lst1) -> Genvar(descend_lst attr rw_lst1)
   | Greater(rw1, rw2) -> Greater(descend_itm attr rw1, descend_itm attr rw2)
   | GtEq(rw1, rw2) -> GtEq(descend_itm attr rw1, descend_itm attr rw2)
+  | Hash(rw1) -> Hash(descend_itm attr rw1)
   | HyphenGt(rw1, rw2) -> HyphenGt(descend_itm attr rw1, descend_itm attr rw2)
   | Id(string1) -> Id(string1)
   | IdArrayed1(rw1, rw2, rw3) -> IdArrayed1(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
@@ -617,11 +623,14 @@ let rec descend' (attr:attr) = function
   | TF_variable(rw1, rw2, rw3, rw4) -> TF_variable(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
   | TaskDecl(string1, rw2, rw3, rw4) -> TaskDecl(string1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
   | TaskRef(string1, rw_lst2) -> TaskRef(string1, descend_lst attr rw_lst2)
+  | TaskRef2(string1, rw2) -> TaskRef2(string1, descend_itm attr rw2)
   | Tilde(rw1) -> Tilde(descend_itm attr rw1)
   | TildeAnd(rw1) -> TildeAnd(descend_itm attr rw1)
   | TildeOr(rw1) -> TildeOr(descend_itm attr rw1)
   | Typ1(string1) -> Typ1(string1)
   | Typ10(string1, rw_lst2, string3) -> Typ10(string1, descend_lst attr rw_lst2, string3)
+  | Typ11(rw1, rw_lst2, rw_lst3) -> Typ11(descend_itm attr rw1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
+  | Typ12(rw_lst1, rw2, rw_lst3) -> Typ12(descend_lst attr rw_lst1, descend_itm attr rw2, descend_lst attr rw_lst3)
   | Typ2(string1, rw_lst2, rw_lst3) -> Typ2(string1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
   | Typ3(string1, rw_lst2) -> Typ3(string1, descend_lst attr rw_lst2)
   | Typ4(string1, rw_lst2, rw_lst3, rw_lst4) -> Typ4(string1, descend_lst attr rw_lst2, descend_lst attr rw_lst3, descend_lst attr rw_lst4)
@@ -633,7 +642,7 @@ let rec descend' (attr:attr) = function
   | TypEnum3(rw_lst1) -> TypEnum3(descend_lst attr rw_lst1)
   | TypEnum4(rw1, rw_lst2, rw_lst3) -> TypEnum4(descend_itm attr rw1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
   | TypEnum5(rw1) -> TypEnum5(descend_itm attr rw1)
-  | TypEnum6(string1, rw2, rw_lst3) -> TypEnum6(string1, descend_itm attr rw2, descend_lst attr rw_lst3)
+  | TypEnum6(string1, rw2, rw_lst3) -> TypEnum6(string1, descend_itm attr rw2, (* descend_lst attr *) rw_lst3)
   | TypParam(string1, rw2, rw_lst3) -> TypParam(string1, descend_itm attr rw2, descend_lst attr rw_lst3)
   | UMinus(rw1) -> UMinus(descend_itm attr rw1)
   | UPlus(rw1) -> UPlus(descend_itm attr rw1)
