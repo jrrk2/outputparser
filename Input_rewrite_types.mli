@@ -59,3 +59,7 @@ type ilang =
 | TokNeg
 | TokEdge
 
+type bufh = {c:ilang list ref;
+    i:ilang list ref;
+    l:ilang list ref;
+    w:ilang list ref}

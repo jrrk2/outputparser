@@ -4,7 +4,7 @@ open Input_rewrite_types
 let esc string = (if string.[0] <> '\\'  && string.[0] <> '$' then "\\" else "")^string
 
 let rec dump_ilang ind = function
-| Assign_stmt67(ilang_lst,ilang_lst') -> "assign "^dump_ilst ind ilang_lst^" "^dump_ilst ind ilang_lst'^"\n"
+| Assign_stmt67(ilang_lst,ilang_lst') -> if ilang_lst <> [] && ilang_lst' <> [] then "assign "^dump_ilst ind ilang_lst^" "^dump_ilst ind ilang_lst'^"\n" else ""
 | Attr_list56(ilang_lst,ilang_lst') -> "Attr_list56("^dump_ilst ind ilang_lst^", "^dump_ilst ind ilang_lst' ^")"
 | Attr_stmt(string,ilang_lst') -> "attribute "^esc string^" "^dump_ilst ind ilang_lst'^"\n"
 | Autoidx_stmt26(int') -> "autoidx "^string_of_int int'

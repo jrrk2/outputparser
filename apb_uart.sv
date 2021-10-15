@@ -1,35 +1,4 @@
 
- 
-
- 
- 
- 
- 
- 
-
- 
- 
- 
- 
- 
- 
- 
-
- 
- 
- 
- 
-
- 
- 
- 
- 
-
- 
- 
- 
- 
-
 module apb_uart(
 	input wire		CLK,
 	input wire		RSTN,
@@ -52,14 +21,7 @@ module apb_uart(
 	input wire		RIN,
 	input wire		SIN,
 	output logic		SOUT);  
- 
- 
- 
- 
- 
- 
- 
- 
+
 reg iWrite;  
 reg iRead;  
 reg iRST;  
@@ -161,7 +123,7 @@ reg iTXFIFOFull;
 reg iTXFIFO16Full;  
 reg iTXFIFO64Full;  
 reg [5:0] iTXFIFOUsage;  
-reg [7:0] iTXFIFOQ;  
+reg [10:0] iTXFIFOQ;  
 reg iRXFIFOClear;  
 reg iRXFIFOWrite;  
 reg iRXFIFORead;  
@@ -642,13 +604,13 @@ slib_edge_detect UART_RCLK (
 	.D(iBAUDOUTN),
 	.RE(iRCLK),
         .FE());  
-slib_fifo #(.WIDTH(8), .SIZE_E(6)) UART_TXFF (
+slib_fifo #(.WIDTH(11), .SIZE_E(6)) UART_TXFF (
 	.CLK(CLK),
 	.RST(iRST),
 	.CLEAR(iTXFIFOClear),
 	.WRITE(iTXFIFOWrite),
 	.READ(iTXFIFORead),
-	.D(PWDATA[7:0] ),
+	.D(PWDATA[10:0]),
 	.Q(iTXFIFOQ),
 	.EMPTY(iTXFIFOEmpty),
 	.FULL(iTXFIFO64Full),
@@ -746,7 +708,7 @@ assign   iTXEnable = iTXFIFOEmpty ==  1'b0 && (iMCR_AFE ==  1'b0 | (iMCR_AFE == 
                   end
                 TXSTART    :
                   begin
-                     iTSR <= iTXFIFOQ;
+                     iTSR <= iTXFIFOQ[7:0];
                      iTXStart <= 1'b1;                 
                      iTXFIFORead <= 1'b1;              
                      tx_State <= TXRUN;
@@ -1190,7 +1152,7 @@ endmodule
  
  
 
-module slib_fifo # (parameter WIDTH = 8, parameter SIZE_E=6) (
+module slib_fifo # (parameter WIDTH = 11, parameter SIZE_E=6) (
 	input wire		CLK,
 	input wire		RST,
 	input wire		CLEAR,

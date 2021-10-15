@@ -11,6 +11,7 @@ let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
 let dumpver = try int_of_string (Sys.getenv "DUMP_VER") > 0 with err -> false
 
 let dbgx = ref []
+let dbgopt = ref []
 
 let oth' = ref None
 let othopt = ref None
@@ -22,26 +23,26 @@ let cnv_sig = function
   | SCALAR str -> TokID str
   | INDEXED (signal, ix) -> Sigspec90 (signal, ix)
 
-let getw ind = function
+let getw (ind:ind) = function
   | E.GND -> Some F.f_false
   | PWR -> Some F.f_true
   | signal -> match Hashtbl.find_opt ind.wires signal with
     | Some x -> x
     | None -> failwith (E.string_of_signal signal^" not declared")
 
-let addinp idx idx' ind signal =
+let addinp idx idx' (ind:ind) signal =
   Hashtbl.add ind.inffop signal ();
   match Hashtbl.find_opt ind.wires signal with
     | Some x -> print_endline (E.string_of_signal signal^" redeclared")
     | None -> Hashtbl.add ind.wires signal ( Some ( atom signal ) )
 
-let addoutp idx idx' ind signal =
+let addoutp idx idx' (ind:ind) signal =
   Hashtbl.add ind.inffop signal ();
   match Hashtbl.find_opt ind.wires signal with
     | Some x -> print_endline (E.string_of_signal signal^" redeclared")
     | None -> Hashtbl.add ind.wires signal None
 
-let addff ind signal = let op = atom signal in Hashtbl.replace ind.wires signal ( Some op )
+let addff (ind:ind) signal = let op = atom signal in Hashtbl.replace ind.wires signal ( Some op )
 
 (* convert and print a cnf *)
 
@@ -61,7 +62,7 @@ let epp itm =
   Format.pp_print_flush buf ();
   print_endline (Buffer.contents buf')
 
-let stash' ind = function
+let stash' (ind:ind) = function
   | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> pin, idx signal ix
   | TokConn ([TokID pin], [TokID signal]) -> pin, scalar signal
   | TokConn ([TokID pin], [TokVal lev]) -> pin, cnv_pwr lev
@@ -71,7 +72,7 @@ let dbgstash = ref None
 
 let stash_ops = function TokConn ([TokID pin], _) -> (match trim pin with "Y" -> true | "Q" -> true | _ -> false) | _ -> false
 
-let stash ind kind inst conns =
+let stash (ind:ind) kind inst conns =
   dbgstash := Some (kind, inst, conns);
   let pin, net = stash' ind (List.hd (List.filter stash_ops conns)) in
   if trim pin = "Q" then addff ind net; (* prevent infinite recursion *)
@@ -82,7 +83,7 @@ let othx = ref []
 let othexp = ref None
 let explst = ref []
 
-let rec explode_lst ind = function
+let rec explode_lst (ind:ind) = function
   | [] -> []
   | Sigspecrange (lhs, hi, lo) :: tl -> List.init (hi-lo+1) (fun ix -> idx lhs (hi-ix)) @ explode_lst ind tl
   | Sigspec90 (lhs, ix) :: tl -> idx lhs ix :: explode_lst ind tl
@@ -91,7 +92,7 @@ let rec explode_lst ind = function
   | TokInt 1 :: tl -> E.PWR :: explode_lst ind tl
   | oth -> othx := oth; failwith "explode_lst"
 
-and explode_signal ind = function
+and explode_signal (ind:ind) = function
   | TokID id ->
       let id' = trim id in
       let found = Hashtbl.find_opt ind.wid id' in
@@ -101,13 +102,14 @@ and explode_signal ind = function
   | Sigspec92 conc -> explode_lst ind conc
   | oth -> oth' := Some oth; failwith "explode_signal"
 
-let rec cnv_ilang ind = function
+let rec cnv_ilang (ind:ind) = function
 | Autoidx_stmt26(int') -> ()
 | Attr_stmt(string,ilang_lst') -> ()
 | Module12(string,ilang_lst') -> print_endline string; List.iter (cnv_ilang ind) ilang_lst'
 | Wire_stmt(options,string') -> let wid = ref None and fn = ref addwire in List.iter (function
     | Wire_optionswidth n -> wid := Some n; Hashtbl.replace ind.wid (trim string') n
     | Wire_optionsinput n -> fn := addinp n;
+    | Wire_optionsinout n -> fn := addoutp n;
     | Wire_optionsoutput n -> fn := addoutp n;
     | Signed -> ()
     | oth -> othopt := Some oth; failwith "options") options;
@@ -243,6 +245,7 @@ let rewrite_rtlil v =
   let x = Matchmly.mly p' in
   dbgmatch := x;
   let modlst = ref [] in
+  let optlst = ref [] in
   let fnam = v^"_dump.ys" in
   let fd = open_out fnam in
   if verbose > 1 then print_endline ("Yosys command file: "^fnam);
@@ -250,24 +253,17 @@ let rewrite_rtlil v =
   let fnam'' = v^"_dump.rtlil" in
   let fd' = open_out fnam' in
   let fd'' = open_out fnam'' in
+(*
   fprintf fd "read_verilog -sv -overwrite %s\n" v;
   fprintf fd "write_ilang %s_golden_proc.rtlil\n" v;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
-  if not sep_rtl then
-    begin
-      if verbose > 1 then print_endline ("File: "^fnam');
-      if dumpver then
-        begin
-        fprintf fd "read_verilog -overwrite %s\n" fnam';
-        fprintf fd "write_ilang %s.ilang\n" fnam';
-        end
-      else fprintf fd "read_ilang -overwrite %s\n" fnam'';
-    end;
+*)
   List.iter (fun (k, x) ->
-                dbgx := x :: !dbgx;
-                let rtl = Dump_rtlil.template Matchmly.modules x in
+                dbgx := (k, x) :: !dbgx;
+                let typhash, sub, rtl = Dump_rtlil.template Matchmly.modules x in
 		modlst := (k, rtl) :: !modlst;
+		optlst := (k, (typhash, sub)) :: !optlst;
                 if sep_rtl then
                     begin
                       let fnam' = v^"_dump_"^k^".v" in
@@ -298,6 +294,29 @@ let rewrite_rtlil v =
     begin
       close_out fd';
       close_out fd'';
+    end;
+  let optlst = !optlst in
+  dbgopt := optlst;
+  List.iter (fun (k,(typhash,sub)) ->
+      let fnam3 = v^"_dump_"^k^".opt.v" in
+      fprintf fd "read_verilog -sv -overwrite %s\n" fnam3;
+      let fd3 = open_out fnam3 in
+      Dump_rtlil.dbgtyp := typhash;
+      print_endline ("Dumping: " ^ k ^ " to file: "^fnam3);
+      Dump_sysver.dump_template fd3 typhash optlst sub;
+      close_out fd3) optlst;
+  fprintf fd "write_ilang %s_golden_proc.rtlil\n" v;
+  fprintf fd "synth\n";
+  fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
+  if not sep_rtl then
+    begin
+      if verbose > 1 then print_endline ("File: "^fnam');
+      if dumpver then
+        begin
+        fprintf fd "read_verilog -overwrite %s\n" fnam';
+        fprintf fd "write_ilang %s.ilang\n" fnam';
+        end
+      else fprintf fd "read_ilang -overwrite %s\n" fnam'';
     end;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_dump_synth.rtlil\n" v;

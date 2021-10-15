@@ -1736,26 +1736,39 @@ and parmf = function
      | oth -> othpat1 := Some oth; failwith "param1532"
 
 and itemsf portlst itmlst =
-	      let itms = match itmlst with TLIST itmlst -> rml itmlst | EMPTY_TOKEN -> [] | oth -> mly oth :: [] in
-              (* flatten top-level items *)
-              let itms = List.flatten (List.map (function Itmlst lst -> lst | oth -> [oth]) itms) in
-              dbgitms := itms;
-	      let portdecl, itms = List.partition (function DeclLogic (Port _ :: _) -> true | _ -> false) itms in
-              let porthash = Hashtbl.create 255 in
-              let _ = List.iter (function DeclLogic lst -> List.iter (function Port(dir, nam, dimlst, xlst) -> Hashtbl.add porthash nam (dir,dimlst) | _ -> ()) lst | _ -> ()) portdecl in
-	      let ports = rml portlst in
-              dbgportdecl := portdecl;
-              dbgportitms := ports;
-              (* deal with ANSI default port syntax *)
-	      let ports' = let dir',dim',sgn' = ref Deflt, ref [], ref Deflt in List.map (function
-				      | Id port -> let dir,dims = Hashtbl.find porthash port in Port(dir, port, dims, Deflt)
-				      | Port (Deflt, port, [], Deflt) -> Port (!dir', port, !dim', !sgn')
-				      | Port (dir, port, dims, xlst) as x -> dir' := dir; dim' := dims; sgn' := xlst; x
-                                      | Dot3 _ as x -> x (* placeholder *)
-                                      | DotBus _ as x -> x (* placeholder *)
-				      | oth -> remap := Some oth; failwith "ports") ports in
-              dbgportitms' := ports';
-	      ports', itms
+  let ports = rml portlst in
+  let itms = match itmlst with TLIST itmlst -> rml itmlst | EMPTY_TOKEN -> [] | oth -> mly oth :: [] in
+  (* flatten top-level items *)
+  let itms = List.flatten (List.map (function Itmlst lst -> lst | oth -> [oth]) itms) in
+  dbgitms := itms;
+  let portdecl, itms = List.partition (function Port _ -> true | _ -> false) (ports@itms) in
+  let porthash = Hashtbl.create 255 in
+  let _ = List.iter (function Port(dir, nam, dimlst, xlst) -> Hashtbl.add porthash nam (dir,dimlst,xlst) | _ -> ()) portdecl in
+  dbgportdecl := portdecl;
+  dbgportitms := ports;
+  (* deal with ANSI default port syntax *)
+  let ports' = let dir',dim',sgn' = ref Deflt, ref [], ref Deflt in List.map (function
+(*
+      | Id port ->
+        print_endline ("Port: "^port);
+        let dir,dims = Hashtbl.find porthash port in Port(dir, port, dims, Deflt)
+*)
+      | Port (Deflt, port, [], _) ->
+        print_endline ("Port: "^port);
+        let dir,dims,xlst = Hashtbl.find porthash port in
+        if dir <> Deflt then
+          begin
+            dir' := dir; dim' := dims; sgn' := xlst;
+          end;
+        Port (!dir', port, !dim', !sgn')
+      | Port (dir, port, dims, xlst) as x ->
+        print_endline ("ANSI Port: "^port);
+        dir' := dir; dim' := dims; sgn' := xlst; x
+      | Dot3 _ as x -> x (* placeholder *)
+      | DotBus _ as x -> x (* placeholder *)
+      | oth -> remap := Some oth; failwith "ports") ports in
+  dbgportitms' := ports';
+  ports', itms
 
 and rml pat = List.rev_map mly pat
 

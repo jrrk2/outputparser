@@ -36,6 +36,7 @@ open Source_text_main
 open Source_text_lex
 open Source_text
 open Input_rewrite_types
+open Dump_sysver
 open Dump_rtlil
 open Matchmly
 open Source_text_rewrite_types.E
@@ -57,10 +58,8 @@ let v = "prec.sv";;
 let v = "casetest.sv";;
 let v = "apb_uart.vsyn";;
 let v = "insider.sv";;
-let v = "apb_uart.sv";;
 let v = "examples/count.v";;
 let v = "examples/count0.v";;
-let v = "examples/add.v";;
 let v = "examples/array.v";;
 let v = "examples/array2.v";;
 let v = "examples/concat1.v";;
@@ -116,7 +115,6 @@ let v = "junk.pp";;
 let v = "../yosys/tests/simple/memory.v";;
 let v = "examples/memtest01.v";;
 let v = "examples/add.v";;
-let v = "examples/arith.v";;
 let v = "examples/count0.v";;
 let v = "../yosys/tests/simple/carryadd.v";;
 let v = "examples/carryadd2.v";;
@@ -126,10 +124,14 @@ let v = "examples/process.v";;
 let v = "examples/regindex_bits.v";;
 let v = "examples/cpuregs_wrdata.v";;
 let v = "examples/memtest01.v";;
-let v = "../picorv32/picorv32.v";;
 let v = "examples/pcpi_fast_mul.v";;
 let v = "examples/ariane_preproc.sv";;
 let v = "examples/initpat.sv";;
+let v = "../picorv32/picorv32.v";;
+let v = "examples/add.v";;
+let v = "examples/add2.v";;
+let v = "examples/arith.v";;
+let v = "apb_uart.sv";;
 
 (*
 let x = rw (parse v);;

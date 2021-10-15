@@ -4,43 +4,6 @@ open Source_text_lex
 open Source_text
 open Printf
 
-type mem_opts = {off:int list; siz:int list; wid:int; tot:int}
-
-type vtyp =
-  | Vint of int
-  | Vpkg of string * string
-  | Unsigned
-  | Unsigned_vector of rw * rw
-  | Signed
-  | Signed_vector of rw * rw
-  | Vsigtyp
-  | Vdot
-  | Vstr of string
-  | Vtyp of string
-  | Vfun of string
-  | Venum of string
-  | Vintf of rw
-  | MaybePort of int * vtyp * rw
-  | Vemember of string * string * rw
-  | Task of rw * rw * rw
-  | Vmem of mem_opts
-  | InstArray of rw * rw * rw
-  | Vlong of int64
-  | Vreal of float
-  | Vlocal of int * rw
-  | Vsu of rw * (string * vtyp) list
-  | Vsua of int * int * (string * vtyp) list
-
-type bufh = {c:ilang list ref;
-    i:ilang list ref;
-    l:ilang list ref;
-    w:ilang list ref}
-
-type dead = 
-| Undecidable
-| Always_false
-| Always_true
-
 let verbose = try int_of_string (Sys.getenv "DUMP_RTLIL_VERBOSE") with err -> 0
 let logf = open_out "logfile.txt"
 
@@ -270,7 +233,7 @@ and signof' = function
 | _ -> Unsigned
 
 and signoff'' s = function
-    | Some (Signed|Signed_vector _) -> Signed
+    | Some (Signed_vector _ | Signed) -> Signed
     | Some (Unsigned|Unsigned_vector _) -> Unsigned
     | Some MaybePort (_, typ, _) -> signoff'' s (Some typ)
     | Some x -> Unsigned
@@ -336,6 +299,7 @@ let is_const' = function
 | Venum _ -> true
 | Unsigned -> false
 | Unsigned_vector _ -> false
+| MaybePort _ -> false
 | oth -> coth := Some oth; failwith "is_const'"
 
 let rec is_const typhash = function
@@ -455,6 +419,9 @@ let rec recur_inst porthash = function
   | Itmlst lst :: tl -> recur_inst porthash lst @ recur_inst porthash tl
   | CellPinItem2 (pin, PackageRef (pkg_id, Id req_t)) :: tl -> Hashtbl.remove porthash pin; CellPinItem2 (pin, find_pkg pkg_id req_t) :: recur_inst porthash tl
   | CellPinItem2 (pin, expr) :: tl -> Hashtbl.remove porthash pin; CellPinItem2 (pin, expr) :: recur_inst porthash tl
+  | CellPinItemImplied pin :: tl -> CellPinItem2 (pin, Id pin) :: recur_inst porthash tl
+  | CellPinItemNC _ as id :: tl -> id :: recur_inst porthash tl
+  | Id _ as id :: tl -> id :: recur_inst porthash tl
   | Atom ".*" :: [] -> let residue = ref [] in Hashtbl.iter (fun k _ -> residue := CellPinItem2(k,Id k) :: !residue) porthash; dbgmodinst := !residue;  !residue
   | oth -> unhand_inst_lst := oth; failwith "recur_inst"
 
@@ -494,9 +461,9 @@ let rec recurs1 (attr: Source_text_rewrite.attr) = function
   | oth -> Source_text_rewrite.descend' {attr with fn=recurs1} oth
 
 let signcnv = function
+        | (Deflt,AnyRange(hi,lo)) -> Unsigned_vector(hi,lo)
 	| (Deflt,Deflt) -> Unsigned
         | (Atom "signed",Deflt) -> Signed
-        | (Deflt,AnyRange(hi,lo)) -> Unsigned_vector(hi,lo)
         | (Atom "signed",AnyRange(hi,lo)) -> Signed_vector(hi,lo)
 	| (Deflt,oth) -> failwith "signcnv'"
 	| oth, _ -> unhand := Some oth; failwith "signcnv"
@@ -512,8 +479,8 @@ let maybe_port typhash nam ix dir typ =
   update typhash (Id nam) (MaybePort (ix, typ, dir))
 
 let atom_cnv = function
-| "logic" -> Unsigned
 | "int" -> Vint 0
+| "logic" -> Unsigned
 | "integer" -> Vint 0
 | "longint" -> Vlong 0L
 | "real" -> Vreal 0.0
@@ -528,7 +495,6 @@ let atom_width = function
 | oth -> dbgatom := oth; failwith "atom_width"
 
 let rec struct_union typhash = function
-           | Deflt -> ["", Unsigned] (* to force type inference *)
 	   | SUMember (Typ6 (Atom ("logic"|"bit"|"byte"|"int"|"longint" as kind)), lst) -> List.map (function
                | Id id -> (id, atom_cnv kind)
 	       | oth -> unhand := Some oth; failwith "SUMember5") lst
@@ -628,14 +594,16 @@ let rec recurs2 (attr: Source_text_rewrite.attr) = function
   | TaskDecl(id, _, _, _) -> TaskDecl(id, Deflt, Deflt, Deflt)
 (* *)
   | Dot1 (IdArrayed2 (Id lbl, sel), Id id) -> let n = elabeval attr sel in Id (lbl^"["^string_of_int n^"]."^id)
-  | Typ2 (req_t, [PackageRef (pkg_id, Atom "::")], lst) as x ->
+  | Typ2 (req_t, [PackageRef (pkg_id, Atom "::")], lst) ->
       let repl = find_pkg pkg_id req_t in
       dbgrepl := (req_t,(pkg_id,lst,repl)) :: !dbgrepl;
       Typ5 (repl, lst)
   | IdArrayed3 (PackageRef (pkg_id, Atom "::") :: [], IdArrayedColon (Id nam, hi, lo)) ->
     Source_text_rewrite.descend' {attr with fn=recurs2} (IdArrayedColon (find_pkg pkg_id nam, hi, lo))
-  | InstDecl (Id kind, params, lst) ->
-      let modinst = match List.assoc kind !(Matchmly.modules) with Modul(kind', params, ports, body) -> ports | oth -> failwith "modinst" in
+  | InstDecl (Id kind, params, (InstNameParen1 _ :: _ as lst)) ->
+      let modinst = match List.assoc_opt kind !(Matchmly.modules) with
+          | Some (Modul(kind', params, ports, body)) -> ports
+          | oth -> failwith ("modinst "^kind^" is missing") in
       let porthash = Hashtbl.create 255 in
       List.iteri (ports porthash) modinst;
       Source_text_rewrite.descend' {attr with fn=recurs2} (InstDecl (Id kind, List.map (recur_param) params, recur_inst porthash lst))
@@ -834,7 +802,7 @@ and recurs3 (attr: Source_text_rewrite.attr) = function
 				     | oth' -> failwith (Source_text_rewrite.getstr oth')) lst)
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs3 attr exp)
   | Typ1 id_t -> (match Hashtbl.find_opt attr.subst (Id id_t) with None -> Typ1 id_t | Some exp -> recurs3 attr exp)
-  | Typ3 (id_t, id_lst) -> (match Hashtbl.find_opt attr.subst (Id id_t) with None -> Typ3 (id_t, id_lst) | Some exp -> Typ5(recurs3 attr exp, id_lst))
+  | Typ3 (id_t, id_lst) -> (match Hashtbl.find_opt attr.subst (Id id_t) with None -> Typ3 (id_t, id_lst) | Some exp -> Typ9(id_t, id_lst, recurs3 attr exp))
   | Typ2 (id_t, rng, id_lst) -> (match Hashtbl.find_opt attr.subst (Id id_t) with None -> Typ2 (id_t, rng, id_lst) | Some exp -> Typ12(rng, recurs3 attr exp, id_lst))
   | PackageRef (pkg_id, Id req_t) -> (Source_text_rewrite.descend' {attr with fn=recurs3}) (find_pkg pkg_id req_t)
   | PackageRef _ as x -> othx := Some x; failwith "recurs3_pkg"
@@ -902,9 +870,6 @@ let sub' x =
 let rec vexpr typhash = function
 | oth -> unhand := Some oth; failwith "vexpr"
 
-and cexpr typhash = function
-    | oth -> unhand := Some oth; failwith "cexpr"
-
 let funtyp typhash = function
 | Atom primtyp -> primtyp
 | Typ1 id_t -> id_t
@@ -944,14 +909,14 @@ let exists_wire bufh typhash options nam signage =
     | oth -> unhand_typ := Some oth; failwith "exists_wire"
 
 let addwire bufh typhash = function
+| (options, Id nam, (Vlocal _ as typ)) ->
+  output_string logf ("add localparam: "^nam^", "^vtyp typ^"\n");
+  exists_wire bufh typhash options nam typ;
 | (options, Id nam, (Signed|Signed_vector _ as typ)) ->
   output_string logf ("add signed wire: "^nam^", "^vtyp typ^"\n");
   exists_wire bufh typhash options nam typ;
 | (options, Id nam, (Unsigned|Unsigned_vector _ as typ)) ->
   output_string logf ("add unsigned wire: "^nam^", "^vtyp typ^"\n");
-  exists_wire bufh typhash options nam typ;
-| (options, Id nam, (Vlocal _ as typ)) ->
-  output_string logf ("add localparam: "^nam^", "^vtyp typ^"\n");
   exists_wire bufh typhash options nam typ;
 | (_, oth, _) -> failwith ("Argument "^(Source_text_rewrite.getstr oth)^" of addwire must be wire Id")
 
@@ -986,8 +951,22 @@ let rec obin64 w n =
 let str_to_bin s = let l = String.length s in 
   (l*8), String.concat "" (List.init l (fun ix -> obin 8 (int_of_char s.[ix])))
 
-let rec tran' = function
-   | Id id -> TokID id :: []
+let rec traneval' typhash id = function
+| Vint n -> TokVal (sprintf "32'%s" (obin 32 n)) :: []
+| Unsigned -> TokID id :: []
+| Signed -> TokID id :: []
+| Unsigned_vector _ -> TokID id :: []
+| Signed_vector _ -> TokID id :: []
+| Vlocal (n, expr) -> TokInt (ceval typhash expr) :: []
+| MaybePort (_, typ, _) -> traneval' typhash id typ
+| Vemember (enum_id, id', Intgr n) when id=id' -> TokInt n :: []
+| Venum kind ->
+  if verbose > 2 then print_endline kind;
+  TokID id :: [] (* place holder *)
+| oth -> coth := Some oth; failwith ("traneval': "^id)
+
+let rec tran' typhash = function
+   | Id id -> traneval' typhash id (match Hashtbl.find_opt typhash id with Some x -> x | None -> print_endline ("Not found: "^id); Unsigned)
    | Number (b,w,n,_) -> TokVal (sprintf "%d'%s" w (obin w n)) :: []
    | Intgr n -> TokVal (sprintf "32'%s" (obin 32 n)) :: []
    | Float f -> TokVal ("64'"^obin64 64 (Int64.bits_of_float f)) :: []
@@ -995,12 +974,12 @@ let rec tran' = function
    | Atom "default" -> []
 (*
    TokVal ("64'"^obin64 64 (Int64.bits_of_float f)) :: []
-   | Concat lst -> List.flatten (List.map tran' lst)
+   | Concat lst -> List.flatten (List.map tran' typhash lst)
 *)
-   | ExprOKL lst -> Sigspec92 (List.flatten (List.map tran' lst)) :: []
-   | GenBlock lst -> Sigspec92 (List.flatten (List.map tran' lst)) :: []
+   | ExprOKL lst -> Sigspec92 (List.flatten (List.map (tran' typhash) lst)) :: []
+   | GenBlock lst -> Sigspec92 (List.flatten (List.map (tran' typhash) lst)) :: []
    | IdArrayed2 (Id arr, (Number (_, _, n, _)|Intgr n)) -> vsel' n (Id arr)
-   | IdArrayedColon (Intgr _ as n, _, _) -> tran' n
+   | IdArrayedColon (Intgr _ as n, _, _) -> tran' typhash n
    | IdArrayedColon (Id conn, (Intgr hi | Number(_,_,hi,_)), (Intgr lo | Number(_,_,lo,_))) -> Sigspecrange(conn,hi,lo) :: []
    | IdArrayedPlusColon (Id conn, (Intgr lo | Number(_,_,lo,_)), (Intgr wid | Number(_,_,wid,_))) -> Sigspecrange(conn,lo+wid-1,lo) :: []
    | oth -> unhand := Some oth; failwith "tran'"
@@ -1008,8 +987,8 @@ let rec tran' = function
 let rec tran typhash = function
    | Dot1 (Id id, Id field) ->
      let off,wid = off_width_field typhash id field in
-     if wid > 0 then tran' (IdArrayedPlusColon (Id id, Intgr off, Intgr wid)) else failwith (id^"."^field)
-   | (Id _ | Intgr _ | Number _ | IdArrayedColon _ | IdArrayed2 _ | ExprOKL _) as x -> tran' x
+     if wid > 0 then tran' typhash (IdArrayedPlusColon (Id id, Intgr off, Intgr wid)) else failwith (id^"."^field)
+   | (Id _ | Intgr _ | Number _ | IdArrayedColon _ | IdArrayed2 _ | ExprOKL _) as x -> tran' typhash x
    | oth -> unhand := Some oth; failwith "tran"
 
 let newid bufh typhash wid =
@@ -1097,15 +1076,31 @@ let rec parm_map typhash = function
 *)
   | oth -> unhand := Some oth; failwith "parm_map"
 
+let rec parm_map_cell typhash = function
+  | Param (nam, (Intgr n | Number (_, _, n, _)), []) ->
+      update typhash (Id nam) (Vint n);
+      TokParam([TokID ("\\"^nam)], [TokInt n])
+  | Param (nam, (Intgr n | Number (_, _, n, _)), AnyRange (left, rght) :: []) ->
+      update typhash (Id nam) (Vint n);
+      TokParam([TokID ("\\"^nam)], [TokInt n])
+  | CellParamItem2 (nam, (Intgr n | Number (_, _, n, _))) ->
+      update typhash (Id nam) (Vint n);
+      TokParam([TokID ("\\"^nam)], [TokInt n])
+  | CellParamItem2 (nam, (Id _ as s)) -> let n = ceval typhash s in
+      TokParam([TokID ("\\"^nam)], [TokInt n])
+  | CellParamItem2 (nam, String s) ->
+      TokParam([TokID ("\\"^nam)], [TokStr s])
+  | oth -> unhand := Some oth; failwith "parm_map_cell"
+
 and instance_template bufh typhash typ params inst pinlst =
-        List.iter (parm_map typhash) params;
         Cell_stmt (typ, inst, [],
+        List.rev_map (parm_map_cell typhash) params @
         List.rev (List.mapi (fun ix -> function
-		   | CellPinItem2 (pin, Intgr n) -> TokConn([TokID(pin)], tran' (Number(2, 32, n, "")))
+		   | CellPinItem2 (pin, Intgr n) -> TokConn([TokID(pin)], tran' typhash (Number(2, 32, n, "")))
 		   | CellPinItem2 (pin, conn) -> TokConn([TokID(pin)], tran typhash conn)
-		   | CellPinItemImplied (pin) -> TokConn([TokID(pin)], tran' (Id pin))
-		   | CellPinItemNC (pin) -> TokConn([TokID(pin)], tran' (newid bufh typhash 1))
-                   | Id _ as conn -> TokConn([TokID("$"^string_of_int (ix+1))], tran' conn)
+		   | CellPinItemImplied (pin) -> TokConn([TokID(pin)], tran' typhash (Id pin))
+		   | CellPinItemNC (pin) -> TokConn([TokID(pin)], tran' typhash (newid bufh typhash 1))
+                   | Id _ as conn -> TokConn([TokID("$"^string_of_int (ix+1))], tran' typhash conn)
                    | oth -> unhand := Some oth; failwith "inst_arg") pinlst))
 
 let memtest01 =
@@ -1375,9 +1370,9 @@ and memwr bufh typhash options id addr data en =
   let args = addr' :: Number(2,1,0,"") :: data' :: en' :: [] in
   let conn' ix arg = let itm = asgnexpr bufh typhash arg in CellPinItem2(List.nth pins ix, itm) in
   dumpi bufh typhash ("memwr", [Itmlst params], (InstNameParen1 (newnam(), Itmlst (List.mapi conn' args) :: []) :: []));
-  TokUpdate (tran' en', tran' en) ::
-  TokUpdate (tran' data', tran' data) ::
-  TokUpdate (tran' addr', tran' addr) :: []
+  TokUpdate (tran' typhash en', tran' typhash en) ::
+  TokUpdate (tran' typhash data', tran' typhash data) ::
+  TokUpdate (tran' typhash addr', tran' typhash addr) :: []
 
 and shiftx bufh typhash wid lhs rhs = dyadic bufh typhash wid "shiftx" [lhs;rhs] "ABY"
 
@@ -1682,7 +1677,9 @@ let addwire' bufh typhash nam = function
 let portpos typhash nam =
   match Hashtbl.find_opt typhash nam with Some (MaybePort (ix,_,_)) -> ix | _ -> 0
 
-let elabenum typhash nam id_lst = update typhash (Id nam) (Venum nam);
+let elabenum typhash nam id_lst =
+  print_endline ("elabenum: "^nam);
+  update typhash (Id nam) (Venum nam);
     let strt = ref 0 in
     List.iter (function
         | Id e -> update typhash (Id e) (Vemember(nam, e, Intgr(!strt)));
@@ -1732,14 +1729,10 @@ let addconn bufh typhash  (nam, expr) =
     let rhs = restrict typhash lhsw expr' in
     let rhsw = width typhash rhs in
     conn_lst := (lhsw, expw, rhsw, nam, rhs) :: !conn_lst;
-    bufh.i := TokConn (tran' nam, tran' rhs) :: !(bufh.i)
+    bufh.i := TokConn (tran' typhash nam, tran' typhash rhs) :: !(bufh.i)
 
 let rec decl_template' bufh typhash modules pth = function
     | Seq (lbl, lst) -> List.iter (decl_template bufh typhash modules (newpth lbl pth)) lst
-    | InstDecl (typ, params, lst) -> List.iter (function
-        | (InstNameParen1 _ | InstNameParen2 _) -> ()
-        | Id id -> ()
-        | oth -> unhand := Some oth; failwith "InstDecl1634") lst;
     | InstArrayDecl (typ, params, inst, [InstRange(hi,lo)], arglst) -> update typhash inst (InstArray(typ,hi,lo))
     | Port(PortDir(dir, Atom kind), nam, [], signed) -> addwire bufh typhash ([vdir (portpos typhash nam) dir], Id nam, signcnv (signed, Deflt))
     | Port(dir, nam, [], signed) -> addwire bufh typhash ([vdir (portpos typhash nam) dir], Id nam, signcnv (signed, Deflt))
@@ -1813,7 +1806,11 @@ let rec decl_template' bufh typhash modules pth = function
         | VarDeclAsgn (nam, expr) -> update typhash (nam) (Vint (ceval typhash expr))
         | Intgr _ -> () (* residue from loop unrolling can be ignored *)
         | oth -> unhand := Some oth; failwith "DeclInt2") id_lst
+    | TypEnum6 (nam, Deflt, id_lst) ->
+      print_endline nam;
+      elabenum typhash nam id_lst
     | TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), id_lst) ->
+      print_endline nam;
       elabenum typhash nam id_lst
     | Typ5 (TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), id_lst), typid_lst) ->
       elabenum typhash nam id_lst
@@ -1830,12 +1827,11 @@ let rec decl_template' bufh typhash modules pth = function
     | Typ5 (Typ5 (Atom "logic", AnyRange(lft,rght) :: []), id_lst) -> List.iter (function
           | Id nam -> update typhash (Id nam) (Vtyp nam);
 	  | oth -> unhand := Some oth; failwith "DeclLogic1760") id_lst
-    | DeclLogic (reg_lst) -> List.iter (function
-	  | Id nam -> update typhash (Id nam) Unsigned
-          | DeclAsgn (nam, AnyRange(first,last) :: []) -> addwire bufh typhash ([], nam, Unsigned)
-          | VarDeclAsgn (nam, expr) -> addwire bufh typhash ([], nam, Unsigned)
-	  | oth -> unhand := Some oth; failwith "DeclLogic651"
-        ) reg_lst;
+    | Typ9 (old_id, id_lst, Typ5 (Deflt, elst)) -> List.iter (function
+          | Id nam ->
+            print_endline old_id;
+            addwire bufh typhash ([], Id nam, Unsigned);
+	  | oth -> unhand := Some oth; failwith "DeclLogic1760") id_lst
     | DeclLogic2 (wire_lst, AnyRange (hi, lo) :: [])  as x -> List.iter (function
 	  | Id nam -> update typhash (Id nam) (Unsigned_vector(hi,lo));
           | DeclAsgn (nam, AnyRange(first,last) :: []) -> addwire bufh typhash ([range typhash (nam, x)], nam, Unsigned)
@@ -1843,15 +1839,13 @@ let rec decl_template' bufh typhash modules pth = function
     | DeclLogic2 (wire_lst, AnyRange (hi, lo) :: AnyRange (hi', lo') :: []) -> List.iter (function
 	  | Id nam -> update typhash (Id nam) (Unsigned_vector(hi,lo));
 	  | oth -> unhand := Some oth; failwith "DeclWire") wire_lst
-    | Typ5 (Typ5 (TypEnum3 (AnyRange(lft,rght) :: []), elst), id_lst) ->
-      List.iter (function (Id nam) -> elabenum typhash nam elst | oth -> unhand := Some oth; failwith "enum range") id_lst
     | DeclData (Typ5 (Atom "logic", AnyRange (lft, rght) :: AnyRange (lft', rght') :: []), Deflt, VarDeclAsgn (mem, ExprOKL lst) :: []) -> () (* placeholder *)
     | DeclData (Atom "static", Typ8 (Atom "byte", Deflt), VarDeclAsgn (Id id, String s) :: []) -> () (* placeholder *)
 (*
     | Typ7 (nam, Typ8 (SUDecl (Atom "packed", lst), Deflt)) ->
         update typhash (Id nam) (Vsu (Id nam, List.map (struct_union typhash) lst))
 *)
-    | Typ12 ([AnyRange (lft, rght) as x], Typ8 (SUDecl (Atom "packed", lst), Deflt), id_lst) ->
+    | Typ12 ([AnyRange (lft, rght)], Typ8 (SUDecl (Atom "packed", lst), Deflt), id_lst) ->
         let lft' = ceval typhash lft and rght' = ceval typhash rght in
         let first = min lft' rght' and last = max lft' rght' in
         List.iter (function
@@ -1868,7 +1862,27 @@ let rec decl_template' bufh typhash modules pth = function
     | Typ11 (Typ8 (SUDecl (Atom "packed", lst), Deflt), [AnyRange (lft, rght)], id_lst) ->
         List.iter (fun nam -> update typhash (nam) (Vsu (nam, List.flatten (List.map (struct_union typhash) lst)))) id_lst
     | Typ12 ([AnyRange (lft, rght)], Typ5 (TypEnum3 [AnyRange (hi, lo)], elst), id_lst) ->
-        List.iter (function (Id nam) -> elabenum typhash nam elst | oth -> unhand := Some oth; failwith "enum array") id_lst
+        List.iter (function
+            | (Id nam) -> elabenum typhash nam elst
+            | oth -> unhand := Some oth; failwith "enum array") id_lst
+    | InstDecl (typ, params, lst) -> List.iter (function
+        | (InstNameParen1 _ | InstNameParen2 _) -> ()
+        | Id id ->
+          print_endline ("InstDecl: "^id);
+          addwire bufh typhash ([], Id id, Unsigned_vector(Intgr 31, Intgr 0));
+        | oth -> unhand := Some oth; failwith "InstDecl1634") lst;
+    | Typ9 (_, id_lst, Typ5 (TypEnum3 (AnyRange(lft,rght) :: []), elst)) ->
+      List.iter (function
+            | Id id ->
+              print_endline ("Typ9(Enum3): "^id);
+              addwire bufh typhash ([], Id id, Unsigned_vector(lft, rght));
+            | oth -> unhand := Some oth; failwith "enum range") id_lst
+    | DeclLogic (reg_lst) -> List.iter (function
+	  | Id nam -> addwire bufh typhash ([], Id nam, Unsigned)
+          | DeclAsgn (nam, AnyRange(first,last) :: []) -> addwire bufh typhash ([], nam, Unsigned_vector(first,last))
+          | VarDeclAsgn (nam, expr) -> addwire bufh typhash ([], nam, Unsigned)
+	  | oth -> unhand := Some oth; failwith "DeclLogic651"
+        ) reg_lst;
 
 (*
     | Itmlst (id_lst) -> List.iter (function
@@ -2051,7 +2065,7 @@ else rhs) 0 in match lhs with
          | Add _ as x -> buffer' bufh typhash x 0
          | oth -> unhand := Some oth; failwith "PlusColon" in
       if update then memwr bufh typhash (mem_opt typhash mem) mem addr rhs' en else []
-  | _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: [])
+  | _ -> if update then TokUpdate(tran' typhash lhs, tran' typhash rhs') :: [] else Assign_stmt67(tran' typhash lhs, tran' typhash rhs') :: [])
 | IdArrayedColon (IdArrayed2 (Id mem, (Id _ as addr)), (Intgr hi|Number(_,_,hi,_)), (Intgr lo|Number(_,_,lo,_))) ->
 (match Hashtbl.find_opt typhash mem with
   | Some Vmem {off;siz;wid} ->
@@ -2059,28 +2073,28 @@ else rhs) 0 in match lhs with
       let en = Number(2,wid,(1 lsl wid) - 1,"") in
       let lo = Number (2, wid, ((1 lsl wid)-1) lsl lo, "") in
       if update then memwr bufh typhash (mem_opt typhash mem) mem addr rhs' en else []
-  | _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: [])
+  | _ -> if update then TokUpdate(tran' typhash lhs, tran' typhash rhs') :: [] else Assign_stmt67(tran' typhash lhs, tran' typhash rhs') :: [])
 | IdArrayed1 (Id mem, addr, Number(_,_,abit,_)) ->
 (match Hashtbl.find_opt typhash mem with
   | Some Vmem {off;siz;wid} ->
       dbgeq := (lhswid,rhswid,lhs,rhs') :: !dbgeq;
       let en = Number(2,wid,(1 lsl wid) - 1,"") in
       if update then memwr bufh typhash (mem_opt typhash mem) mem addr rhs' en else []
-  | _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: [])
+  | _ -> if update then TokUpdate(tran' typhash lhs, tran' typhash rhs') :: [] else Assign_stmt67(tran' typhash lhs, tran' typhash rhs') :: [])
 | IdArrayed1 (Id mem, addr, abit) ->
 (match Hashtbl.find_opt typhash mem with
   | Some Vmem {off;siz;wid} ->
       dbgeq := (lhswid,rhswid,lhs,rhs') :: !dbgeq;
       let en = Number(2,wid,(1 lsl wid) - 1,"") in
       if update then memwr bufh typhash (mem_opt typhash mem) mem addr rhs' en else []
-  | _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: [])
+  | _ -> if update then TokUpdate(tran' typhash lhs, tran' typhash rhs') :: [] else Assign_stmt67(tran' typhash lhs, tran' typhash rhs') :: [])
 | IdArrayed2 (Id mem, (Number _ as addr)) ->
 (match Hashtbl.find_opt typhash mem with
   | Some Vmem {off;siz;wid} ->
       dbgeq := (lhswid,rhswid,lhs,rhs') :: !dbgeq;
       let en = Number(2,wid,(1 lsl wid) - 1,"") in
       if update then memwr bufh typhash (mem_opt typhash mem) mem addr rhs' en else []
-  | Some Unsigned_vector _ -> if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: []
+  | Some Unsigned_vector _ -> if update then TokUpdate(tran' typhash lhs, tran' typhash rhs') :: [] else Assign_stmt67(tran' typhash lhs, tran' typhash rhs') :: []
   | oth -> otha := Some oth; failwith "arr")
 | IdArrayed2 (Id mem, addr) as x ->
 dbgsplit := Some x;
@@ -2094,7 +2108,7 @@ dbgsplit := Some x;
     dbgasgn := (p,u,s) :: !dbgasgn;
     if update then s else (p @ u)
   | oth -> otha := Some oth; failwith "arr")
-| oth -> dbgcommon := Some (lhs,rhs'); if update then TokUpdate(tran' lhs, tran' rhs') :: [] else Assign_stmt67(tran' lhs, tran' rhs') :: []
+| oth -> dbgcommon := Some (lhs,rhs'); if update then TokUpdate(tran' typhash lhs, tran' typhash rhs') :: [] else Assign_stmt67(tran' typhash lhs, tran' typhash rhs') :: []
 
 and dlymapwid bufh dhash typhash wid lhs : ilang list * ilang list * rw =
   let dly = dlymemo bufh dhash typhash lhs in
@@ -2203,14 +2217,14 @@ and cnv' bufh dhash typhash inst = function
         let lst' = List.map (cnv' bufh dhash typhash inst) itm_stmts in
 	let wid = width typhash inst in
         (List.flatten (List.map (fun (p,u,d) -> p) lst'),
-         Switch_bodycase (List.flatten(List.map (fun itm -> tran' (restrict typhash wid itm)) lbl'), [], List.flatten (List.map (fun (p,u,d) -> u) lst')) :: [],
+         Switch_bodycase (List.flatten(List.map (fun itm -> tran' typhash (restrict typhash wid itm)) lbl'), [], List.flatten (List.map (fun (p,u,d) -> u) lst')) :: [],
          List.flatten (List.map (fun (p,u,d) -> d) lst'))
     | CaseStart (CaseStart1 expr, stmts) ->
         let expr' = buffer'' bufh typhash expr in
         let lst' = List.map (cnv' bufh dhash typhash expr) stmts in
         dbgcase := lst';
         (List.flatten (List.map (fun (p,u,d) -> p) lst'),
-         Switch_stmt (tran' expr', [], [], (List.flatten (List.map (fun (p,u,d) -> u) lst'))) :: [],
+         Switch_stmt (tran' typhash expr', [], [], (List.flatten (List.map (fun (p,u,d) -> u) lst'))) :: [],
          List.flatten (List.map (fun (p,u,d) -> d) lst'))
     | Id t when Hashtbl.mem typhash t -> if verbose > 0 then print_endline ("executed task: "^t); ([],[],[])
     | SysTaskRef (Atom ("$display"|"$fwrite"), _) -> ([],[],[])
@@ -2225,7 +2239,7 @@ and asgn bufh typhash expr = function
     let wid = width typhash lhs in
     let rhs = buffer' bufh typhash expr wid in
     let rhs' = restrict typhash wid rhs in
-    bufh.c := Conn_stmt96(tran' lhs, tran' rhs') :: !(bufh.c)
+    bufh.c := Conn_stmt96(tran' typhash lhs, tran' typhash rhs') :: !(bufh.c)
 
 and asgn' bufh dhash typhash inst arr sel expr =
     let wida = width typhash arr in
@@ -2399,6 +2413,12 @@ let rec proc_template bufh typhash modules = function
       | Asgn1 (lhs, expr) -> asgn bufh typhash expr lhs
       | oth -> unhand := Some oth; failwith "assign_template") lst
     | Iff _ -> ()
+    | InstDecl (Typ5 (TypEnum3 [AnyRange (hi, lo)], elst), [], id_lst) -> List.iter (function
+        | Id _ as id -> addwire bufh typhash ([], id, Unsigned)
+        | oth -> unhand := Some oth; failwith "InstDecl2371") id_lst
+    | InstDecl (Typ5 (Deflt, elst), [], id_lst) -> List.iter (function
+        | Id _ as id -> addwire bufh typhash ([], id, Unsigned)
+        | oth -> unhand := Some oth; failwith "InstDecl2374") id_lst
     | InstDecl (Id typ, params, lst) -> List.iter (function
         | InstNameParen1 (inst, pins) -> bufh.i := instance_template bufh typhash ("\\"^typ) (match params with Itmlst lst :: _ -> lst | _ -> []) inst pins :: !(bufh.i)
         | InstNameParen2 (inst, InstRange(lft,rght) :: []) -> bufh.i := instance_template bufh typhash ("\\"^typ) (match params with Itmlst lst :: _ -> lst | _ -> []) inst [] :: !(bufh.i)
@@ -2412,12 +2432,12 @@ let rec proc_template bufh typhash modules = function
               let _ = List.rev_map (parm_map typhash) params in
                 bufh.i := Cell_stmt ("\\"^typ, inst^"["^string_of_int ix^"]", [],
                    List.rev_map2 (fun (pin,sgn,rng) -> function
-		       | CellPinItem2 (pin, Intgr n) -> TokConn([TokID(pin)], tran' (Number(2, 32, n, "")))
-		       | CellPinItem2 (pin, conn) -> TokConn([TokID(pin)], tran' conn)
+		       | CellPinItem2 (pin, Intgr n) -> TokConn([TokID(pin)], tran' typhash (Number(2, 32, n, "")))
+		       | CellPinItem2 (pin, conn) -> TokConn([TokID(pin)], tran' typhash conn)
                        | Id id as conn ->
 		         let wid = width typhash conn in
 		         print_endline (id^": "^string_of_int wid);
-			 TokConn([TokID(pin)], tran' (match wid with 1 -> conn | _ -> IdArrayed2 (conn, Intgr ix)))
+			 TokConn([TokID(pin)], tran' typhash (match wid with 1 -> conn | _ -> IdArrayed2 (conn, Intgr ix)))
                        | oth -> unhand := Some oth; failwith "inst_array_arg") ports' pinlst) :: !(bufh.i);
                 done;
         | None -> failwith ("InstArrayDecl: "^typ^" not found"))
@@ -2430,6 +2450,7 @@ let rec proc_template bufh typhash modules = function
     | Typ5 _ -> ()
     | Typ6 _ -> ()
     | Typ7 _ -> ()
+    | Typ9 _ -> ()
     | Typ11 _ -> ()
     | Typ12 _ -> ()
     | DeclInt2 _ -> ()
@@ -2463,17 +2484,21 @@ let template modules = function
   body' := body_lst;
   List.iter (proc_template bufh typhash modules) body_lst;
   bufm := Module12 (nam, catbuf bufh) :: !(bufm);
-  List.rev (!bufm);
+  typhash, List.rev (!bufm);
   | PackageBody (pkg, body_lst) ->
   let typhash = Hashtbl.create 255 in
   let bufh = bufhash () in
   List.iter (decl_template bufh typhash modules None) body_lst;
-  List.rev (catbuf bufh);
+  typhash, List.rev (catbuf bufh);
   | oth -> unhand := Some oth; failwith "This template only handles modules/packages"
 
 let template modules = function
   | Modul _ as m ->
-    let t = template modules (sub' m) in flush logf; t
-  | PackageBody (pkg, body_lst) -> if verbose > 1 then print_endline ("Package "^pkg^" is pending"); []
+    let m' = sub' m in
+    let typhash, t = template modules m' in flush logf;
+    typhash, m', t
+  | PackageBody (pkg, body_lst) as p ->
+    if verbose > 1 then print_endline ("Package "^pkg^" is pending");
+    Hashtbl.create 1, sub' p, []
   | oth -> unhand := Some oth; failwith "This template only handles modules/packages"
 

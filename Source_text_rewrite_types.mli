@@ -250,3 +250,35 @@ type ind = {
   stash:(E.signal, string * string * Input_rewrite_types.ilang list) Hashtbl.t;
   wid:(string, int) Hashtbl.t;
 }
+
+type mem_opts = {off:int list; siz:int list; wid:int; tot:int}
+
+type vtyp =
+  | Vint of int
+  | Vpkg of string * string
+  | Unsigned
+  | Unsigned_vector of rw * rw
+  | Signed
+  | Signed_vector of rw * rw
+  | Vsigtyp
+  | Vdot
+  | Vstr of string
+  | Vtyp of string
+  | Vfun of string
+  | Venum of string
+  | Vintf of rw
+  | MaybePort of int * vtyp * rw
+  | Vemember of string * string * rw
+  | Task of rw * rw * rw
+  | Vmem of mem_opts
+  | InstArray of rw * rw * rw
+  | Vlong of int64
+  | Vreal of float
+  | Vlocal of int * rw
+  | Vsu of rw * (string * vtyp) list
+  | Vsua of int * int * (string * vtyp) list
+
+type dead = 
+| Undecidable
+| Always_false
+| Always_true
