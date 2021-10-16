@@ -115,7 +115,6 @@ let v = "junk.pp";;
 let v = "../yosys/tests/simple/memory.v";;
 let v = "examples/memtest01.v";;
 let v = "examples/add.v";;
-let v = "examples/count0.v";;
 let v = "../yosys/tests/simple/carryadd.v";;
 let v = "examples/carryadd2.v";;
 let v = "../yosys/share/simcells.v";;
@@ -131,7 +130,13 @@ let v = "../picorv32/picorv32.v";;
 let v = "examples/add.v";;
 let v = "examples/add2.v";;
 let v = "examples/arith.v";;
+let v = "examples/junk2.v";;
+let v = "examples/junk3.v";;
+let v = "examples/junk1.v";;
+let v = "examples/slib_fifo.sv";;
 let v = "apb_uart.sv";;
+let v = "examples/count0.v";;
+let v = "examples/count2.v";;
 
 (*
 let x = rw (parse v);;
@@ -147,11 +152,6 @@ let x crnt = sub' (List.assoc crnt !Matchmly.modules);;
 let u = snd (List.hd modlst);;
 let m crnt = List.assoc crnt !(Matchmly.modules);;
 let p u = output_string stdout (Input_dump.dump_ilst "\n" u);;
-
-let (typhash, dhash, inst, edglst, body) = match !dbgproc with
-    | Some (typhash, dhash, inst, edglst, body) -> (typhash, dhash, inst, edglst, body)
-    | None -> print_endline "dbgproc is empty"; Hashtbl.create 1, Hashtbl.create 1, "", [], Seq("", [])
-
 let e crnt = sub' (m crnt);;
 
 let tlst = ref [];;

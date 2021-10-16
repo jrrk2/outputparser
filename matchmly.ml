@@ -22,6 +22,8 @@ let othport3 = ref None
 let priorlst = ref None
 let remap = ref None
 
+let verbose = try int_of_string (Sys.getenv "MATCHMLY_VERBOSE") > 0 with err -> false
+
 let g str pat =
 let len = String.length pat in
 if String.length str < len then false
@@ -1754,7 +1756,7 @@ and itemsf portlst itmlst =
         let dir,dims = Hashtbl.find porthash port in Port(dir, port, dims, Deflt)
 *)
       | Port (Deflt, port, [], _) ->
-        print_endline ("Port: "^port);
+        if verbose then print_endline ("Port: "^port);
         let dir,dims,xlst = Hashtbl.find porthash port in
         if dir <> Deflt then
           begin
@@ -1762,7 +1764,7 @@ and itemsf portlst itmlst =
           end;
         Port (!dir', port, !dim', !sgn')
       | Port (dir, port, dims, xlst) as x ->
-        print_endline ("ANSI Port: "^port);
+        if verbose then print_endline ("ANSI Port: "^port);
         dir' := dir; dim' := dims; sgn' := xlst; x
       | Dot3 _ as x -> x (* placeholder *)
       | DotBus _ as x -> x (* placeholder *)

@@ -14,6 +14,21 @@ let knot a = F.make_not a
 let mux2 a b s = or2 (and2 a (knot s)) (and2 b s)
 let atom signal = F.make_atom ( E.make signal )
 
+let rec obin w n = 
+  (if w > 1 then obin (w-1) (n lsr 1) else "")^string_of_int (n land 1)
+
+let clog2 n = if n = 0 then 0 else int_of_float(ceil(log(float_of_int n)/.log 2.))
+
+let rec obin64 w n = 
+  (if w > 1 then obin64 (w-1) (Int64.shift_right n 1) else "")^Int64.to_string (Int64.logand n 1L)
+
+let str_to_bin s = let l = String.length s in 
+  (l*8), String.concat "" (List.init l (fun ix -> obin 8 (int_of_char s.[ix])))
+
+let num_to_bin w n = Printf.sprintf "%d'%s" w (obin w n)
+let int_to_bin = num_to_bin 32
+let flt_to_bin f = "64'"^obin64 64 (Int64.bits_of_float f)
+
 let othstr = ref None
 let othxlst = ref []
 let (othlst:(string * Source_text_rewrite_types.E.signal * Source_text_rewrite_types.F.t option) list ref) = ref []

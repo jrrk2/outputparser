@@ -1,6 +1,6 @@
 module count2(input clk, input rst, input en, output reg [7:0] q);
 
-   always @(posedge clk)
+   always @(posedge clk or posedge rst)
      if (rst)
        q = 8'b0;
      else if (en)

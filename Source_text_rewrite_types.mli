@@ -1,5 +1,8 @@
 
-type rw =  
+type mem_opts = {off:int list; siz:int list; wid:int; tot:int}
+
+type rw =
+  | Active of vtyp * rw * rw
   | Add of rw * rw
   | AlwaysComb of rw list
   | AlwaysComb2 of rw
@@ -241,19 +244,7 @@ type rw =
   | Xnor of rw * rw
   | Xor of rw * rw
 
-module E = Msat_sat_slit.String_lit (* expressions *)
-module F = Msat_tseitin.MakeCNF
-
-type ind = {
-  wires:(E.signal, F.t option) Hashtbl.t;
-  inffop:(E.signal, unit) Hashtbl.t;
-  stash:(E.signal, string * string * Input_rewrite_types.ilang list) Hashtbl.t;
-  wid:(string, int) Hashtbl.t;
-}
-
-type mem_opts = {off:int list; siz:int list; wid:int; tot:int}
-
-type vtyp =
+and vtyp =
   | Vint of int
   | Vpkg of string * string
   | Unsigned
@@ -277,6 +268,16 @@ type vtyp =
   | Vlocal of int * rw
   | Vsu of rw * (string * vtyp) list
   | Vsua of int * int * (string * vtyp) list
+
+module E = Msat_sat_slit.String_lit (* expressions *)
+module F = Msat_tseitin.MakeCNF
+
+type ind = {
+  wires:(E.signal, F.t option) Hashtbl.t;
+  inffop:(E.signal, unit) Hashtbl.t;
+  stash:(E.signal, string * string * Input_rewrite_types.ilang list) Hashtbl.t;
+  wid:(string, int) Hashtbl.t;
+}
 
 type dead = 
 | Undecidable

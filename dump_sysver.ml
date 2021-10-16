@@ -111,6 +111,7 @@ let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | PatMemberDflt expr -> vexpr typhash expr
 | ValueRange (lft, rght) -> "["^vexpr typhash lft^" .. "^vexpr typhash rght^"]"
 | String s -> s
+| AtStar -> "*"
 | oth -> dump_unhand := Some oth; failwith "vexpr"
 
 and vexpr' typhash = function
@@ -728,7 +729,7 @@ let rec sent_dump_template fd typhash (clk:rw) = function
     | Equate (lhs, rhs) ->
   fprintf fd "        %s <= %s; // 922	\n" (vexpr typhash lhs) (vexpr typhash rhs);
     | DeclData _ -> () 
-    | CaseStart _  as x -> stmt_clause fd typhash x
+    | (CaseStart _ | EquateSelect _) as x -> stmt_clause fd typhash x
     | oth -> dump_unhand := Some oth; failwith "sent_dump_template"
 
 let dump_conn typhash = function
@@ -766,6 +767,14 @@ let rec proc_dump_template fd typhash cnt = function
   fprintf fd "    // combinational process %d description goes here\n" !cnt;
   incr cnt;
   dump_deps_comb fd typhash "always" dep_lst;
+  fprintf fd "    begin\n";
+  stmt_clause fd typhash sent_lst;
+  fprintf fd "    end; // 979	\n";
+  fprintf fd "\n";
+    | AlwaysLegacy (AtStar, sent_lst) ->
+  fprintf fd "    // combinational process %d description goes here\n" !cnt;
+  incr cnt;
+  dump_deps_comb fd typhash "always" [AtStar];
   fprintf fd "    begin\n";
   stmt_clause fd typhash sent_lst;
   fprintf fd "    end; // 979	\n";
