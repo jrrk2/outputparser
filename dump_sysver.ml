@@ -538,6 +538,7 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
       | Id nam -> fprintf fd "logic [%s:%s] %s; // 538\n" (vexpr typhash hi) (vexpr typhash lo) nam
       | DeclAsgn (Id nam, (AnyRange (first,last) :: [])) ->
         fprintf fd "logic [%s:%s] %s[%s:%s]; // 550\n" (vexpr typhash hi) (vexpr typhash lo) nam (vexpr typhash first) (vexpr typhash last)
+      | VarDeclAsgn (Id nam, expr) -> fprintf fd "reg [%s:%s] %s = %s;\n" (vexpr typhash hi) (vexpr typhash lo) nam (vexpr typhash expr)
       | oth -> dump_unhand := Some oth; failwith "DeclReg550") reg_lst
     | CaseStmt _ -> ()
     | ContAsgn _ -> ()
@@ -727,15 +728,15 @@ let rec sent_dump_template fd typhash (clk:rw) = function
   fprintf fd "        end else begin\n";
     stmt_clause fd typhash else_lst;
   fprintf fd "        end\n";
-    | Equate (lhs, rhs) ->
-  fprintf fd "        %s <= %s; // 922	\n" (vexpr typhash lhs) (vexpr typhash rhs);
+    | Equate (lhs, rhs) -> fprintf fd "        %s <= %s; // 922	\n" (vexpr typhash lhs) (vexpr typhash rhs);
+    | Blocking (FopAsgn (lhs, rhs)) -> fprintf fd "        %s <= %s; // 922	\n" (vexpr typhash lhs) (vexpr typhash rhs);
     | DeclData _ -> () 
     | (CaseStart _ | EquateSelect _) as x -> stmt_clause fd typhash x
     | oth -> dump_unhand := Some oth; failwith "sent_dump_template"
 
 let dump_conn typhash = function
   | (Id _ | CellPinItem2 _ | CellPinItemImplied _ | CellPinItemNC _) as x -> vexpr typhash x
-  | oth -> unhand := Some oth; failwith "inst_arg"
+  | oth -> dump_unhand := Some oth; failwith "inst_arg"
 
 let instance_dump_template fd typhash (typ:rw) params inst pinlst =
   match typ with 
@@ -840,7 +841,7 @@ let dump_vdir = function
   | Out -> "output logic"
   | Inout -> "inout wire"
   | Deflt -> "inout wire"
-  | oth -> unhand := Some oth; failwith "dump_vdir"
+  | oth -> dump_unhand := Some oth; failwith "dump_vdir"
 
 let signcnv = function
         | (Deflt,AnyRange(hi,lo)) -> Unsigned_vector(hi,lo)

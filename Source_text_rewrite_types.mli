@@ -260,7 +260,7 @@ and vtyp =
   | Venum of string
   | Vintf of rw
   | MaybePort of int * vtyp * rw
-  | Vemember of string * string * rw
+  | Vemember of string * string * vtyp * int
   | Task of rw * rw * rw
   | Vmem of mem_opts
   | InstArray of rw * rw * rw

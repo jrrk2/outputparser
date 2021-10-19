@@ -1,8 +1,6 @@
-module count(input clk, input rst, input en, input dir, output reg [3:0] q);
+module count3(input clk, input rst, input en, input dir, output reg [1:0] state, output reg [3:0] q);
 
-   enum {hold,up,down} e_t;
-
-   reg [1:0] state;
+   enum logic [1:0] {hold,up,down} e_t;
 
    always @(posedge clk)
      if (rst)
