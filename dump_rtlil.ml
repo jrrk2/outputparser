@@ -359,7 +359,7 @@ let alweq = function
 | Id id, Expression (Equals (Id id', Number (2, 1, 1, "1"))) -> id=id'
 | oth -> dbgalweq := Some oth; failwith "alweq"
 
-let rec uniqid attr pref cnt lhs = 
+let rec uniqid attr pref cnt lhs =
   let newid = Id (pref^string_of_int cnt^lhs) in
   if Hashtbl.mem attr.subst newid then
     uniqid attr pref (cnt+1) lhs
@@ -377,22 +377,50 @@ let mapadd map (attr:attr) pref lhs expr =
   Hashtbl.add attr.subst newid (Active(typ', newid, expr));
   newid
 
-let rec map_active_comb (map:map) (attr: Source_text_rewrite.attr) = function
-| Equate (Id lhs, expr) ->
-  let expr' = map_active_comb map attr expr in
-  Blocking(FopAsgn(mapadd map attr map.nonblk lhs expr', expr'))
-| FopAsgn (Id lhs, expr) ->
-  let expr' = map_active_comb map attr expr in
-  FopAsgn(mapadd map attr map.block lhs expr', expr')
-| Id _ as id -> (match Hashtbl.find_opt attr.subst id with Some repl -> repl | None -> id)
-| If1(cond, if_clause) -> map_active_comb map attr if_clause (* are we justified in treating this as always true ? *)
-| oth -> Source_text_rewrite.descend' attr oth
+let map_id attr id = match Hashtbl.find_opt attr.subst id with Some repl -> repl | None -> id
 
-let rec map_active_seq (map:map) (attr: Source_text_rewrite.attr) = function
-| Equate (Id _ as lhs, expr) -> Equate(lhs, map_active_seq map attr lhs)
-| Blocking (FopAsgn (Id _ as lhs, expr)) -> Equate(lhs, map_active_seq map attr lhs)
-| Id _ as id -> (match Hashtbl.find_opt attr.subst id with Some repl -> repl | None -> id)
-| oth -> Source_text_rewrite.descend' attr oth
+let rec map_active_combined' (map:map) (attr: Source_text_rewrite.attr) : (rw -> rw * rw) = function
+(*
+| oth -> unhand := Some oth; failwith "debug"
+*)
+| Equate (Id lhs as lhs', expr) ->
+  let expr',_ = map_active_combined' map attr expr in
+  let lhs3 = mapadd map attr map.nonblk lhs expr' in
+  (Blocking(FopAsgn(lhs3, expr')), Equate(lhs', lhs3))
+| Blocking (FopAsgn (Id lhs as lhs', expr)) ->
+  let expr',_ = map_active_combined' map attr expr in
+  let lhs3 = mapadd map attr map.nonblk lhs expr' in
+  (Blocking (FopAsgn(lhs3, expr')), Equate(lhs', lhs3))
+| Id _ as id -> let rslt = map_id attr id in (rslt, rslt)
+| If1(cond, if_clause) as x ->
+    let p,q = match split_pair (Source_text_rewrite.descend' attr x) with
+      | If1(cond', if_clause'), q -> if_clause', q
+      | oth,_ -> unhand := Some oth; failwith "split_if1" in p,q
+| oth -> split_pair (Source_text_rewrite.descend' attr oth)
+
+and split_pair = function
+  | InitPair (p,q) -> p, q
+  | Pling (InitPair (p,q)) -> Pling p, Pling q
+  | And2 (InitPair (p,q), InitPair (r,s)) -> And2 (p,r), And2 (q,s)
+  | Add (InitPair (p,q), InitPair (r,s)) -> Add (p,r), Add (q,s)
+  | Sub (InitPair (p,q), InitPair (r,s)) -> Sub (p,r), Sub (q,s)
+  | If1 (InitPair (p,q), InitPair (r,s)) -> If1 (p,r), If1 (q,s)
+  | If2 (InitPair (p,q), InitPair (r,s), InitPair (t,u)) -> If2 (p,r,t), If2 (q,s,u)
+  | CaseStmt (InitPair (p,q) :: [], InitPair (r,s) :: []) -> CaseStmt (p :: [], r :: []), CaseStmt (q :: [], s :: [])
+  | CaseStart (InitPair (p,q), lst1) -> let r, s = split_pair_lst lst1 in CaseStart (p, r), CaseStart (q, s)
+  | CaseStart1 (InitPair (p,q)) -> CaseStart1 (p), CaseStart1 (q)
+  | Seq (lbl, lst1) -> let r, s = split_pair_lst lst1 in Seq (lbl, r), Seq (lbl, s)
+  | (Number _ | Atom _) as x -> x,x
+  | oth -> unhand := Some oth; failwith "split_pair"
+
+and split_pair_lst = function
+| [] -> [], []
+| InitPair (p,q) :: tl -> let r, s = split_pair_lst tl in p :: r, q :: s
+| oth -> unhand_lst := oth; failwith "split_pair_lst"
+
+let rec map_active_combined (map:map) (attr: Source_text_rewrite.attr) x =
+  let (comb,seq) = map_active_combined' map attr x in
+  InitPair (comb,seq)
 
 let rec map_reset (map:map) (attr: Source_text_rewrite.attr) = function
 | Blocking (FopAsgn (Id lhs, expr)) -> Equate(Id lhs, expr)
@@ -829,14 +857,16 @@ and elabeval attr = function
 
 and recurs3 (attr: Source_text_rewrite.attr) = function
   | CaseStart (CaseStart1 expr, stmts) ->
-(*
-        let op_dyadic = fun else' -> function CaseStmt (lbls, body) -> Seq ("", List.map (fun caseval -> If2 (Equals (expr, caseval), Seq ("", body), else')) lbls) in
-        let folded = List.fold_left op_dyadic hd tl in
-*)
         let collapse = function [] -> failwith "collapse" | hd::[] -> hd | tl -> Seq ("", tl) in
-        let op_dyadic = function CaseStmt (lbls, body) -> fun else' -> collapse (List.map (fun caseval -> If2 (Equals (expr, caseval), collapse body, else')) lbls) in
-        let op_terminate = function CaseStmt (lbls, body) -> collapse (List.map (fun caseval -> If1 (Equals (expr, caseval), collapse body)) lbls) in
-        let hd, tl = match List.rev stmts with hd::tl -> op_terminate hd, List.rev tl in
+        let op_dyadic = function
+            | CaseStmt (lbls, body) -> fun else' -> collapse (List.map (fun caseval -> If2 (Equals (expr, caseval), collapse body, else')) lbls)
+            | _ -> failwith "op_dyadic" in
+        let op_terminate = function
+            | CaseStmt (lbls, body) -> collapse (List.map (fun caseval -> If1 (Equals (expr, caseval), collapse body)) lbls)
+            | _ -> failwith "op_terminate" in
+        let hd, tl = match List.rev stmts with
+            | hd::tl -> op_terminate hd, List.rev tl
+            | [] -> failwith "empty statement" in
         let folded = List.fold_right op_dyadic tl hd in
         dbgcase := (expr, stmts, folded) :: !dbgcase;
         folded
@@ -1619,11 +1649,9 @@ let split_always typhash' act_seq rst_seq evlst rst =
     let pref' = {nonblk="nonblk2$";block="blk2$";typh=typhash'} in
     let rst' = {nonblk="$";block="$";typh=typhash'} in
     let subh = Hashtbl.create 255 in
-    let attr = {Source_text_rewrite.fn=map_active_comb pref; subst=subh; pth=""} in
-    let attr' = {Source_text_rewrite.fn=map_active_seq pref'; subst=subh; pth=""} in
+    let attr = {Source_text_rewrite.fn=map_active_combined pref; subst=subh; pth=""} in
     let attr'' = {Source_text_rewrite.fn=map_reset pref'; subst=subh; pth=""} in
-    let act_seq' = map_active_comb pref attr act_seq in
-    let act_seq'' = map_active_seq pref' attr' act_seq in
+    let act_seq', act_seq'' = map_active_combined' pref attr act_seq in
     let rst_seq'' = map_reset rst' attr'' rst_seq in
     let newseq = AlwaysLegacy (AtStar, act_seq') in
     let newseq' = AlwaysLegacy (At (EventOr evlst), If2 (rst, rst_seq'', act_seq'')) in
