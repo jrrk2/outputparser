@@ -1,6 +1,9 @@
 open Input_rewrite_types
+open Source_text_misc
+
+(*
 open Source_text_rewrite_types
-open Source_text_rewrite
+*)
 
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") with err -> 0
 

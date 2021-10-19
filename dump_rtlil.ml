@@ -2,6 +2,7 @@ open Source_text_rewrite_types
 open Input_rewrite_types
 open Source_text_rewrite
 open Source_text_split
+open Source_text_misc
 open Source_text_lex
 open Source_text
 open Printf

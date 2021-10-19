@@ -98,7 +98,7 @@ let tokkind = function
 
 let rec tokop = function
 | TokID a -> "\\"^a^" "
-| TokInt n -> tokval (Source_text_rewrite.int_to_bin n)
+| TokInt n -> tokval (Source_text_misc.int_to_bin n)
 | TokVal b -> tokval b
 | Sigspec90 (id, ix) -> "\\"^id^" [ "^string_of_int ix^" ]"
 | Sigspecrange (id, hi, lo) -> "\\"^id^" [ "^string_of_int hi^" : "^string_of_int lo^" ]"

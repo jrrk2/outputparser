@@ -40,8 +40,8 @@ open Input_rewrite_types
 open Dump_sysver
 open Dump_rtlil
 open Matchmly
-open Source_text_rewrite_types.E
-open Source_text_rewrite_types.F
+open Source_text_misc.E
+open Source_text_misc.F
 open String_lit
 open Convert
 open Ver_dump

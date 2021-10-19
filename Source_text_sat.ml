@@ -1,18 +1,24 @@
 open Printf
+open Source_text_misc
+(*
 open Source_text
 open Source_text_lex
-open Source_text_misc
 open Source_text_rewrite
 open Source_text_rewrite_types
+*)
 open Input
 open Input_rewrite_types
 
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") with err -> 0
 let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
+(*
 let dumpver = try int_of_string (Sys.getenv "DUMP_VER") > 0 with err -> false
+*)
 
+(*
 let dbgx = ref []
 let dbgopt = ref []
+*)
 
 let oth' = ref None
 let othopt = ref None
@@ -47,6 +53,7 @@ let addff (ind:ind) signal = let op = atom signal in Hashtbl.replace ind.wires s
 
 (* convert and print a cnf *)
 
+(*
 let cnfpp q =
   let buf' = Buffer.create 1000 in
   let buf = Format.formatter_of_buffer buf' in
@@ -62,6 +69,7 @@ let epp itm =
   E.pp buf itm;
   Format.pp_print_flush buf ();
   print_endline (Buffer.contents buf')
+*)
 
 let stash' (ind:ind) = function
   | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> pin, idx signal ix
@@ -132,60 +140,6 @@ let rec cnv_ilang (ind:ind) = function
   List.iter2 (fun lhs' rhs' -> stash ind "$_BUF_" ("$B"^string_of_int (Hashtbl.length ind.stash)) [ TokConn ([TokID "\\A"], [cnv_sig rhs']) ; TokConn ([TokID "\\Y"], [cnv_sig lhs']) ]) lhs rhs
 | Param_defval_stmt24(string,ilang_lst') -> () (* does not seem to be used yet *)
 | Param_stmt23(string,ilang_lst') -> () (* placeholder *)
-
-(*
-| Assign_stmt67(ilang_lst,ilang_lst') -> ()
-| Attr_list56(ilang_lst,ilang_lst') -> ()
-| Case_body63(ilang_lst,ilang_lst') -> ()
-| Case_body64(ilang_lst,ilang_lst') -> ()
-| Case_body65(ilang_lst,ilang_lst') -> ()
-| Cell_bodyconnect(ilang_lst,string,ilang_lst',ilang_lst2) -> ()
-| Cell_bodyparam(ilang_lst,string,ilang_lst',ilang_lst2) -> ()
-| Cell_bodypreal(ilang_lst,string,ilang_lst',ilang_lst2) -> ()
-| Cell_bodypsigned(ilang_lst,string,ilang_lst',ilang_lst2) -> ()
-| Compare_list61(ilang_lst,ilang_lst') -> ()
-| Design6(ilang_lst,ilang_lst') -> ()
-| Design7(ilang_lst,ilang_lst') -> ()
-| Design8(ilang_lst,ilang_lst') -> ()
-| Input2(ilang_lst,ilang_lst') -> ()
-| Memory_optionsoffset(int') -> ()
-| Memory_optionssize(int') -> ()
-| Memory_optionswidth(int') -> ()
-| Memory_stmt39(ilang_lst,string') -> ()
-| Module_body13(ilang_lst,ilang_lst') -> ()
-| Proc_stmt(string,ilang_lst,ilang_lst',ilang_lst2) -> ()
-| Signed -> ()
-| Sigspec90(string, int') -> ()
-| Sigspec92(ilang_lst') -> ()
-| Sigspec_list_reversed93(ilang_lst,ilang_lst') -> ()
-| Sigspecrange(string,int,int') -> ()
-| Switch_bodycase(ilang_lst,ilang_lst',ilang_lst2) -> ()
-| Switch_stmt(ilang_lst,ilang_lst',ilang_lst2,ilang_lst3) -> ()
-| Sync_list69(ilang_lst',ilang_lst2,ilang_lst3,ilang_lst4) -> ()
-| Sync_listalways(ilang_lst',ilang_lst2) -> ()
-| Sync_listglobal(ilang_lst',ilang_lst2) -> ()
-| Sync_listinit(ilang_lst',ilang_lst2) -> ()
-| Update_list82(ilang_lst',ilang_lst2) -> ()
-| Update_listmemwr(string,ilang_lst2,ilang_lst3,ilang_lst4,ilang_lst5) -> ()
-| Upto -> ()
-| Wire_optionsinout(int) -> ()
-| Wire_optionsinput(int) -> ()
-| Wire_optionsinvalid -> ()
-| Wire_optionsoffset(int') -> ()
-| Wire_optionsoutput(int') -> ()
-| Wire_optionswidth(int') -> ()
-| TokCase(ilang_lst,ilang_lst') -> ()
-| TokConn(ilang_lst,ilang_lst') -> ()
-| TokParam(ilang_lst,ilang_lst') -> ()
-| TokUpdate(ilang_lst,ilang_lst') -> ()
-| TokInt(int) -> ()
-| TokID(string) -> ()
-| TokVal(string) -> ()
-| TokStr(string) -> ()
-| TokPos -> ()
-| TokNeg -> ()
-| TokEdge -> ()
-*)
 | oth -> oth' := Some oth; failwith "cnv_ilang"
 
 let mycnf' = ref F.f_false
@@ -232,100 +186,19 @@ let cnv_sat arg' =
       !hlst, List.sort compare !inffoplst, !widlst
   ) arg
 
-let dbgtree = ref Source_text.EMPTY_TOKEN
-let dbgmatch = ref Deflt
-
-let rewrite_rtlil v =
+let compare v v' =
   let status = ref true in
-  if verbose > 1 then print_endline ("Parsing: "^v);
-  Matchmly.modules := [];
-(*
-  let p = Source_text_preproc.parse' Source_text_rewrite.parse_output_ast_from_function v in
-*)
-  let p = Source_text_rewrite.parse_output_ast_from_pipe v in
-  let p' = rw p in
-  dbgtree := p';
-  let x = Matchmly.mly p' in
-  dbgmatch := x;
-  let modlst = ref [] in
-  let optlst = ref [] in
   let fnam = v^"_dump.ys" in
   let fd = open_out fnam in
   if verbose > 1 then print_endline ("Yosys command file: "^fnam);
-  let fnam' = v^"_dump.v" in
-  let fnam'' = v^"_dump.rtlil" in
-  let fd' = open_out fnam' in
-  let fd'' = open_out fnam'' in
-(* *)
+  if verbose > 1 then print_endline ("File: "^v);
   fprintf fd "read_verilog -sv -overwrite %s\n" v;
-  fprintf fd "write_ilang %s_golden_proc.rtlil\n" v;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
-  fprintf fd "write_verilog %s_golden_synth.v\n" v;
-(* *)
-  List.iter (fun (k, x) ->
-                dbgx := (k, x) :: !dbgx;
-                let typhash, sub, rtl = Dump_rtlil.template Matchmly.modules x in
-		modlst := (k, rtl) :: !modlst;
-		optlst := (k, (typhash, sub)) :: !optlst;
-                if sep_rtl then
-                    begin
-                      let fnam' = v^"_dump_"^k^".v" in
-                      let fnam'' = v^"_dump_"^k^".rtlil" in
-                      let fd' = open_out fnam' in
-                      let fd'' = open_out fnam'' in
-                      if dumpver then print_endline ("File: "^fnam')
-                          else print_endline ("File: "^fnam'');
-                      if dumpver then
-                        begin
-                        fprintf fd "read_verilog -overwrite %s\n" fnam';
-                        fprintf fd "write_ilang %s.ilang\n" fnam';
-                        end
-                      else
-                        fprintf fd "read_ilang -overwrite %s\n" fnam'';
-                      Ver_dump.dump fd' rtl;
-                      Input_dump.dump fd'' rtl;
-                      close_out fd';
-                      close_out fd'';
-                      end
-                else
-                  begin
-                      Ver_dump.dump fd' rtl;
-                      Input_dump.dump fd'' rtl;
-                    end
-		) !(Matchmly.modules);
-  if not sep_rtl then
-    begin
-      close_out fd';
-      close_out fd'';
-    end;
-  let optlst = !optlst in
-  dbgopt := optlst;
-  List.iter (fun (k,(typhash,sub)) ->
-      let fnam3 = v^"_dump_"^k^".opt.v" in
-      fprintf fd "read_verilog -sv -overwrite %s\n" fnam3;
-      let fd3 = open_out fnam3 in
-      Dump_rtlil.dbgtyp := typhash;
-      print_endline ("Dumping: " ^ k ^ " to file: "^fnam3);
-      Dump_sysver.dump_template fd3 typhash optlst sub;
-      close_out fd3) optlst;
-  fprintf fd "write_ilang %s_opt_proc.rtlil\n" v;
+  if verbose > 1 then print_endline ("File: "^v');
+  fprintf fd "read_verilog -overwrite %s\n" v';
   fprintf fd "synth\n";
-  fprintf fd "write_ilang %s_opt_synth.rtlil\n" v;
-  fprintf fd "write_verilog %s_opt_synth.v\n" v;
-  if not sep_rtl then
-    begin
-      if verbose > 1 then print_endline ("File: "^fnam');
-      if dumpver then
-        begin
-        fprintf fd "read_verilog -overwrite %s\n" fnam';
-        fprintf fd "write_ilang %s.ilang\n" fnam';
-        end
-      else fprintf fd "read_ilang -overwrite %s\n" fnam'';
-    end;
-  fprintf fd "synth\n";
-  fprintf fd "write_ilang %s_dump_synth.rtlil\n" v;
-  fprintf fd "write_verilog %s_dump_synth.v\n" v;
+  fprintf fd "write_ilang %s_opt_synth.rtlil\n" v';
   close_out fd;
   let script = "yosys "^(if verbose > 3 then "-X " else "-q ")^fnam in
   let _ = match Unix.system script with
@@ -338,7 +211,7 @@ let rewrite_rtlil v =
       begin
       if verbose > 1 then print_endline "yosys succeeded";
       let goldlst = cnv_sat (v^"_golden_synth.rtlil") in
-      let revlst = cnv_sat (v^"_opt_synth.rtlil") in
+      let revlst = cnv_sat (v'^"_opt_synth.rtlil") in
       List.iter2 (fun (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') ->
       let inffoplst1,inffoplst2 = List.split inffoplst in
       let inffoplst1',inffoplst2' = List.split inffoplst' in
@@ -367,11 +240,6 @@ let rewrite_rtlil v =
       if verbose > 0 then print_endline ("Endpoint comparison: "^String.concat "; " ep_comparison;
         )) goldlst revlst;
       print_endline ("Overall comparison: "^ string_of_bool !status);
-(*
-      let xorall = List.map2 xor2 inffoplst2 inffoplst2' in
-      let mitre = if xorall <> [] then F.make_or xorall else failwith "mitre" in
-      let res = ep mitre in ()
-*)
       end;
     errno
   | WSIGNALED signal ->
@@ -382,10 +250,8 @@ let rewrite_rtlil v =
     printf "yosys stopped by signal %d\n" signal;
     status := false;
     signal in
-  !modlst, x, p, p', !status
+  !status
 
-let _ = if Array.length Sys.argv > 1 then Array.iteri (fun ix itm -> try
-    if ix > 0 then let modlst,x,p,p',status = rewrite_rtlil itm in
-    List.iter (fun (k,_) -> print_endline ((if status then "PASSED: " else "FAILED: ")^itm^"("^k^")")) modlst
-    with err -> print_endline ("FAILED: "^itm)) Sys.argv
-
+let _ = if Array.length Sys.argv >= 3 then
+    let status = compare Sys.argv.(1) Sys.argv.(2) in
+    print_endline (if status then "PASSED: " else "FAILED: ")

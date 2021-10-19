@@ -270,16 +270,6 @@ and vtyp =
   | Vsu of rw * (string * vtyp) list
   | Vsua of int * int * (string * vtyp) list
 
-module E = Msat_sat_slit.String_lit (* expressions *)
-module F = Msat_tseitin.MakeCNF
-
-type ind = {
-  wires:(E.signal, F.t option) Hashtbl.t;
-  inffop:(E.signal, unit) Hashtbl.t;
-  stash:(E.signal, string * string * Input_rewrite_types.ilang list) Hashtbl.t;
-  wid:(string, int) Hashtbl.t;
-}
-
 type dead = 
 | Undecidable
 | Always_false

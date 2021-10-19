@@ -107,6 +107,7 @@ work-obj93.cf
 examples/*.ml
 examples/*.ref
 examples/*.v_dump.ys
+examples/*.v_opt_synth.v
 examples/*.verilog
 examples/*.opt.v
 examples/*.noexpr
@@ -114,3 +115,8 @@ junk.v
 .DS_Store
 logfile.txt
 sat_example
+Source_text_compare
+examples/assert.preproc
+examples/*.v_dump_synth.v
+examples/*.v_golden_synth.rtlil_dump.ys
+examples/*.v_golden_synth.v
