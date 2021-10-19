@@ -190,6 +190,8 @@ let rec cnv_ilang (ind:ind) = function
 let mycnf' = ref F.f_false
 let mycnf = ref [[E.transparent (E.fresh ())]]
 let othh = ref F.f_false
+let dumpitm = ref []   (* Msat_tseitin.MakeCNF.Lit (false, Made GND) *)
+let dumpitm' = ref []  (* Msat_tseitin.MakeCNF.Lit (false, Made GND) *)
 
 let ep k' form =
     if verbose > 2 then print_endline "Dumping cnf";
@@ -253,12 +255,12 @@ let rewrite_rtlil v =
   let fnam'' = v^"_dump.rtlil" in
   let fd' = open_out fnam' in
   let fd'' = open_out fnam'' in
-(*
+(* *)
   fprintf fd "read_verilog -sv -overwrite %s\n" v;
   fprintf fd "write_ilang %s_golden_proc.rtlil\n" v;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
-*)
+(* *)
   List.iter (fun (k, x) ->
                 dbgx := (k, x) :: !dbgx;
                 let typhash, sub, rtl = Dump_rtlil.template Matchmly.modules x in
@@ -305,9 +307,9 @@ let rewrite_rtlil v =
       print_endline ("Dumping: " ^ k ^ " to file: "^fnam3);
       Dump_sysver.dump_template fd3 typhash optlst sub;
       close_out fd3) optlst;
-  fprintf fd "write_ilang %s_golden_proc.rtlil\n" v;
+  fprintf fd "write_ilang %s_opt_proc.rtlil\n" v;
   fprintf fd "synth\n";
-  fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
+  fprintf fd "write_ilang %s_opt_synth.rtlil\n" v;
   if not sep_rtl then
     begin
       if verbose > 1 then print_endline ("File: "^fnam');
@@ -332,7 +334,7 @@ let rewrite_rtlil v =
       begin
       if verbose > 1 then print_endline "yosys succeeded";
       let goldlst = cnv_sat (v^"_golden_synth.rtlil") in
-      let revlst = cnv_sat (v^"_dump_synth.rtlil") in
+      let revlst = cnv_sat (v^"_opt_synth.rtlil") in
       List.iter2 (fun (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') ->
       let inffoplst1,inffoplst2 = List.split inffoplst in
       let inffoplst1',inffoplst2' = List.split inffoplst' in
@@ -340,17 +342,24 @@ let rewrite_rtlil v =
       print_endline ("Golden (yosys) primary inputs/flipflop inputs/final outputs: "^String.concat "; " (List.map E.string_of_signal inffoplst1));
       print_endline ("Revised (our) primary inputs/flipflop inputs/final outputs: "^String.concat "; " (List.map E.string_of_signal inffoplst1'));
       end;
+      dumpitm := [];
       let ep_comparison = List.map (fun (k, itm) ->
           let k' = E.string_of_signal k in
           match List.assoc_opt k inffoplst with
-            | Some itm' -> 
+            | Some itm' ->
               let stat = ep k' (xor2 itm itm') in
-              if not stat then status := false;
+              if not stat then
+                begin
+                  dumpitm := (k, itm) :: !dumpitm;
+                  dumpitm' := (k, itm') :: !dumpitm';
+                  status := false;
+                end;
               k' ^ ": " ^ string_of_bool stat
             | None ->
               status := false;
               k' ^ ": not compared"
           ) inffoplst' in
+      dumpitm := List.rev !dumpitm;
       if verbose > 0 then print_endline ("Endpoint comparison: "^String.concat "; " ep_comparison;
         )) goldlst revlst;
       print_endline ("Overall comparison: "^ string_of_bool !status);

@@ -86,6 +86,7 @@ let fpp q =
 let notsupp kind lst = failwith ("Not supported: "^kind)
 
 let getstr = function
+  | Active _ -> "Active"
   | Add _ -> "Add"
   | AlwaysComb _ -> "AlwaysComb"
   | AlwaysComb2 _ -> "AlwaysComb2"
@@ -433,6 +434,7 @@ and flatten lst = List.flatten (List.map (function ELIST lst -> List.map rw lst 
 type attr = {subst: (rw,rw)Hashtbl.t; fn: attr -> rw -> rw; pth: string}
 
 let rec descend' (attr:attr) = function
+  | Active(vtyp1, rw2, rw3) -> Active(vtyp1, descend_itm attr rw2, descend_itm attr rw3)
   | Add(rw1, rw2) -> Add(descend_itm attr rw1, descend_itm attr rw2)
   | AlwaysComb(rw_lst1) -> AlwaysComb(descend_lst attr rw_lst1)
   | AlwaysComb2(rw1) -> AlwaysComb2(descend_itm attr rw1)

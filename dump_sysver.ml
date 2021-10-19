@@ -352,11 +352,11 @@ let rec stmt_clause fd typhash = function
       | Itmlst lst -> List.iter (stmt_clause fd typhash) lst
       | BeginBlock lst -> List.iter (stmt_clause fd typhash) lst
       | If2 (condition, if_lst, else_lst) ->
-  fprintf fd "        if (%s) then\n" (vexpr typhash condition);
+  fprintf fd "        if (%s) begin\n" (vexpr typhash condition);
     (match if_lst with BeginBlock if_lst -> List.iter (stmt_clause fd typhash) if_lst | _ -> stmt_clause fd typhash if_lst);
-  fprintf fd "        else\n";
+  fprintf fd "        end\nelse\nbegin";
     (match else_lst with BeginBlock else_lst -> List.iter (stmt_clause fd typhash) else_lst | _ -> stmt_clause fd typhash else_lst);
-  fprintf fd "        end if; // 772	\n";
+  fprintf fd "        end\n";
       | If1 _ as x -> iff_dump_template fd typhash x
       | DeclLogic lst -> ()
       | Seq (id, []) -> fprintf fd "       begin end; // 775	\n"
@@ -441,6 +441,7 @@ let rec stmt_clause fd typhash = function
       | DeclInt2 _ -> ()
       | DeclLogic2 _ -> ()
       | Return expr -> fprintf fd "return %s;\n" (vexpr typhash expr)
+      | CaseStmt _ as x -> case_clause fd typhash x
       | oth -> dump_unhand := Some oth; failwith "stmt_clause"
 
 and case_clause fd typhash = function
@@ -476,9 +477,9 @@ and case_clause fd typhash = function
 	| oth -> dump_unhand := Some oth; failwith "case_item"
 
 and iff_dump_template fd typhash = function
-    | If1(condition, if_lst) -> fprintf fd "        if (%s) then\n" (vexpr typhash condition);
+    | If1(condition, if_lst) -> fprintf fd "        if (%s) begin\n" (vexpr typhash condition);
       stmt_clause fd typhash if_lst;
-      fprintf fd "        end if; // 883	\n";
+      fprintf fd "end\n";
     | oth -> dump_unhand := Some oth; failwith "iff_dump_template"
 
 let dump_enum fd typhash front lft rght elst back =
@@ -603,15 +604,19 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
     | TypEnum4 (TypEnum3 (AnyRange(lft,rght) :: []), id_lst, id_lst') ->
         let kind = Unsigned_vector(lft,rght) in
         let f' itm = let s = vexpr typhash itm in  s in
-        let f'' = function Id nam -> fprintf fd "typedef enum {%s} %s; // 705\n" (String.concat ", " (List.map f' id_lst)) nam | _ -> () in
+        let f'' = function Id nam -> fprintf fd "typedef enum {%s} %s; // 606\n" (String.concat ", " (List.map f' id_lst)) nam | _ -> () in
+        List.iter f'' id_lst'
+    | TypEnum4 (Deflt, id_lst, id_lst') ->
+        let f' itm = let s = vexpr typhash itm in  s in
+        let f'' = function Id nam -> fprintf fd "    typedef enum {%s} %s; // 610\n" (String.concat ", " (List.map f' id_lst)) nam | _ -> () in
         List.iter f'' id_lst'
     | TypEnum4 (TypEnum5 (Atom "logic"), id_lst, id_lst') ->
         let f' itm = let s = vexpr typhash itm in  s in
-        let f'' = function Id nam -> fprintf fd "    typedef enum {%s} %s; // 711\n" (String.concat ", " (List.map f' id_lst)) nam | _ -> () in
+        let f'' = function Id nam -> fprintf fd "    typedef enum {%s} %s; // 614\n" (String.concat ", " (List.map f' id_lst)) nam | _ -> () in
         List.iter f'' id_lst'
     | TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), id_lst) -> dump_enum fd typhash "typedef " lft rght id_lst (nam^"; ")
     | TypEnum6 (nam, TypEnum5 (Atom "logic"), id_lst) -> 
-        fprintf fd "typedef enum logic {\n\t%s\n} %s; // 723\n" (String.concat ",\n\t" (List.map (function
+        fprintf fd "typedef enum logic {\n\t%s\n} %s; // 618\n" (String.concat ",\n\t" (List.map (function
         | Id e -> e
         | EnumInit (e, expr) ->
 	    let s = vexpr typhash expr in
@@ -619,7 +624,7 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
 	    s'
 	| oth -> dump_unhand := Some oth; failwith "TypEnum6") id_lst)) nam
     | TypEnum6 (nam, Deflt, id_lst) -> 
-        fprintf fd "typedef enum logic {\n\t%s\n} %s; // 723\n" (String.concat ",\n\t" (List.map (function
+        fprintf fd "typedef enum logic {\n\t%s\n} %s; // 626\n" (String.concat ",\n\t" (List.map (function
         | Id e -> e
         | EnumInit (e, expr) ->
 	    let s = vexpr typhash expr in
@@ -627,7 +632,7 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
 	    s'
 	| oth -> dump_unhand := Some oth; failwith "TypEnum6") id_lst)) nam
     | TypEnum6 (nam, Typ8 (Atom "int", Atom "unsigned"), id_lst) -> 
-        fprintf fd "typedef enum unsigned int {\n\t%s\n} %s; // 723\n" (String.concat ",\n\t" (List.map (function
+        fprintf fd "typedef enum unsigned int {\n\t%s\n} %s; // 634\n" (String.concat ",\n\t" (List.map (function
         | Id e -> e
         | EnumInit (e, expr) ->
 	    let s = vexpr typhash expr in
@@ -690,42 +695,38 @@ let rec sent_dump_template fd typhash (clk:rw) = function
     | Seq (lbl, lst) -> List.iter (sent_dump_template fd typhash clk) lst
     | If2 ((Equals (Id rst, lev)|Expression(Equals (Id rst, lev))), if_lst, else_lst) ->
       let clk = (vexpr typhash clk) in
-  fprintf fd "        if (%s = %s) then\n" rst (vexpr typhash lev);
+  fprintf fd "        if (%s == %s) begin\n" rst (vexpr typhash lev);
     stmt_clause fd typhash if_lst;
-  fprintf fd "        elsif (%s'event and %s = '1') then\n" clk clk;
+  fprintf fd "        end else begin\n";
     stmt_clause fd typhash else_lst;
-  fprintf fd "        end if; // 894	\n";
+  fprintf fd "        end\n";
     | If2 (Id rst, if_lst, else_lst) ->
       let clk = (vexpr typhash clk) in
-  fprintf fd "        if (%s = %s) then\n" rst (vexpr typhash (Number (2, 1, 1, "1")));
+  fprintf fd "        if (%s == %s) begin\n" rst (vexpr typhash (Number (2, 1, 1, "1")));
     stmt_clause fd typhash if_lst;
-  fprintf fd "        elsif (%s'event and %s = '1') then\n" clk clk;
+  fprintf fd "        end else begin\n";
     stmt_clause fd typhash else_lst;
-  fprintf fd "        end if; // 900	\n";
+  fprintf fd "        end\n";
     | If2 ((Pling (Id rst)|Tilde (Id rst)), if_lst, else_lst) ->
       let clk = (vexpr typhash clk) in
-  fprintf fd "        if (%s = %s) then\n" rst (vexpr typhash (Number (2, 1, 0, "1")));
+  fprintf fd "        if (%s == %s) begin\n" rst (vexpr typhash (Number (2, 1, 0, "1")));
     stmt_clause fd typhash if_lst;
-  fprintf fd "        elsif (%s'event and %s = '1') then\n" clk clk;
+  fprintf fd "        end else begin\n";
     stmt_clause fd typhash else_lst;
-  fprintf fd "        end if; // 906	\n";
-    | If1 (Id cond, if_lst) ->
-      let clk = (vexpr typhash clk) in
-  fprintf fd "        if (%s'event and %s = '1') then\n" clk clk;
-    stmt_clause fd typhash if_lst;
-  fprintf fd "        end if; // 910	\n";
+  fprintf fd "        end\n";
     | If1 (cond, if_lst) ->
-      let clk = (vexpr typhash clk) in
-  fprintf fd "        if (%s = '1') then\n" (vexpr typhash cond);
+  fprintf fd "        if (%s) begin\n" (vexpr typhash cond);
     stmt_clause fd typhash if_lst;
-    fprintf fd "        end if; // 914	\n";
+  fprintf fd "        end\n";
+    | If1 (cond, if_lst) ->
+  fprintf fd "        if (%s) begin\n" (vexpr typhash cond);
+    stmt_clause fd typhash if_lst;
     | If2 (cond, if_lst, else_lst) ->
-      let clk = (vexpr typhash clk) in
-  fprintf fd "        if (%s = '1') then\n" (vexpr typhash cond);
+  fprintf fd "        if (%s) begin\n" (vexpr typhash cond);
     stmt_clause fd typhash if_lst;
-  fprintf fd "        elsif (%s'event and %s = '1') then\n" clk clk;
+  fprintf fd "        end else begin\n";
     stmt_clause fd typhash else_lst;
-    fprintf fd "        end if; // 920	\n";
+  fprintf fd "        end\n";
     | Equate (lhs, rhs) ->
   fprintf fd "        %s <= %s; // 922	\n" (vexpr typhash lhs) (vexpr typhash rhs);
     | DeclData _ -> () 
@@ -753,7 +754,7 @@ let rec proc_dump_template fd typhash cnt = function
   dump_deps fd "always_ff" dep_lst;
   fprintf fd "    begin\n";
   sent_dump_template fd typhash clk sent_lst;       
-  fprintf fd "    end process; // 947	\n";
+  fprintf fd "    end; // 947	\n";
   fprintf fd "\n";
     | AlwaysLegacy (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
   fprintf fd "    // clocked process %d description goes here\n" !cnt;
@@ -793,7 +794,7 @@ let rec proc_dump_template fd typhash cnt = function
   incr cnt;
   fprintf fd "    begin\n";
   stmt_clause fd typhash sent_lst;
-  fprintf fd "    end process; // 995	\n";
+  fprintf fd "    end; // 995	\n";
   fprintf fd "\n";
   (* elaboration case *)
    | CaseStart (Id id, (CaseItm (BeginBlock [] :: Unknown ("$error",_) :: Deflt :: []) :: [])) -> fprintf fd "// elaboration case %s\n" id;

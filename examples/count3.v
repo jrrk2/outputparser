@@ -1,4 +1,4 @@
-module count(input clk, input rst, input en, input dir, output reg [7:0] q);
+module count(input clk, input rst, input en, input dir, output reg [3:0] q);
 
    enum {hold,up,down} e_t;
 
@@ -7,7 +7,7 @@ module count(input clk, input rst, input en, input dir, output reg [7:0] q);
    always @(posedge clk)
      if (rst)
        begin
-       q = 8'b0;
+       q = 4'b0;
        state = hold;
        end
      else
@@ -17,9 +17,9 @@ module count(input clk, input rst, input en, input dir, output reg [7:0] q);
           else state = hold;
        case (state)
 	  up:
-	     q = q + 8'b1;
+	     q = q + 4'b1;
 	  down:
-	     q = q - 8'b1;
+	     q = q - 4'b1;
 	  hold:;
 	  endcase
        end

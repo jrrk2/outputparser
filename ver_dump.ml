@@ -122,6 +122,7 @@ let rec bodymap ind = function
 *)
            "case("^tokop sel^")\n"^String.concat "" (List.map (switchmap ind) caselst) ^ "endcase\n"
          | Assign_stmt67 ([], []) -> ""
+         | Switch_bodycase _ as x -> switchmap ind x
          | oth -> othv := Some oth; failwith "bodymap"
 
 and switchmap ind = function

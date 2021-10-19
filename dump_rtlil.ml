@@ -343,6 +343,7 @@ let dbgports = ref []
 let dbgtyp = ref (Hashtbl.create 1)
 let otha = ref None
 let dbgcase = ref []
+let dbgcase' = ref []
 let dbgwida = ref 0
 let dbgwids = ref 0
 let dbgmem' = ref None
@@ -352,24 +353,27 @@ let dbgatom = ref ""
 let dbgpkg = ref None
 let dbgpair = ref []
 let dbgalweq = ref None
-let dbgext = ref None
 
 let alweq = function
 | Id id, Id id' -> id=id'
 | Id id, Expression (Equals (Id id', Number (2, 1, 1, "1"))) -> id=id'
 | oth -> dbgalweq := Some oth; failwith "alweq"
 
-let rec extract_rst lst' = function
-| Seq("", lst) -> List.iter (extract_rst lst') lst
-| Equate (Id _ as lhs, expr) -> lst' := (lhs, expr) :: !lst'
-| oth -> dbgext := Some oth; failwith "extract"
+let rec uniqid attr pref cnt lhs = 
+  let newid = Id (pref^string_of_int cnt^lhs) in
+  if Hashtbl.mem attr.subst newid then
+    uniqid attr pref (cnt+1) lhs
+  else
+    begin
+    Hashtbl.add attr.subst (Id lhs) newid;
+    newid
+    end
 
-let mapadd map attr pref lhs expr =
+let mapadd map (attr:attr) pref lhs expr =
   let typ' = match Hashtbl.find_opt map.typh lhs with
       | Some typ' -> typ'
       | None -> failwith "mapadd" in
-  let newid = Id (pref^lhs) in
-  Hashtbl.add attr.subst (Id lhs) newid;
+  let newid = uniqid attr pref 1 lhs in
   Hashtbl.add attr.subst newid (Active(typ', newid, expr));
   newid
 
@@ -381,6 +385,7 @@ let rec map_active_comb (map:map) (attr: Source_text_rewrite.attr) = function
   let expr' = map_active_comb map attr expr in
   FopAsgn(mapadd map attr map.block lhs expr', expr')
 | Id _ as id -> (match Hashtbl.find_opt attr.subst id with Some repl -> repl | None -> id)
+| If1(cond, if_clause) -> map_active_comb map attr if_clause (* are we justified in treating this as always true ? *)
 | oth -> Source_text_rewrite.descend' attr oth
 
 let rec map_active_seq (map:map) (attr: Source_text_rewrite.attr) = function
@@ -754,17 +759,17 @@ and tsubst attr arglst id = recurs2 attr (match Hashtbl.find_opt attr.subst (Tas
   | Some oth -> unhand := Some oth; failwith "TaskRef"
   | None -> failwith ("No definition for task: "^id))
 
-and dead_code attr = function
-| Pling rhs -> dead_code attr rhs
+and dead_code = function
+| Pling rhs -> dead_code rhs
 | Less (Intgr n, Intgr m) -> if n < m then Always_true else Always_false
 | LtEq (Intgr n, Intgr m) -> if n <= m then Always_true else Always_false
 | Equals (Intgr n, Intgr m) -> if n = m then Always_true else Always_false
 | NotEq (Intgr n, Intgr m) -> if n <> m then Always_true else Always_false
 | GtEq (Intgr n, Intgr m) -> if n >= m then Always_true else Always_false
 | Greater (Intgr n, Intgr m) -> if n > m then Always_true else Always_false
-| Or2 (lhs, rhs) -> dead_code_or attr (dead_code attr lhs, dead_code attr rhs)
-| And2 (lhs, rhs) -> dead_code_and attr (dead_code attr lhs, dead_code attr rhs)
-| Id _ as id -> (match Hashtbl.find_opt attr.Source_text_rewrite.subst id with Some x -> dead_code_id attr x | None -> Undecidable)
+| Or2 (lhs, rhs) -> dead_code_or (dead_code lhs, dead_code rhs)
+| And2 (lhs, rhs) -> dead_code_and (dead_code lhs, dead_code rhs)
+| Id _ -> Undecidable
 | Intgr n -> if n <> 0 then Always_true else Always_false
 | (TildeAnd _ | RedAnd _ | RedOr _ | IdArrayed2 _ | GtEq _ | Equals _ | Less _ | LtEq _ | NotEq _ | Greater _) -> Undecidable
 (*
@@ -772,15 +777,15 @@ and dead_code attr = function
 *)
 | _ -> Undecidable
 
-and dead_code_id attr = function
+and dead_code_id = function
 | oth -> Undecidable
 
-and dead_code_and attr = function
+and dead_code_and = function
 | (Always_false,_)
 | (_, Always_false) -> Always_false
 | _ -> Undecidable
 
-and dead_code_or attr = function
+and dead_code_or = function
 | (Always_true,_)
 | (_, Always_true) -> Always_true
 | _ -> Undecidable
@@ -823,21 +828,18 @@ and elabeval attr = function
 | oth -> unhand := Some oth; failwith "elabeval"
 
 and recurs3 (attr: Source_text_rewrite.attr) = function
-  | If2(cond, if_clause, else_clause) -> (match dead_code attr cond with
-     | Always_true -> recurs3 attr if_clause
-     | Always_false -> recurs3 attr else_clause
-     | Undecidable ->
-      CaseStart (CaseStart1 (cond),
-       (CaseStmt ([Number(2,1,1,"")],
-         recurs3 attr if_clause :: []) ::
-        CaseStmt ([],
-         recurs3 attr else_clause :: []) ::
-        [])))
-  | If1(cond, if_clause) ->
-      CaseStart (CaseStart1 (recurs3 attr cond),
-       (CaseStmt ([Number(2,1,1,"")],
-         recurs3 attr if_clause :: []) ::
-         []))
+  | CaseStart (CaseStart1 expr, stmts) ->
+(*
+        let op_dyadic = fun else' -> function CaseStmt (lbls, body) -> Seq ("", List.map (fun caseval -> If2 (Equals (expr, caseval), Seq ("", body), else')) lbls) in
+        let folded = List.fold_left op_dyadic hd tl in
+*)
+        let collapse = function [] -> failwith "collapse" | hd::[] -> hd | tl -> Seq ("", tl) in
+        let op_dyadic = function CaseStmt (lbls, body) -> fun else' -> collapse (List.map (fun caseval -> If2 (Equals (expr, caseval), collapse body, else')) lbls) in
+        let op_terminate = function CaseStmt (lbls, body) -> collapse (List.map (fun caseval -> If1 (Equals (expr, caseval), collapse body)) lbls) in
+        let hd, tl = match List.rev stmts with hd::tl -> op_terminate hd, List.rev tl in
+        let folded = List.fold_right op_dyadic tl hd in
+        dbgcase := (expr, stmts, folded) :: !dbgcase;
+        folded
   | Seq (lbl, lst) -> Seq (dot(attr.pth,lbl), let oldp = attr.pth in List.map (recurs3 {attr with pth=dot(oldp,lbl)}) lst)
   | NetDecl (arg1, lst) -> NetDecl (arg1, List.map (function
 				     | InitSig (Id nam, arg2) -> let nam = npth attr nam in InitSig(Id nam, recurs3 attr arg2)
@@ -1612,13 +1614,7 @@ and decl_template bufh typhash modules pth itm =
 
 let dbgnew = ref []
 
-let rec split' typhash' = function
-  | [] -> []
-  | AlwaysLegacy (At (EventOr [Pos (clk); Pos (rst)]), If2 (rst', rst_seq, act_seq)) as x :: tl when alweq (rst, rst') ->
-(*
-    let rlst = ref [] in
-    List.iter (extract_rst rlst) (match rst_seq with Seq("", lst) -> lst | oth -> [oth]);
-*)
+let split_always typhash' act_seq rst_seq evlst rst =
     let pref = {nonblk="nonblk1$";block="blk1$";typh=typhash'} in
     let pref' = {nonblk="nonblk2$";block="blk2$";typh=typhash'} in
     let rst' = {nonblk="$";block="$";typh=typhash'} in
@@ -1630,17 +1626,27 @@ let rec split' typhash' = function
     let act_seq'' = map_active_seq pref' attr' act_seq in
     let rst_seq'' = map_reset rst' attr'' rst_seq in
     let newseq = AlwaysLegacy (AtStar, act_seq') in
-    let newseq' = AlwaysLegacy (At (EventOr [Pos (clk); Pos (rst)]), If2 (rst, rst_seq'', act_seq'')) in
+    let newseq' = AlwaysLegacy (At (EventOr evlst), If2 (rst, rst_seq'', act_seq'')) in
     dbgalw := (act_seq', act_seq'', newseq, newseq') :: !dbgalw;
     dbgnew := [];
     let nlst = ref [] in
     Hashtbl.iter (fun k -> function
+        | Id _ -> ()
         | Active (MaybePort (_, Unsigned_vector (hi, lo), dir), _, expr) as x ->
              dbgnew := (k,x) :: !dbgnew;
              nlst := DeclReg (k :: [], AnyRange (hi, lo) :: [], Deflt) :: !nlst;
-        | Id _ -> ()
+        | Active (Unsigned_vector (hi, lo), _, expr) as x ->
+             dbgnew := (k,x) :: !dbgnew;
+             nlst := DeclReg (k :: [], AnyRange (hi, lo) :: [], Deflt) :: !nlst;
         | oth -> unhand := Some oth; failwith "split'") subh;
-    List.sort compare !nlst @ newseq :: newseq' :: split' typhash' tl
+    List.sort compare !nlst @ newseq :: newseq' :: [] 
+
+let rec split' typhash' = function
+  | [] -> []
+  | AlwaysLegacy (At (EventOr evlst), If2 (rst, rst_seq, act_seq)) as x :: tl ->
+    split_always typhash' act_seq rst_seq evlst rst @ split' typhash' tl
+  | AlwaysLegacy (At (EventOr ([Pos (clk); Pos (rst)] as evlst)), If2 (rst', rst_seq, act_seq)) as x :: tl when alweq (rst, rst') ->
+    split_always typhash' act_seq rst_seq evlst rst @ split' typhash' tl
 | oth :: tl -> oth :: split' typhash' tl
 
 let bufhash () = {c=ref[];i=ref[];l=ref[];w=ref[]}
@@ -2403,6 +2409,16 @@ and cnv' bufh dhash typhash inst = function
         List.flatten (List.map (fun (p,u,d) -> p) dlylst),
 		  generate_assignment_common false bufh typhash (GenBlock (List.map (fun (p,u,d) -> d) dlylst), rhs),
 		  List.flatten (List.map (fun (p,u,d) -> u) dlylst)
+    | If2(cond, if_clause, else_clause) -> (match dead_code cond with
+     | Always_true -> cnv' bufh dhash typhash inst if_clause
+     | Always_false -> cnv' bufh dhash typhash inst else_clause
+     | Undecidable ->
+      cnv' bufh dhash typhash inst (CaseStart (CaseStart1 (cond),
+       (CaseStmt ([Number(2,1,1,"")], if_clause :: []) ::
+        CaseStmt ([], else_clause :: []) :: []))))
+    | If1(cond, if_clause) ->
+      cnv' bufh dhash typhash inst (CaseStart (CaseStart1 (cond),
+       (CaseStmt ([Number(2,1,1,"")], if_clause :: []) :: [])))
     | CaseStmt (caselbl, itm_stmts) ->
         let lbl' = List.map (simplify_default bufh typhash) caselbl in
         let lst' = List.map (cnv' bufh dhash typhash inst) itm_stmts in
@@ -2414,7 +2430,7 @@ and cnv' bufh dhash typhash inst = function
     | CaseStart (CaseStart1 expr, stmts) ->
         let expr' = buffer'' bufh typhash expr in
         let lst' = List.map (cnv' bufh dhash typhash expr) stmts in
-        dbgcase := lst';
+        dbgcase' := lst';
         let body_stmts = List.flatten (List.map (fun (p,u,d) -> u) lst') in
         let lbls = List.map (function Switch_bodycase (lbls, _, _) -> lbls | oth -> failwith "cases") body_stmts in
         dbg_lbls := lbls;
