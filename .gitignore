@@ -102,11 +102,14 @@ Source_text_rewrite_types_new.mli
 mungelst.ml
 *_dump.v
 *.synth
+*.opt.v
 work-obj93.cf
 examples/*.ml
 examples/*.ref
 examples/*.v_dump.ys
 examples/*.verilog
+examples/*.opt.v
+examples/*.noexpr
 junk.v
 .DS_Store
 logfile.txt

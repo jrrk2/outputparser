@@ -32,6 +32,7 @@ close_out fd
 
 open Source_text_rewrite_types
 open Source_text_rewrite
+open Source_text_split
 open Source_text_main
 open Source_text_lex
 open Source_text

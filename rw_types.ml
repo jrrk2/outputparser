@@ -16,7 +16,17 @@ and tuple =
 type pcd = {pcd_name: txt; pcd_args: tuple; pcd_res: unit option}
 
 let lst = 
-        [{pcd_name = {txt = "Add"};
+        [{pcd_name = {txt = "Active"};
+          pcd_args =
+           Pcstr_tuple
+            [{ptyp_desc = Ptyp_constr ({txt = Lident "vtyp"}, []);
+              ptyp_loc_stack = []};
+             {ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []};
+             {ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []}];
+          pcd_res = None};
+         {pcd_name = {txt = "Add"};
           pcd_args =
            Pcstr_tuple
             [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
@@ -338,6 +348,8 @@ let lst =
           pcd_args =
            Pcstr_tuple
             [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []};
+             {ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
               ptyp_loc_stack = []};
              {ptyp_desc =
                Ptyp_constr ({txt = Lident "list"},
@@ -962,6 +974,12 @@ let lst =
              {ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
               ptyp_loc_stack = []}];
           pcd_res = None};
+         {pcd_name = {txt = "Hash"};
+          pcd_args =
+           Pcstr_tuple
+            [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []}];
+          pcd_res = None};
          {pcd_name = {txt = "HyphenGt"};
           pcd_args =
            Pcstr_tuple
@@ -1486,6 +1504,14 @@ let lst =
              {ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
               ptyp_loc_stack = []}];
           pcd_res = None};
+         {pcd_name = {txt = "PackageRef"};
+          pcd_args =
+           Pcstr_tuple
+            [{ptyp_desc = Ptyp_constr ({txt = Lident "string"}, []);
+              ptyp_loc_stack = []};
+             {ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []}];
+          pcd_res = None};
          {pcd_name = {txt = "Param"};
           pcd_args =
            Pcstr_tuple
@@ -1696,6 +1722,14 @@ let lst =
             [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
               ptyp_loc_stack = []}];
           pcd_res = None};
+         {pcd_name = {txt = "Split"};
+          pcd_args =
+           Pcstr_tuple
+            [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []};
+             {ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []}];
+          pcd_res = None};
          {pcd_name = {txt = "SUDecl"};
           pcd_args =
            Pcstr_tuple
@@ -1895,6 +1929,14 @@ let lst =
                   ptyp_loc_stack = []}]);
               ptyp_loc_stack = []}];
           pcd_res = None};
+         {pcd_name = {txt = "TaskRef2"};
+          pcd_args =
+           Pcstr_tuple
+            [{ptyp_desc = Ptyp_constr ({txt = Lident "string"}, []);
+              ptyp_loc_stack = []};
+             {ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []}];
+          pcd_res = None};
          {pcd_name = {txt = "Tilde"};
           pcd_args =
            Pcstr_tuple
@@ -2024,6 +2066,38 @@ let lst =
                   ptyp_loc_stack = []}]);
               ptyp_loc_stack = []};
              {ptyp_desc = Ptyp_constr ({txt = Lident "string"}, []);
+              ptyp_loc_stack = []}];
+          pcd_res = None};
+         {pcd_name = {txt = "Typ11"};
+          pcd_args =
+           Pcstr_tuple
+            [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []};
+             {ptyp_desc =
+               Ptyp_constr ({txt = Lident "list"},
+                [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+                  ptyp_loc_stack = []}]);
+              ptyp_loc_stack = []};
+             {ptyp_desc =
+               Ptyp_constr ({txt = Lident "list"},
+                [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+                  ptyp_loc_stack = []}]);
+              ptyp_loc_stack = []}];
+          pcd_res = None};
+         {pcd_name = {txt = "Typ12"};
+          pcd_args =
+           Pcstr_tuple
+            [{ptyp_desc =
+               Ptyp_constr ({txt = Lident "list"},
+                [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+                  ptyp_loc_stack = []}]);
+              ptyp_loc_stack = []};
+             {ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+              ptyp_loc_stack = []};
+             {ptyp_desc =
+               Ptyp_constr ({txt = Lident "list"},
+                [{ptyp_desc = Ptyp_constr ({txt = Lident "rw"}, []);
+                  ptyp_loc_stack = []}]);
               ptyp_loc_stack = []}];
           pcd_res = None};
          {pcd_name = {txt = "TypEnum3"};
@@ -2240,13 +2314,93 @@ let dump'' fd = List.iter (function
      fprintf fd "  | %s -> %s\n" nam nam
 | oth -> unhand := Some oth; failwith "rw_type") (List.sort compare lst)
 
+let dumplst3 rhs prime ix = function
+| {ptyp_desc = Ptyp_constr ({txt = Lident id}, []); ptyp_loc_stack = []} ->
+  (if do_descend id then
+     (if rhs then id ^ string_of_int (ix+1) ^ (if prime then "'" else "")
+      else
+        "Split(" ^ id ^ string_of_int (ix+1) ^ ", " ^ id ^ string_of_int (ix+1) ^ "')")
+      else id ^ string_of_int (ix+1))
+
+| {ptyp_desc = Ptyp_constr ({txt = Lident lst},
+          [{ptyp_desc = Ptyp_constr ({txt = Lident id}, []);
+            ptyp_loc_stack = []}]);
+        ptyp_loc_stack = []} -> (if rhs then (if prime then "snd(" else "fst(") ^ "split_pair_lst " else "") ^ id ^ "_lst" ^ string_of_int (ix+1) ^ (if rhs then ")" else "")
+| oth -> unhand' := Some oth; failwith "dumplst'"
+
+let dump3 fd = List.iter (function
+| {pcd_name = {txt = "Active"}} -> ()
+| {pcd_name = {txt = nam}; pcd_args = Pcstr_tuple lst; pcd_res = None} -> 
+  if lst <> [] then
+    begin
+      fprintf fd "  | %s(%s) -> " nam (String.concat ", " (List.mapi (dumplst3 false false) lst));
+      fprintf fd "%s(%s), " nam (String.concat ", " (List.mapi (dumplst3 true false) lst));
+      fprintf fd "%s(%s)\n" nam (String.concat ", " (List.mapi (dumplst3 true true) lst));
+    end
+  else
+     fprintf fd "  | %s -> %s,%s\n" nam nam nam
+| oth -> unhand := Some oth; failwith "rw_type") (List.sort compare lst)
+
 let dump = 
   let fd = open_out "Source_text_rewrite_types_new.mli" in
+  fprintf fd "type mem_opts = {off:int list; siz:int list; wid:int; tot:int}\n";
   fprintf fd "type rw = \n";
   dump' fd;
+  fprintf fd "and vtyp =\n";
+  fprintf fd "  | Vint of int\n";
+  fprintf fd "  | Vpkg of string * string\n";
+  fprintf fd "  | Unsigned\n";
+  fprintf fd "  | Unsigned_vector of rw * rw\n";
+  fprintf fd "  | Signed\n";
+  fprintf fd "  | Signed_vector of rw * rw\n";
+  fprintf fd "  | Vsigtyp\n";
+  fprintf fd "  | Vdot\n";
+  fprintf fd "  | Vstr of string\n";
+  fprintf fd "  | Vtyp of string\n";
+  fprintf fd "  | Vfun of string\n";
+  fprintf fd "  | Venum of string\n";
+  fprintf fd "  | Vintf of rw\n";
+  fprintf fd "  | MaybePort of int * vtyp * rw\n";
+  fprintf fd "  | Vemember of string * string * rw\n";
+  fprintf fd "  | Task of rw * rw * rw\n";
+  fprintf fd "  | Vmem of mem_opts\n";
+  fprintf fd "  | InstArray of rw * rw * rw\n";
+  fprintf fd "  | Vlong of int64\n";
+  fprintf fd "  | Vreal of float\n";
+  fprintf fd "  | Vlocal of int * rw\n";
+  fprintf fd "  | Vsu of rw * (string * vtyp) list\n";
+  fprintf fd "  | Vsua of int * int * (string * vtyp) list\n";
+  fprintf fd "\n";
+  fprintf fd "module E = Msat_sat_slit.String_lit (* expressions *)\n";
+  fprintf fd "module F = Msat_tseitin.MakeCNF\n";
+  fprintf fd "\n";
+  fprintf fd "type ind = {\n";
+  fprintf fd "  wires:(E.signal, F.t option) Hashtbl.t;\n";
+  fprintf fd "  inffop:(E.signal, unit) Hashtbl.t;\n";
+  fprintf fd "  stash:(E.signal, string * string * Input_rewrite_types.ilang list) Hashtbl.t;\n";
+  fprintf fd "  wid:(string, int) Hashtbl.t;\n";
+  fprintf fd "}\n";
+  fprintf fd "\n";
+  fprintf fd "type dead =\n";
+  fprintf fd "| Undecidable\n";
+  fprintf fd "| Always_false\n";
+  fprintf fd "| Always_true\n";
   close_out fd;
   let fd = open_out "Source_text_rewrite_new.ml" in
   fprintf fd "let rec descend' (attr:attr) = function\n";
   dump'' fd;
+  close_out fd;
+  let fd = open_out "Source_text_split_new.ml" in
+  fprintf fd "open Source_text_rewrite_types\n\n";
+  fprintf fd "let unhand_split_lst = ref []\n";
+  fprintf fd "let unhand_split = ref (Itmlst [])\n\n";
+  fprintf fd "let rec split_pair = function\n";
+  dump3 fd;
+  fprintf fd "| oth -> unhand_split := oth; failwith \"split_pair\"\n";
+  fprintf fd "\n";
+  fprintf fd "and split_pair_lst = function\n";
+  fprintf fd "| [] -> [], []\n";
+  fprintf fd "| Split (p,q) :: tl -> let r, s = split_pair_lst tl in p :: r, q :: s\n";
+  fprintf fd "| oth -> unhand_split_lst := oth; failwith \"split_pair_lst\"\n";
+  fprintf fd "\n";
   close_out fd
-

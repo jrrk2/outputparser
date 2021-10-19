@@ -1,6 +1,7 @@
 open Source_text_rewrite_types
 open Input_rewrite_types
 open Source_text_rewrite
+open Source_text_split
 open Source_text_lex
 open Source_text
 open Printf
@@ -380,9 +381,6 @@ let mapadd map (attr:attr) pref lhs expr =
 let map_id attr id = match Hashtbl.find_opt attr.subst id with Some repl -> repl | None -> id
 
 let rec map_active_combined' (map:map) (attr: Source_text_rewrite.attr) : (rw -> rw * rw) = function
-(*
-| oth -> unhand := Some oth; failwith "debug"
-*)
 | Equate (Id lhs as lhs', expr) ->
   let expr',_ = map_active_combined' map attr expr in
   let lhs3 = mapadd map attr map.nonblk lhs expr' in
@@ -398,29 +396,9 @@ let rec map_active_combined' (map:map) (attr: Source_text_rewrite.attr) : (rw ->
       | oth,_ -> unhand := Some oth; failwith "split_if1" in p,q
 | oth -> split_pair (Source_text_rewrite.descend' attr oth)
 
-and split_pair = function
-  | InitPair (p,q) -> p, q
-  | Pling (InitPair (p,q)) -> Pling p, Pling q
-  | And2 (InitPair (p,q), InitPair (r,s)) -> And2 (p,r), And2 (q,s)
-  | Add (InitPair (p,q), InitPair (r,s)) -> Add (p,r), Add (q,s)
-  | Sub (InitPair (p,q), InitPair (r,s)) -> Sub (p,r), Sub (q,s)
-  | If1 (InitPair (p,q), InitPair (r,s)) -> If1 (p,r), If1 (q,s)
-  | If2 (InitPair (p,q), InitPair (r,s), InitPair (t,u)) -> If2 (p,r,t), If2 (q,s,u)
-  | CaseStmt (InitPair (p,q) :: [], InitPair (r,s) :: []) -> CaseStmt (p :: [], r :: []), CaseStmt (q :: [], s :: [])
-  | CaseStart (InitPair (p,q), lst1) -> let r, s = split_pair_lst lst1 in CaseStart (p, r), CaseStart (q, s)
-  | CaseStart1 (InitPair (p,q)) -> CaseStart1 (p), CaseStart1 (q)
-  | Seq (lbl, lst1) -> let r, s = split_pair_lst lst1 in Seq (lbl, r), Seq (lbl, s)
-  | (Number _ | Atom _) as x -> x,x
-  | oth -> unhand := Some oth; failwith "split_pair"
-
-and split_pair_lst = function
-| [] -> [], []
-| InitPair (p,q) :: tl -> let r, s = split_pair_lst tl in p :: r, q :: s
-| oth -> unhand_lst := oth; failwith "split_pair_lst"
-
 let rec map_active_combined (map:map) (attr: Source_text_rewrite.attr) x =
   let (comb,seq) = map_active_combined' map attr x in
-  InitPair (comb,seq)
+  Split (comb,seq)
 
 let rec map_reset (map:map) (attr: Source_text_rewrite.attr) = function
 | Blocking (FopAsgn (Id lhs, expr)) -> Equate(Id lhs, expr)
@@ -431,7 +409,7 @@ let rec search_pkg rslt key = function
 | ParamDecl (LocalParamTyp (Typ3 (req_t, [PackageRef (pkg_id, Atom "::")])), lst) ->
   let found = find_pkg pkg_id req_t in
   List.iter (function
-      | ParamAsgn1 (cfg, contents) -> if key=cfg then rslt := Some (InitPair(found, contents))
+      | ParamAsgn1 (cfg, contents) -> if key=cfg then rslt := Some (Split(found, contents))
       | oth -> ()) lst
 | TypEnum6 (id, _, lst) as contents ->
     if key=id then rslt := Some contents;
@@ -1709,7 +1687,7 @@ let rec parm_map typhash = function
       update typhash (Id nam) (Vint n);
   | CellParamItem2 (nam, String s) ->
       update typhash (Id nam) (Vstr s);
-  | CellParamItem2 (nam, InitPair(Typ8 (SUDecl (Atom "packed", lft), Deflt), InitPat rght)) ->
+  | CellParamItem2 (nam, Split(Typ8 (SUDecl (Atom "packed", lft), Deflt), InitPat rght)) ->
       List.iter2 (fun lft rght -> dbgpair := (lft,rght) :: !dbgpair) lft rght;
 
       (*

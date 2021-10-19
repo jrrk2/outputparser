@@ -196,6 +196,7 @@ type rw =
   | Shiftr3 of rw * rw
   | SideEffect of rw * rw
   | Signed of rw
+  | Split of rw * rw
   | StarStar of rw * rw
   | String of string
   | Sub of rw * rw
@@ -213,6 +214,9 @@ type rw =
   | TildeAnd of rw
   | TildeOr of rw
   | Typ1 of string
+  | Typ10 of string * rw list * string
+  | Typ11 of rw * rw list * rw list
+  | Typ12 of rw list * rw * rw list
   | Typ2 of string * rw list * rw list
   | Typ3 of string * rw list
   | Typ4 of string * rw list * rw list * rw list
@@ -221,9 +225,6 @@ type rw =
   | Typ7 of string * rw
   | Typ8 of rw * rw
   | Typ9 of string * rw list * rw
-  | Typ10 of string * rw list * string
-  | Typ11 of rw * rw list * rw list
-  | Typ12 of rw list * rw * rw list
   | TypEnum3 of rw list
   | TypEnum4 of rw * rw list * rw list
   | TypEnum5 of rw

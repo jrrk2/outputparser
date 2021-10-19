@@ -628,6 +628,7 @@ let rec descend' (attr:attr) = function
   | Shiftr3(rw1, rw2) -> Shiftr3(descend_itm attr rw1, descend_itm attr rw2)
   | SideEffect(rw1, rw2) -> SideEffect(descend_itm attr rw1, descend_itm attr rw2)
   | Signed(rw1) -> Signed(descend_itm attr rw1)
+  | Split(rw1, rw2) -> Split(descend_itm attr rw1, descend_itm attr rw2)
   | StarStar(rw1, rw2) -> StarStar(descend_itm attr rw1, descend_itm attr rw2)
   | String(string1) -> String(string1)
   | Sub(rw1, rw2) -> Sub(descend_itm attr rw1, descend_itm attr rw2)
