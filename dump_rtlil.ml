@@ -899,13 +899,9 @@ and simplify' (attr: Source_text_rewrite.attr) = function
 | Sys ("$clog2", Intgr n) -> Intgr (clog2 n)
 | Div (Intgr lft, Intgr rght) when rght <> 0 -> Intgr (lft / rght )
 | oth -> Source_text_rewrite.descend' {attr with fn=simplify'} oth
-let id_ix = ref 1000
+
 let wire_lst = ref []
 let typhist = ref []
-
-let newnam () = 
-  incr id_ix;
-  "$Id$"^string_of_int !id_ix
 
 let exists_wire bufh typhash options nam signage =
   wire_lst := (options,nam,signage) :: !wire_lst;
@@ -2277,8 +2273,8 @@ match lhs with
       dbgeq := (lhswid,rhswid,lhs,rhs') :: !dbgeq;
       let en = Number(2,wid,(1 lsl wid) - 1,"") in
       memwr'' update bufh typhash (mem_opt typhash mem) mem addr rhs' en
-  | Some Unsigned_vector _ -> if update then TokUpdate(tran' typhash lhs, tran' typhash rhs') :: [] else Assign_stmt67(tran' typhash lhs, tran' typhash rhs') :: []
-  | oth -> otha := Some oth; failwith "arr")
+  | Some (Unsigned_vector _ | MaybePort (_, Unsigned_vector _, _)) -> if update then TokUpdate(tran' typhash lhs, tran' typhash rhs') :: [] else Assign_stmt67(tran' typhash lhs, tran' typhash rhs') :: []
+  | oth -> otha := Some oth; failwith "arr2282")
 | IdArrayed2 (Id mem, addr) as x ->
 dbgsplit := Some x;
 (match Hashtbl.find_opt typhash mem with
@@ -2286,11 +2282,11 @@ dbgsplit := Some x;
       dbgeq := (lhswid,rhswid,lhs,rhs') :: !dbgeq;
       let en = Number(2,wid,(1 lsl wid) - 1,"") in
       memwr'' update bufh typhash (mem_opt typhash mem) mem addr rhs' en
-  | Some Unsigned_vector _ ->
+  | Some (Unsigned_vector _ | MaybePort (_, Unsigned_vector _, _)) ->
     let inst, (p,u,s) = asgn'' bufh typhash (Id mem) addr rhs' in
     dbgasgn := (p,u,s) :: !dbgasgn;
     if update then s else (p @ u)
-  | oth -> otha := Some oth; failwith "arr")
+  | oth -> otha := Some oth; failwith "arr2294")
 | oth -> dbgcommon := Some (lhs,rhs'); if update then TokUpdate(tran' typhash lhs, tran' typhash rhs') :: [] else Assign_stmt67(tran' typhash lhs, tran' typhash rhs') :: []
 
 and dlymapwid bufh dhash typhash wid lhs : ilang list * ilang list * rw =
@@ -2366,12 +2362,12 @@ and cnv' bufh dhash typhash inst = function
             memwr bufh typhash options lhs' abits data' en addr' data' en' sel') in
            dbgmem := (lhswid,rhswid,lhs,rhs,rhs',tuple) :: !dbgmem;
            tuple
-         | Some Unsigned_vector _ ->
+         | Some (Unsigned_vector _ | MaybePort (_, Unsigned_vector _, _)) ->
            let dly = dlymemo bufh dhash typhash lhs in
            (generate_assignment_common false bufh typhash (dly, lhs),
             generate_assignment_common false bufh typhash (IdArrayed2(dly,sel), rhs),
             generate_assignment_common true bufh typhash (lhs, dly))
-         | oth -> otha := Some oth; failwith "arr")
+         | oth -> otha := Some oth; failwith "arr2375")
     | EquateSelect2 (IdArrayed2(lhs, sel'), sel, expr) ->
         let dly = dlymemo bufh dhash typhash lhs in
         let rhs = buffer' bufh typhash expr 0 in

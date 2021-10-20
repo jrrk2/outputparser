@@ -40,8 +40,9 @@ open Input_rewrite_types
 open Dump_sysver
 open Dump_rtlil
 open Matchmly
-open Source_text_misc.E
-open Source_text_misc.F
+open Source_text_misc_types.E
+open Source_text_misc_types.F
+open Source_text_misc
 open String_lit
 open Convert
 open Ver_dump
@@ -142,9 +143,13 @@ let v = "examples/count2.v";;
 let v = "examples/count7.v";;
 let v = "examples/count3.v";;
 
-(*
-let x = rw (parse v);;
-*)
+let dbgx = ref None
+
+let sat () =
+  let x, p, p' = preproc_parse "examples/count3.v_golden_synth.v" in
+  let xlst = match x with Itmlst (x) -> x | _ -> [x] in
+  dbgx := Some x;
+  cnv_satv' Convert.func ["nam",xlst]
 
 let t id = Hashtbl.find !dbgtyp id;;
 
