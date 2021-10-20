@@ -256,6 +256,13 @@ and e ind = function
   conn_n ind (TokID expr') expr;
   TokID expr'
 
+let rstval = function
+| None, Number (_, 1, 0, _) -> "$_DFF_PP0_"
+| None, Number (_, 1, 1, _) -> "$_DFF_PP1_"
+| Some (Id _), Number (_, 1, 0, _) -> "$_DFFE_PP0P_"
+| Some (Id _), Number (_, 1, 1, _) -> "$_DFFE_PP1P_"
+| _, oth -> othn := Some oth; failwith "rstval"
+
 let rec cnv_netlist (ind:ind) = function
 | Modul(string,parms,ports,itms) ->
   print_endline string;
@@ -278,15 +285,19 @@ let rec cnv_netlist (ind:ind) = function
 | ContAsgn([Asgn1 (IdArrayed2 (Id lhs, Number(_,_,ix,_)), rhs)]) -> conn_n ind (Sigspec90(lhs,ix)) rhs
 | ContAsgn([Asgn1 (Id lhs, rhs)]) -> conn_n ind (TokID lhs) rhs
 | AlwaysLegacy (At (EventOr [Pos (Id _ as clk)]),
-     If2 (Id _ as rst,
+     If2 (rst,
       EquateSelect (Id lhs, Number(_,_,ix,_), rexpr),
       EquateSelect (Id lhs', Number (_, _, ix', _),
-       expr))) when lhs=lhs' && ix=ix' -> ff "$_DFF_PP0_" ind (Sigspec90(lhs,ix)) expr clk rst
+       expr))) when lhs=lhs' && ix=ix' ->
+        let kind = rstval (None,rexpr) in
+        ff kind ind (Sigspec90(lhs,ix)) expr clk rst
 | AlwaysLegacy (At (EventOr [Pos (Id _ as clk)]),
-     If2 (Id _ as rst,
+     If2 (rst,
       EquateSelect (Id lhs, Number(_,_,ix,_), rexpr),
-      If1 (Id _ as en,
-       EquateSelect (Id lhs', Number(_,_,ix',_), expr)))) when lhs=lhs' && ix=ix' -> enff "$_DFFE_PP0P_" ind (Sigspec90(lhs,ix)) expr clk rst en
+      If1 (en,
+       EquateSelect (Id lhs', Number(_,_,ix',_), expr)))) when lhs=lhs' && ix=ix' ->
+        let kind = rstval (Some en,rexpr) in 
+        enff kind ind (Sigspec90(lhs,ix)) expr clk rst en
 | oth -> othn := Some oth; failwith "cnv_netlist"
 
 let cnv_satv' cnv' arg =
