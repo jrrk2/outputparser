@@ -808,7 +808,7 @@ and recurs3 (attr: Source_text_rewrite.attr) = function
             | CaseStmt (lbls, body) -> fun else' -> collapse (List.map (fun caseval -> If2 (Equals (expr, caseval), collapse body, else')) lbls)
             | _ -> failwith "op_dyadic" in
         let op_terminate = function
-            | CaseStmt (lbls, body) -> collapse (List.map (fun caseval -> If1 (Equals (expr, caseval), collapse body)) lbls)
+            | CaseStmt (lbls, body) -> collapse (List.map (function Atom "default" -> collapse body | oth -> If1 (Equals (expr, oth), collapse body)) lbls)
             | _ -> failwith "op_terminate" in
         let hd, tl = match List.rev stmts with
             | hd::tl -> op_terminate hd, List.rev tl

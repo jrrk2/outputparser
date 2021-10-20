@@ -140,8 +140,8 @@ let v = "apb_uart.sv";;
 let v = "examples/count0.v";;
 let v = "examples/count4.v";;
 let v = "examples/count2.v";;
-let v = "examples/count7.v";;
 let v = "examples/count3.v";;
+let v = "examples/count7.v";;
 
 let dbgx = ref None
 

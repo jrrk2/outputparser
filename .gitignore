@@ -121,3 +121,4 @@ examples/assert.preproc
 examples/*.v_dump_synth.v
 examples/*.v_golden_synth.rtlil_dump.ys
 examples/*.v_golden_synth.v
+examples/*.sv_dump.ys
