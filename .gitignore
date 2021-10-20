@@ -116,6 +116,7 @@ junk.v
 logfile.txt
 sat_example
 Source_text_compare
+Source_text_simplify_top
 examples/assert.preproc
 examples/*.v_dump_synth.v
 examples/*.v_golden_synth.rtlil_dump.ys

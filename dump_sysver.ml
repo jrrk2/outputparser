@@ -1,7 +1,7 @@
 open Source_text_rewrite_types
 open Source_text_lex
 open Source_text
-open Dump_rtlil
+open Source_text_simplify
 open Printf
 
 let dump_unhand = ref None
@@ -888,12 +888,13 @@ let dump_port typhash = function
         ""
     | oth -> dump_unhand := Some oth; failwith "component"
 
-let dump_template fd typhash modules = function
-  | Modul(nam, parm_lst, port_lst, body_lst) -> let cnt = ref 1 in
+let dump_template fd modules = function
+  | Modul(nam, parm_lst, port_lst, body_lst) as x -> let cnt = ref 1 in
   fprintf fd "//\n";
   fprintf fd "// This converter does not currently preserve comments and license information\n";
   fprintf fd "//\n";
   fprintf fd "\n";
+  let bufh', typhash, ports' = Source_text_simplify.module_header [] x in
   fprintf fd "module %s (\n\t%s);\n" nam (String.concat ",\n\t" (List.map (dump_port typhash) port_lst));
 (*
   parm_dump_template fd typhash parm_lst;
@@ -915,6 +916,6 @@ let dump_template fd typhash modules = function
   fprintf fd "//\n";
   fprintf fd "\n";
   fprintf fd "package %s; // 1065	\n" pkg;
-  List.iter (decl_dump_template fd typhash modules cnt) body_lst;
+  List.iter (decl_dump_template fd (Hashtbl.create 1) modules cnt) body_lst;
   fprintf fd "endpackage\n";
   | oth -> dump_unhand := Some oth; failwith "This template only handles modules/packages"

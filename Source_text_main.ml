@@ -33,7 +33,6 @@ let rewrite_rtlil v =
   let p = Source_text_preproc.parse' Source_text_rewrite.parse_output_ast_from_function v in
 *)
   let x, p, p' = preproc_parse v in
-  let modlst = ref [] in
   let optlst = ref [] in
   let fnam = v^"_dump.ys" in
   let fd = open_out fnam in
@@ -51,34 +50,8 @@ let rewrite_rtlil v =
 (* *)
   List.iter (fun (k, x) ->
                 dbgx := (k, x) :: !dbgx;
-                let typhash, sub, rtl = Dump_rtlil.template Matchmly.modules x in
-		modlst := (k, rtl) :: !modlst;
-		optlst := (k, (typhash, sub)) :: !optlst;
-                if sep_rtl then
-                    begin
-                      let fnam' = v^"_dump_"^k^".v" in
-                      let fnam'' = v^"_dump_"^k^".rtlil" in
-                      let fd' = open_out fnam' in
-                      let fd'' = open_out fnam'' in
-                      if dumpver then print_endline ("File: "^fnam')
-                          else print_endline ("File: "^fnam'');
-                      if dumpver then
-                        begin
-                        fprintf fd "read_verilog -overwrite %s\n" fnam';
-                        fprintf fd "write_ilang %s.ilang\n" fnam';
-                        end
-                      else
-                        fprintf fd "read_ilang -overwrite %s\n" fnam'';
-                      Ver_dump.dump fd' rtl;
-                      Input_dump.dump fd'' rtl;
-                      close_out fd';
-                      close_out fd'';
-                      end
-                else
-                  begin
-                      Ver_dump.dump fd' rtl;
-                      Input_dump.dump fd'' rtl;
-                    end
+                let sub = Source_text_simplify.template Matchmly.modules x in
+		optlst := (k, sub) :: !optlst;
 		) !(Matchmly.modules);
   if not sep_rtl then
     begin
@@ -87,13 +60,12 @@ let rewrite_rtlil v =
     end;
   let optlst = !optlst in
   dbgopt := optlst;
-  List.iter (fun (k,(typhash,sub)) ->
+  List.iter (fun (k,sub) ->
       let fnam3 = v^"_dump_"^k^".opt.v" in
       fprintf fd "read_verilog -sv -overwrite %s\n" fnam3;
       let fd3 = open_out fnam3 in
-      Dump_rtlil.dbgtyp := typhash;
       print_endline ("Dumping: " ^ k ^ " to file: "^fnam3);
-      Dump_sysver.dump_template fd3 typhash optlst sub;
+      Dump_sysver.dump_template fd3 optlst sub;
       close_out fd3) optlst;
   fprintf fd "write_ilang %s_opt_proc.rtlil\n" v;
   fprintf fd "synth\n";
@@ -163,10 +135,10 @@ let rewrite_rtlil v =
     printf "yosys stopped by signal %d\n" signal;
     status := false;
     signal in
-  !modlst, x, p, p', !status
+  optlst, x, p, p', !status
 
 let _ = if Array.length Sys.argv > 1 then Array.iteri (fun ix itm -> try
-    if ix > 0 then let modlst,x,p,p',status = rewrite_rtlil itm in
-    List.iter (fun (k,_) -> print_endline ((if status then "PASSED: " else "FAILED: ")^itm^"("^k^")")) modlst
+    if ix > 0 then let optlst,x,p,p',status = rewrite_rtlil itm in
+    List.iter (fun (k,_) -> print_endline ((if status then "PASSED: " else "FAILED: ")^itm^"("^k^")")) optlst
     with err -> print_endline ("FAILED: "^itm)) Sys.argv
 
