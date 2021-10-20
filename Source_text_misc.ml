@@ -60,7 +60,7 @@ let stash' (ind:ind) = function
   | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> pin, idx signal ix
   | TokConn ([TokID pin], [TokID signal]) -> pin, scalar signal
   | TokConn ([TokID pin], [TokVal lev]) -> pin, cnv_pwr lev
-  | oth -> othconn := Some oth; failwith "conn'"
+  | oth -> othconn := Some oth; failwith "stash'"
 
 let dbgstash = ref []
 
@@ -128,13 +128,26 @@ let addnxt pat ind d q =
    addfunc ind lhs' d
 
 (* dump a cnf in ASCII *)
+let rec mypp fmt phi =
+    match phi with
+    | Msat_tseitin.MakeCNF.True -> Format.fprintf fmt "true"
+    | Lit a -> E.pp fmt (E.opaque a)
+    | Comb (Not, [f]) ->
+      Format.fprintf fmt "not (%a)" mypp f
+    | Comb (And, l) -> Format.fprintf fmt "(%a)" (mypp_list "and") l
+    | Comb (Or, l) ->  Format.fprintf fmt "(%a)" (mypp_list "or") l
+    | Comb (Imp, [f1; f2]) ->
+      Format.fprintf fmt "(%a => %a)" mypp f1 mypp f2
+    | _ -> assert false
+  and mypp_list sep fmt = function
+    | [] -> ()
+    | [f] -> mypp fmt f
+    | f::l -> Format.fprintf fmt "%a %s %a" mypp f sep (mypp_list sep) l
 
 let fpp q =
   let buf' = Buffer.create 1000 in
   let buf = Format.formatter_of_buffer buf' in
-(*
-  if verbose > 0 then F.mypp buf q;
-*)
+  if verbose > 0 then mypp buf q;
   Format.pp_print_flush buf ();
   Buffer.contents buf'
 
@@ -196,10 +209,6 @@ let rec cnv_ilang (ind:ind) = function
 | Param_stmt23(string,ilang_lst') -> () (* placeholder *)
 | oth -> oth' := Some oth; failwith "cnv_ilang"
 
-(*
-kind,inst,params,conns) -> stash ind kind inst conns
-*)
-
 let rec conn_n ind lhs' = function
 | (Id _ | IdArrayed2 _) as rhs' -> monadic "$_BUF_" ind lhs' rhs'
 | And (expr1, expr2) -> dyadic "$_AND_" ind lhs' expr1 expr2
@@ -207,6 +216,7 @@ let rec conn_n ind lhs' = function
 | Xor (expr1, expr2) -> dyadic "$_XOR_" ind lhs' expr1 expr2
 | Tilde expr -> monadic "$_NOT_" ind lhs' expr
 | Expression expr -> conn_n ind lhs' expr
+| Query (cond, expr1, expr2) -> ternary "$_MUX_" ind lhs' expr2 expr1 cond
 | oth -> othn := Some oth; failwith "conn_netlist"
 
 and monadic kind ind lhs expr =
@@ -214,6 +224,13 @@ and monadic kind ind lhs expr =
 
 and dyadic kind ind lhs expr1 expr2 =
   stash ind kind ("$I"^string_of_int (Hashtbl.length ind.stash)) ( TokConn ([TokID "\\A"], [e ind expr1]) :: TokConn ([TokID "\\B"], [e ind expr2]) :: TokConn ([TokID "\\Y"], [lhs]) :: [])
+
+and ternary kind ind lhs expr1 expr2 cond =
+  let pins =  TokConn ([TokID "\\A"], [e ind expr1]) ::
+              TokConn ([TokID "\\B"], [e ind expr2]) ::
+              TokConn ([TokID "\\S"], [e ind cond]) ::
+              TokConn ([TokID "\\Y"], [lhs]) :: [] in
+  stash ind kind ("$I"^string_of_int (Hashtbl.length ind.stash)) pins
 
 and ff kind ind lhs data clk rst =
   let pins =  TokConn ([TokID "\\D"], [e ind data]) ::
@@ -281,7 +298,8 @@ let cnv_satv' cnv' arg =
       let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
       if verbose > 1 then print_endline ("Converting: "^nam);
       List.iter (cnv_netlist ind) itm;
-      Hashtbl.iter (fun _ (kind,inst,conns) -> cnv' ind [inst] kind conns) sh;
+      let loopchk = ref [] in
+      Hashtbl.iter (fun _ (kind,inst,conns) -> cnv' ind loopchk [inst] kind conns) sh;
       let hlst=ref [] in
       Hashtbl.iter (fun k -> function
           | Some x -> othh := x; hlst := (k, fpp x) :: !hlst
@@ -305,7 +323,8 @@ let cnv_sat' cnv' arg =
       let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
       if verbose > 1 then print_endline ("Converting: "^nam);
       List.iter (cnv_ilang ind) itm;
-      Hashtbl.iter (fun _ (kind,inst,conns) -> cnv' ind [inst] kind conns) sh;
+      let loopchk = ref [] in
+      Hashtbl.iter (fun _ (kind,inst,conns) -> cnv' ind loopchk [inst] kind conns) sh;
       let hlst=ref [] in
       Hashtbl.iter (fun k -> function
           | Some x -> othh := x; hlst := (k, fpp x) :: !hlst

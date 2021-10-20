@@ -198,6 +198,7 @@ let getstr = function
   | Shiftr3 _ -> "Shiftr3"
   | SideEffect _ -> "SideEffect"
   | Signed _ -> "Signed"
+  | Split _ -> "Split"
   | StarStar _ -> "StarStar"
   | Blocking _ -> "Blocking"
   | String _ -> "String"

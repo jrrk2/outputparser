@@ -146,7 +146,7 @@ let v = "examples/count3.v";;
 let dbgx = ref None
 
 let sat () =
-  let x, p, p' = preproc_parse "examples/count3.v_golden_synth.v" in
+  let x, p, p' = preproc_parse "examples/count3.v_dump_synth.v" in
   let xlst = match x with Itmlst (x) -> x | _ -> [x] in
   dbgx := Some x;
   cnv_satv' Convert.func ["nam",xlst]

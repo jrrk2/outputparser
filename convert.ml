@@ -11,10 +11,11 @@ let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") with err -> 0
 let dbgfunc = ref []
 let othst = ref []
 let othclst = ref []
+let othloop = ref []
 let othwlst = ref []
 let othconn = ref None
 
-let rec func ind klst kind conns = match kind, pinmap ind klst conns with
+let rec func ind loopchk klst kind conns = match kind, pinmap ind loopchk klst conns with
   | "", ["",E.GND,None] -> failwith "GND" (* dummy to force type inference *)
 
   | "$_ALDFFE_NNN_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) (knot (e))) (ad) (knot (l))) (q)
@@ -174,14 +175,20 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
           | None -> othwlst := (k,"") :: !othwlst) ind.wires;
       othwlst := List.sort compare !othwlst;
       othst := List.map (fun (pin, net, _) -> Hashtbl.find_opt ind.stash net) lst;
-      failwith ("func: unmatched "^oth)
+      othloop := !loopchk;
+      List.iter (function 
+            | E.SCALAR s,_, _ -> print_endline s
+            | E.INDEXED (s,ix), _, _ -> print_endline (s^"["^string_of_int ix^"]")
+            | oth -> failwith "loopchk") (List.rev !loopchk);
+      failwith ("func: unmatched "^oth^", possibly due to logic loop")
 
-and recurse ind klst signal = function
+and recurse ind loopchk klst signal = function
 | Some (kind, inst, conns) ->
+  loopchk := (signal,inst,kind) :: !loopchk;
   if not (List.mem inst klst) then
     begin
     if verbose > 2 then print_endline ("recurse into " ^ E.string_of_signal signal ^ " (instance: " ^ inst ^ ", kind: " ^ kind ^ " )");
-    func ind (inst :: klst) kind conns;
+    func ind loopchk (inst :: klst) kind conns;
     if verbose > 2 then print_endline ("recurse into "^E.string_of_signal signal^" returned from " ^ kind);
     end
   else
@@ -193,19 +200,19 @@ and recurse ind klst signal = function
 | None ->
   print_endline ("recurse into "^E.string_of_signal signal^" failed"); None
 
-and getcon ind klst pin = function
+and getcon ind loopchk klst pin = function
   | E.GND -> Some F.f_false
   | PWR -> Some F.f_true
   | signal -> match Hashtbl.find_opt ind.wires signal with
     | Some (Some _ as x) -> x
-    | Some None -> if pin <> "Y" then recurse ind klst signal (Hashtbl.find_opt ind.stash signal) else None
+    | Some None -> if pin <> "Y" then recurse ind loopchk klst signal (Hashtbl.find_opt ind.stash signal) else None
     | None -> failwith (E.string_of_signal signal ^" not declared")
 
-and conn' ind klst = function
-  | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> let s = idx signal ix in pin, s, getcon ind klst pin s
-  | TokConn ([TokID pin], [TokID signal]) -> let s = (scalar signal) in pin, s, getcon ind klst pin s
-  | TokConn ([TokID pin], [TokVal lev]) -> let s = (cnv_pwr lev) in pin, s, getcon ind klst pin s
+and conn' ind loopchk klst = function
+  | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> let s = idx signal ix in pin, s, getcon ind loopchk klst pin s
+  | TokConn ([TokID pin], [TokID signal]) -> let s = (scalar signal) in pin, s, getcon ind loopchk klst pin s
+  | TokConn ([TokID pin], [TokVal lev]) -> let s = (cnv_pwr lev) in pin, s, getcon ind loopchk klst pin s
   | oth -> othconn := Some oth; failwith "conn'"
 
-and pinmap ind klst conns = List.sort compare (List.map (conn' ind klst) conns)
+and pinmap ind loopchk klst conns = List.sort compare (List.map (conn' ind loopchk klst) conns)
 

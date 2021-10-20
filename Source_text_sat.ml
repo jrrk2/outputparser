@@ -6,33 +6,20 @@ open Input_rewrite_types
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") with err -> 0
 let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
 
+let sat_parse v =
+  let chan = open_in v in
+  let p = Source_text_rewrite.parse_output_ast_from_chan chan in
+  let p' = Source_text_rewrite.rw p in
+  let x = Matchmly.mly p' in
+  match x with
+    | Itmlst (Modul (nam, _, _, _) :: _ as x) -> cnv_satv' Convert.func [nam,x]
+    | _ -> failwith "sat_parse"
+
 let compare v v' =
   let status = ref true in
-  let fnam = v^"_dump.ys" in
-  let fd = open_out fnam in
-  if verbose > 1 then print_endline ("Yosys command file: "^fnam);
-  if verbose > 1 then print_endline ("File: "^v);
-  fprintf fd "read_verilog -sv -overwrite %s\n" v;
-  fprintf fd "synth\n";
-  fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
-  if verbose > 1 then print_endline ("File: "^v');
-  fprintf fd "read_verilog -overwrite %s\n" v';
-  fprintf fd "synth\n";
-  fprintf fd "write_ilang %s_opt_synth.rtlil\n" v';
-  close_out fd;
-  let script = "yosys "^(if verbose > 3 then "-X " else "-q ")^fnam in
-  let _ = match Unix.system script with
-  | WEXITED errno -> if errno <> 0 then
-      begin
-        print_endline ("yosys failed with error code: "^string_of_int errno^" (while executing "^script^")");
-        status := false;
-      end
-    else
-      begin
-      if verbose > 1 then print_endline "yosys succeeded";
-      let goldlst = cnv_sat Convert.func (v^"_golden_synth.rtlil") in
-      let revlst = cnv_sat Convert.func (v'^"_opt_synth.rtlil") in
-      List.iter2 (fun (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') ->
+  let goldlst = sat_parse v in
+  let revlst = sat_parse v' in
+  List.iter2 (fun (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') ->
       let inffoplst1,inffoplst2 = List.split inffoplst in
       let inffoplst1',inffoplst2' = List.split inffoplst' in
       if verbose > 0 then begin
@@ -58,20 +45,10 @@ let compare v v' =
           ) inffoplst' in
       dumpitm := List.rev !dumpitm;
       if verbose > 0 then print_endline ("Endpoint comparison: "^String.concat "; " ep_comparison;
-        )) goldlst revlst;
-      print_endline ("Overall comparison: "^ string_of_bool !status);
-      end;
-    errno
-  | WSIGNALED signal ->
-    print_endline ("yosys killed by signal "^string_of_int signal^" (while executing "^script^")");
-    status := false;
-    signal
-  | WSTOPPED signal ->
-    printf "yosys stopped by signal %d\n" signal;
-    status := false;
-    signal in
-  !status
+                                        )) goldlst revlst;
+  print_endline ("Overall comparison: "^ string_of_bool !status);
+!status
 
 let _ = if Array.length Sys.argv >= 3 then
     let status = compare Sys.argv.(1) Sys.argv.(2) in
-    print_endline (if status then "PASSED: " else "FAILED: ")
+    print_endline (if status then "PASSED" else "FAILED")
