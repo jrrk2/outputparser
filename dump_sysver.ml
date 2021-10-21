@@ -5,14 +5,14 @@ open Source_text_simplify
 open Printf
 
 let dump_unhand = ref None
+let dump_unhand_lst = ref []
 let dumps = ref ""
+let dbgsulst = ref []
 
 let rec obin w n = 
   (if w > 1 then obin (w-1) (n lsr 1) else "")^string_of_int (n land 1)
 
 let vlst = ref []
-let eqlst = ref []
-let clst = ref []
 
 let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | Id s -> s
@@ -38,23 +38,6 @@ let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | Sub (lhs, rhs) -> vexpr' typhash lhs ^ " - " ^ vexpr' typhash rhs
 | LtEq (lhs, rhs) -> vexpr' typhash lhs ^ " <= " ^ vexpr' typhash rhs
 | UMinus (rhs) -> " - " ^ vexpr' typhash rhs
-| Equals (lhs, (Number(_,1,_,_) as rhs)) -> (vexpr typhash) lhs ^ " == " ^ (vexpr typhash) rhs
-| Equals ((Id s as lhs), (Intgr n as rhs)) -> (match Hashtbl.find typhash s with
-    | Unsigned_vector(hi', lo') -> let hi = ceval typhash hi' and lo = ceval typhash lo' in vexpr' typhash lhs ^ " == " ^ vexpr' typhash (Number(2, hi-lo+1, n, string_of_int n))
-    | oth -> vexpr' typhash lhs ^ " - " ^ vexpr' typhash rhs)
-| Equals ((Id s as lhs), (Number _ as rhs)) -> (match Hashtbl.find_opt typhash s with
-    | Some (Unsigned_vector _) -> vexpr' typhash lhs ^ " == " ^ vexpr' typhash rhs
-    | _ -> vexpr' typhash lhs ^ " == " ^ vexpr typhash rhs)
-| Equals ((Id s as lhs), (Id _ as rhs)) -> (match Hashtbl.find_opt typhash s with
-    | Some (Unsigned_vector _) -> vexpr' typhash lhs ^ " == " ^ vexpr' typhash rhs
-    | _ -> vexpr' typhash lhs ^ " == " ^ vexpr typhash rhs)
-| Equals ((Id s as lhs), rhs) as x when is_const typhash rhs -> clst := x :: !clst; (match Hashtbl.find typhash s with
-    | Unsigned_vector _ -> vexpr' typhash lhs ^ " == " ^ vexpr typhash rhs
-    | _ -> vexpr' typhash lhs ^ " == " ^ vexpr typhash rhs)
-| Equals ((Id s as lhs), rhs) as x -> eqlst := x :: !eqlst; (dumps := s; match Hashtbl.find typhash s with
-    | MaybePort (_, Unsigned_vector _, _) -> vexpr' typhash lhs ^ " == " ^ vexpr' typhash rhs
-    | Unsigned_vector _ -> vexpr' typhash lhs ^ " == " ^ vexpr' typhash rhs
-    | _ -> vexpr' typhash lhs ^ " == " ^ vexpr typhash rhs)
 | Equals (lhs, rhs) -> vexpr' typhash lhs ^ " == " ^ vexpr' typhash rhs
 | NotEq (lhs, rhs) -> vexpr' typhash lhs ^ " != " ^ vexpr' typhash rhs
 | GtEq (lhs, rhs) -> vexpr' typhash lhs ^ " >= " ^ vexpr' typhash rhs
@@ -64,6 +47,7 @@ let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | Or2 (lhs, rhs) -> (vexpr typhash) lhs ^ " || " ^ (vexpr typhash) rhs
 | Xor (lhs, rhs) -> (vexpr typhash) lhs ^ " ^ " ^ (vexpr typhash) rhs
 | And (lhs, rhs) -> (vexpr typhash) lhs ^ " & " ^ (vexpr typhash) rhs
+| TildeAnd (rhs) -> " ~& " ^ (vexpr typhash) rhs
 | And2 (lhs, rhs) -> (vexpr typhash) lhs ^ " && " ^ (vexpr typhash) rhs
 | Unsigned expr -> "$unsigned("^vexpr typhash expr^")"
 | Shiftl (lhs, rhs) -> "shift_left("^vexpr typhash lhs^", "^vexpr typhash rhs^")"
@@ -112,6 +96,7 @@ let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | ValueRange (lft, rght) -> "["^vexpr typhash lft^" .. "^vexpr typhash rght^"]"
 | String s -> s
 | AtStar -> "*"
+| PackageRef (pkg_id, Id id) -> pkg_id ^ "::" ^ id
 | oth -> dump_unhand := Some oth; failwith "vexpr"
 
 and vexpr' typhash = function
@@ -194,19 +179,14 @@ let simplify x =
 
 let vexpr typhash x = let x' = simplify x in let s = vexpr typhash x' in vlst := (x,x',s) :: !vlst; s
 
-let initlst = ref []
-
-let initexpr typhash x = match simplify x with
-  | oth -> let s = (vexpr typhash) oth in initlst := (oth, s) :: !initlst; s
-
 let sel_expr typhash x = match simplify x with Intgr _ -> "0" | oth -> vexpr typhash oth
 
 let asgn fd typhash expr = function
-| Id lhs -> fprintf fd "assign %s = %s; // 384	\n" lhs (initexpr typhash expr)
-| Concat _ as lst -> fprintf fd "assign %s = %s; // 385	\n" (vexpr typhash lst) (initexpr typhash expr)
-| Dot1 (lft, rght) -> fprintf fd "assign %s.%s = %s; // 386	\n" (vexpr typhash lft) (vexpr typhash rght) (initexpr typhash expr)
-| IdArrayed2 (Id id, ix) -> fprintf fd "assign %s[%s] = %s; // 387	\n" id (vexpr typhash ix) (initexpr typhash expr)
-| IdArrayedColon (Id id, hi, lo) -> fprintf fd "assign %s[%s : %s] = %s; // 388	\n" id (vexpr typhash hi) (vexpr typhash lo) (initexpr typhash expr)
+| Id lhs -> fprintf fd "assign %s = %s; // 384	\n" lhs (vexpr typhash expr)
+| Concat _ as lst -> fprintf fd "assign %s = %s; // 385	\n" (vexpr typhash lst) (vexpr typhash expr)
+| Dot1 (lft, rght) -> fprintf fd "assign %s.%s = %s; // 386	\n" (vexpr typhash lft) (vexpr typhash rght) (vexpr typhash expr)
+| IdArrayed2 (Id id, ix) -> fprintf fd "assign %s[%s] = %s; // 387	\n" id (vexpr typhash ix) (vexpr typhash expr)
+| IdArrayedColon (Id id, hi, lo) -> fprintf fd "assign %s[%s : %s] = %s; // 388	\n" id (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
 | oth -> dump_unhand := Some oth; failwith "asgn"
 
 let rec parm_generic typhash = function
@@ -336,14 +316,48 @@ let parm_dump_template fd typhash parm_lst =
 let decl_mem fd typhash first last hi lo cnt mem =
     fprintf fd "logic [%s : %s] %s [%s : %s]; // 591\n" (vexpr typhash last) (vexpr typhash first) mem (vexpr typhash hi) (vexpr typhash lo)
 
-let rec dump_struct typhash = function
-| oth -> dump_unhand := Some oth; failwith "dump_struct"
+let rec dump_struct fd typhash = function
+  | SUMember (Typ6 (Atom ("logic"|"bit"|"byte"|"int"|"longint" as kind)), lst) -> List.iter (function
+      | Id id -> fprintf fd "%s %s;" kind id
+      | oth -> unhand_rtl := Some oth; failwith "SUMember5") lst
+  | SUMember (Typ5 (Atom kind, AnyRange (lft, rght) :: []), lst) -> List.iter (function
+      | Id id -> fprintf fd "%s [%s:%s] %s;\n" kind  (vexpr typhash lft) (vexpr typhash rght) id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember2") lst
+  | SUMember (Typ5 (Atom kind, AnyRange (lft, rght) :: AnyRange (lft', rght') :: []), lst) -> List.iter (function
+      | Id id -> fprintf fd "%s [%s:%s] [%s:%s] %s;\n" kind (vexpr typhash lft) (vexpr typhash rght) (vexpr typhash lft') (vexpr typhash rght') id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember2") lst
+  | SUMember (Typ6 (Typ5 (Atom ("logic" as kind), [AnyRange (lft, rght)])), id_lst) -> List.iter (function
+      | Id id -> fprintf fd "%s [%s:%s] %s;\n" kind  (vexpr typhash lft) (vexpr typhash rght) id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember7") id_lst
+  | SUMember (Typ5 (TypEnum3 [AnyRange (lft, rght)], eid_lst), id_lst) -> List.iter (function
+      | Id id -> fprintf fd "logic [%s:%s] %s;\n" (vexpr typhash lft) (vexpr typhash rght) id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember8") id_lst
+  | SUMember (TypEnum6 (id_t, TypEnum3 [AnyRange (lft, rght)], eid_lst), id_lst) ->  List.iter (function
+      | Id id -> fprintf fd "logic [%s:%s] %s;\n" (vexpr typhash lft) (vexpr typhash rght) id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
+  | SUMember (Typ8 (SUDecl (Atom "packed", lst), Deflt), id_lst) -> List.iter (function
+      | Id id -> List.iter (dump_struct fd typhash) lst
+      | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
+  | SUMember (Typ8 (Atom (("byte") as kind), Deflt), id_lst) -> List.iter (function
+      | Id id -> fprintf fd "%s %s;\n" kind id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
+  | SUMember (Typ8 (Atom ("int"|"longint" as kind), Atom "unsigned"), id_lst) -> List.iter (function
+      | Id id -> fprintf fd "%s %s;\n" kind  id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
+  | SUMember (Typ8 (Atom ("int"|"longint" as kind), Deflt), id_lst) -> List.iter (function
+      | Id id -> fprintf fd "%s %s;\n" kind  id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
+  | oth -> dump_unhand := Some oth; failwith "dump_struct"
 
+let dump_dep = function
+| Pos (Id signal) -> sprintf "posedge %s" signal
+| Neg (Id signal) -> sprintf "negedge %s" signal
+| oth -> dump_unhand := Some oth; failwith "dump_dep"
+ 
 let rec dump_deps fd kind = function
 | [] -> ()
-| Pos (Id clk) :: [] -> fprintf fd "%s @(posedge %s)\n" kind clk
-| Pos (Id clk) :: Pos (Id rst) :: [] -> fprintf fd "%s @(posedge %s or posedge %s)\n" kind clk rst
-| oth :: _ -> dump_unhand := Some oth; failwith "dump_deps"
+| (Pos _ | Neg _) :: _ as lst -> fprintf fd "%s @(%s)\n" kind (String.concat " or " (List.map dump_dep lst))
+| oth -> dump_unhand_lst := oth; failwith "dump_deps"
 
 let rec dump_deps_comb fd typhash kind lst =
 fprintf fd "%s @(%s)\n" kind (String.concat " or " (List.map (vexpr typhash) lst))
@@ -442,6 +456,7 @@ let rec stmt_clause fd typhash = function
       | DeclLogic2 _ -> ()
       | Return expr -> fprintf fd "return %s;\n" (vexpr typhash expr)
       | CaseStmt _ as x -> case_clause fd typhash x
+      | SysTaskRef (Atom ("$fwrite" as task), Id f :: tl) -> fprintf fd "%s(%s, ...)" task f
       | oth -> dump_unhand := Some oth; failwith "stmt_clause"
 
 and case_clause fd typhash = function
@@ -491,6 +506,19 @@ let dump_enum fd typhash front lft rght elst back =
 	    s'
 	| oth -> dump_unhand := Some oth; failwith "TypEnum6") elst)) back
 
+let dump_vdir = function
+  | In -> "input logic"
+  | Out -> "output logic"
+  | Inout -> "inout wire"
+  | Deflt -> "inout wire"
+  | oth -> dump_unhand := Some oth; failwith "dump_vdir"
+
+let rec dump_unpack_typ typhash prefix sep stem = function
+  | (nam, (Vsu (id, lst))) -> let stem' = stem^"."^nam in String.concat sep (List.map (dump_unpack_typ typhash prefix sep stem') lst)
+  | (nam, ((Unsigned | Signed | Unsigned_vector _ | Signed_vector _ ) as typ')) ->
+    prefix ^ " [" ^ string_of_int (csiz' typhash typ') ^ ":0] \\" ^ stem ^ "." ^ nam ^ " "
+  | oth -> dbgsu := Some oth; failwith "unpack_typ"
+
 let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = function
     | NetDecl (Atom "wire" :: [], wire_lst) -> List.iter (function
           | Id nam ->
@@ -507,8 +535,8 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
 	  | oth -> dump_unhand := Some oth; failwith "NetDecl'") wire_lst;
     | Itmlst (id_lst) -> List.iter (function
 	  | Id nam -> fprintf fd "logic %s; // 622	\n" nam
-	  | oth -> dump_unhand := Some oth; failwith "DeclLogic647"
-        ) id_lst;
+          | Seq(lbl, lst) -> List.iter (decl_dump_template fd typhash modules cnt) lst
+	  | oth -> dump_unhand := Some oth; failwith "DeclLogic647") id_lst;
     | DeclLogic (reg_lst) -> List.iter (function
 	  | Id nam ->  fprintf fd "logic %s; // 626	\n" nam
           | DeclAsgn (nam, AnyRange (hi, lo) :: []) ->
@@ -577,12 +605,23 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
           | Id id -> fprintf fd "%s %s;\n" orig_id id
             | oth -> dump_unhand := Some oth; failwith "enum range") id_lst
     | Typ5 (SUDecl (Atom "packed", lst), inst_lst) ->
-        fprintf fd "typedef struct packed { // 703	\n";
-        List.iter (dump_struct typhash) lst;
+        fprintf fd "typedef struct packed { // 610	\n";
+        List.iter (dump_struct fd typhash) lst;
+        fprintf fd "} %s;\n" (String.concat ", " (List.map (vexpr typhash) inst_lst));
+    | Typ5 (Typ5 (Atom "logic", AnyRange(hi,lo) :: []), inst_lst) -> List.iter (function
+        | Id id -> fprintf fd "logic %s; // 614	\n" id
+                     | oth -> failwith "dump_sysver.ml:615") inst_lst
+    | Typ5 (Typ8 (SUDecl (Atom "packed", lst), su_lst), inst_lst) ->
+        fprintf fd "typedef struct packed { // 618	\n";
+        List.iter (dump_struct fd typhash) lst;
+        fprintf fd "} %s;\n" (String.concat ", " (List.map (vexpr typhash) inst_lst));
+    | Typ9 (old_id, inst_lst, Typ8 (SUDecl (Atom "packed", su_lst), Deflt)) ->
+        fprintf fd "typedef struct packed { // 622	\n";
+        List.iter (dump_struct fd typhash) su_lst;
         fprintf fd "} %s;\n" (String.concat ", " (List.map (vexpr typhash) inst_lst));
     | Typ6 (SUDecl (Atom "packed", lst)) ->
-        fprintf fd "typedef struct packed { // 703	\n";
-        List.iter (dump_struct typhash) lst;
+        fprintf fd "typedef struct packed { // 626	\n";
+        List.iter (dump_struct fd typhash) lst;
         fprintf fd "};\n"
     | Typ7 (nam, Typ5 (Atom "logic", AnyRange(lft,rght) :: AnyRange(lft',rght') :: AnyRange(lft'',rght'') :: [])) ->
         fprintf fd "logic %s; // 692	\n" nam
@@ -592,15 +631,15 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
         fprintf fd "typedef logic [%s:%s] %s; // 696	\n" (vexpr typhash lft) (vexpr typhash rght) nam
     | Typ7 (nam, Typ8 (SUDecl (Atom "packed", lst), Deflt)) ->
         fprintf fd "typedef struct packed { // 714	\n";
-        List.iter (dump_struct typhash) lst;
+        List.iter (dump_struct fd typhash) lst;
         fprintf fd "} %s;\n" nam
     | Typ7 (id_t, Typ8 (Union (Atom "packed", lst), Deflt)) ->
         fprintf fd "typedef union packed { // 718	\n";
-        List.iter (dump_struct typhash) lst;
+        List.iter (dump_struct fd typhash) lst;
         fprintf fd "} %s;\n" id_t
     | Typ7 (id_t, Typ8 (Itmlst lst, Deflt)) ->
         fprintf fd "typedef struct { // 722	\n";
-        List.iter (dump_struct typhash) lst;
+        List.iter (dump_struct fd typhash) lst;
         fprintf fd "} %s;\n" id_t
     | TypEnum4 (TypEnum3 (AnyRange(lft,rght) :: []), id_lst, id_lst') ->
         let kind = Unsigned_vector(lft,rght) in
@@ -616,6 +655,7 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
         let f'' = function Id nam -> fprintf fd "    typedef enum {%s} %s; // 614\n" (String.concat ", " (List.map f' id_lst)) nam | _ -> () in
         List.iter f'' id_lst'
     | TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), id_lst) -> dump_enum fd typhash "typedef " lft rght id_lst (nam^"; ")
+    | Typ5 (TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), eid_lst), id_lst) -> dump_enum fd typhash "typedef " lft rght id_lst (nam^"; ")
     | TypEnum6 (nam, TypEnum5 (Atom "logic"), id_lst) -> 
         fprintf fd "typedef enum logic {\n\t%s\n} %s; // 618\n" (String.concat ",\n\t" (List.map (function
         | Id e -> e
@@ -643,6 +683,11 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
     | ParamDecl (Atom "localparam", [ParamAsgn1 (nam, expr)]) -> fprintf fd "    localparam %s = %s; // 740	\n" nam (vexpr typhash expr)
     | Typ6 (Atom "packed") -> () (* placeholder *)
     | Typ10 (id_t, AnyRange (lft, rght) :: [], id_t') -> () (* placeholder *)
+    | ParamDecl (LocalParamTyp (Typ5 (TypEnum3 [AnyRange (lft, rght)], e_lst)), param_lst) -> List.iter (function
+          | ParamAsgn1 (nam, expr) ->
+              let wid = width typhash expr in
+              ()
+	  | oth -> unhand_rtl := Some oth; failwith "localparam_int") param_lst;
     | ParamDecl (LocalParamTyp (Typ1 id), ParamAsgn1 (nam, init) :: []) ->
     (match init with
 	   | InitPat lst ->
@@ -675,6 +720,8 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
         fprintf fd "%s = %s; // 782\n" nam (vexpr typhash expr)
     | ParamDecl (LocalParamTyp (Typ8 (Atom ("int"|"integer"|"longint" as kind), Atom kind')), [ParamAsgn1 (nam , expr)]) ->
         fprintf fd "localparam %s %s %s = %s; // 784\n" kind' kind nam (vexpr typhash expr)
+    | ParamDecl (LocalParamTyp (Typ8 (SUDecl (Atom "packed", sulst), Deflt)), id_lst) -> 
+        fprintf fd "localparamtyp SUDecl ...; // 714\n"
     | FunDecl (fn, typ, FunGuts (ports, lst)) ->
         fprintf fd "// function %s ...\n" fn;
         List.iter (stmt_clause fd typhash) lst;
@@ -683,12 +730,32 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
         fprintf fd "// function automatic %s ...\n" fn;
         List.iter (stmt_clause fd typhash) lst;
         fprintf fd "    endfunction\n";
+    | FunDecl _ -> ()
+    | AutoFunDecl _ -> ()
     | PkgImport (Itmlst lst) -> List.iter (decl_dump_template fd typhash modules cnt) lst
     | PkgImportItm (pkg, Atom "*") -> ()
     | DeclData (Typ5 (Atom "logic", AnyRange (lft, rght) :: AnyRange (lft', rght') :: []), Deflt, VarDeclAsgn (mem, ExprOKL lst) :: []) -> () (* placeholder *)
     | AssertProperty -> ()
     | Port (dir, nam, [AnyRange (hi, lo)], Deflt) -> ()
     | Port (dir, nam, [AnyRange (hi, lo)], Atom "signed") -> ()
+    | Typ12 (AnyRange (hi, lo) :: [], Typ5 (TypEnum3 (AnyRange (hi', lo') :: []), e_lst), inst_lst) -> List.iter (function
+        | Id id -> fprintf fd "logic %s; // 733\n" id
+        | oth -> failwith "dump_sysver.ml:733") inst_lst
+    | Typ12 ([AnyRange (hi, lo)], Typ8 (SUDecl (Atom "packed", memblst), Deflt), inst_lst) -> List.iter (function
+        | Id stem ->
+          let sep = ";\n" in
+          let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+          dbgsulst := (stem,sulst) :: !dbgsulst;
+          let cat = String.concat sep (List.map (dump_unpack_typ typhash "logic" sep stem) sulst) in
+          fprintf fd "%s; // 755\n" cat
+        | oth -> failwith "dump_sysver.ml:745") inst_lst
+    | Typ11 (Typ8 (SUDecl (Atom "packed", su_lst), Deflt), AnyRange (hi, lo) :: [], inst_lst) -> List.iter (function
+        | Id id -> fprintf fd "%s; // 739\n" id
+        | oth -> failwith "dump_sysver.ml:745") inst_lst
+    | Typ11 (TypEnum6 (old_id, TypEnum3 (AnyRange (lft, rght) :: []), e_lst), AnyRange (lft', rght') :: [], id_lst) ->
+        List.iter (function
+            | Id nam -> fprintf fd "%s; // 756\n" nam
+            | oth -> failwith "dump_sysver.ml:758") id_lst
     | oth -> dump_unhand := Some oth; failwith "decl_dump_template"
 
 let rec sent_dump_template fd typhash (clk:rw) = function
@@ -834,14 +901,25 @@ let rec proc_dump_template fd typhash cnt = function
     | AssertProperty -> ()
     | Port (dir, nam, [AnyRange (hi, lo)], Deflt) -> ()
     | Port (dir, nam, [AnyRange (hi, lo)], Atom "signed") -> ()
+    | Typ11 (Typ8 (SUDecl (Atom "packed", su_lst), Deflt), AnyRange (hi,lo) :: [], inst_lst) -> List.iter (function
+        | Id id -> fprintf fd "%s; // 895\n" id
+        | oth -> failwith "dump_sysver.ml:896") inst_lst
+    | Typ12 ([AnyRange (hi, lo)], Typ8 (SUDecl (Atom "packed", memblst), Deflt), inst_lst) -> List.iter (function
+        | Id stem ->
+          let sep = ";\n" in
+          let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+          dbgsulst := (stem,sulst) :: !dbgsulst;
+          let cat = String.concat sep (List.map (dump_unpack_typ typhash "logic" sep stem) sulst) in
+          fprintf fd "%s; // 755\n" cat
+        | oth -> failwith "dump_sysver.ml:745") inst_lst
+    | Typ12 (AnyRange (hi, lo) :: [], Typ5 (TypEnum3 (AnyRange (hi', lo') :: []), e_lst), inst_lst) -> ()
+    | Itmlst lst -> List.iter (proc_dump_template fd typhash cnt) lst
+    | Seq (lbl, lst) -> List.iter (proc_dump_template fd typhash cnt) lst
+    | Typ11 (TypEnum6 (old_id, TypEnum3 (AnyRange (lft, rght) :: []), e_lst), AnyRange (lft', rght') :: [], id_lst) ->
+        List.iter (function
+            | Id nam -> fprintf fd "%s; // 920\n" nam
+            | oth -> failwith "dump_sysver.ml:921") id_lst
     | oth -> dump_unhand := Some oth; failwith "proc_dump_template"
-
-let dump_vdir = function
-  | In -> "input logic"
-  | Out -> "output logic"
-  | Inout -> "inout wire"
-  | Deflt -> "inout wire"
-  | oth -> dump_unhand := Some oth; failwith "dump_vdir"
 
 let signcnv = function
         | (Deflt,AnyRange(hi,lo)) -> Unsigned_vector(hi,lo)
@@ -857,7 +935,7 @@ let dump_array_port typhash hi lo dir = function
 
 let dump_port_single typhash nam dir typ = (dump_vdir dir^" "^nam)
 
-let dump_port typhash = function
+let rec dump_port typhash = function
     | Port ((In|Out|Inout|Deflt) as dir, nam, [], sgn) -> dump_port_single typhash nam dir (signcnv (sgn, Deflt))
     | Port (PortDir ((In|Out|Inout|Deflt) as dir, Atom ("wire"|"reg"|"logic")), nam, [], sgn) -> dump_port_single typhash nam dir (signcnv (sgn, Deflt))
     | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: [], sgn) -> dump_array_port typhash hi lo dir (Id nam)
@@ -875,17 +953,28 @@ let dump_port typhash = function
         dump_port_single typhash nam dir (signcnv (sgn, Deflt))
     | Port ((In|Out|Inout) as dir, nam, Typ2 (typ_e, (PackageRef (pkg, Atom "::")) :: [], []) :: AnyRange (hi, lo) :: [], sgn) ->
         dump_array_port typhash hi lo dir (Id nam)
-    | Dot3 (bus, dir, member) -> ""
+    | Dot3 (bus, dir, member) -> "dot3 port"
     | DotBus (bus, dir, member, AnyRange(hi,lo) :: []) ->
         dump_array_port typhash hi lo Inout bus
-    | Port ((In|Out|Inout) as dir, nam, [Typ5 (Typ8 (SUDecl (Atom "packed", memblst), Deflt), [])], Deflt) -> ""
+    | Port ((In|Out|Inout) as dir, stem, [Typ5 (Typ8 (SUDecl (Atom "packed", memblst), Deflt), [])], Deflt) ->
+        let sep = ",\n\t" in
+        let prefix = dump_vdir dir in
+        let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+        String.concat sep (List.map (dump_unpack_typ typhash prefix sep stem) sulst);
     | Port ((In|Out|Inout) as dir, id_i, [Typ12 ([], Typ8 (SUDecl (Atom "packed", memblst), Deflt), [])], Deflt) ->
-        ("struct port "^id_i)
-    | Port ((In|Out|Inout) as dir, nam, [Typ8 (SUDecl (Atom "packed", memblst), Deflt)], Deflt) ->
-        let sulst = List.flatten (List.map (dump_struct typhash) memblst) in
-        let typ' = Vsu (Id nam, sulst) in
-        List.iter (unpack_typ typhash nam) sulst;
-        ""
+        ("struct port "^id_i^" // 941")
+    | Port ((In|Out|Inout) as dir, stem, [Typ8 (SUDecl (Atom "packed", memblst), Deflt)], Deflt) ->
+        let sep = ",\n\t" in
+        let prefix = dump_vdir dir in
+        let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+        String.concat sep (List.map (dump_unpack_typ typhash prefix sep stem) sulst);
+    | Port ((In|Out|Inout) as dir, nam, Typ5 (Typ5 (Atom "logic", AnyRange(hi,lo) :: []), []) :: [], Deflt) ->
+        dump_array_port typhash hi lo dir (Id nam)
+    | Port ((In|Inout|Out) as dir, stem, [Typ5 (Typ8 (SUDecl (Atom "packed", memblst), Deflt), []); AnyRange (Intgr 1, Intgr 0)], Deflt) ->
+        let sep = ",\n\t" in
+        let prefix = dump_vdir dir in
+        let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+        String.concat sep (List.map (dump_unpack_typ typhash prefix sep stem) sulst);
     | oth -> dump_unhand := Some oth; failwith "component"
 
 let dump_template fd modules = function
@@ -910,12 +999,13 @@ let dump_template fd modules = function
   fprintf fd "endmodule // 1055	\n";
   fprintf fd "\n";
   fprintf fd "\n";
-  | PackageBody (pkg, body_lst) -> let cnt = ref 1 in
+  | PackageBody (pkg, body_lst) as x -> let cnt = ref 1 in
   fprintf fd "//\n";
   fprintf fd "// This converter does not currently preserve comments and license information\n";
   fprintf fd "//\n";
   fprintf fd "\n";
+  let bufh', typhash, ports' = Source_text_simplify.module_header [] x in
   fprintf fd "package %s; // 1065	\n" pkg;
-  List.iter (decl_dump_template fd (Hashtbl.create 1) modules cnt) body_lst;
+  List.iter (decl_dump_template fd typhash modules cnt) body_lst;
   fprintf fd "endpackage\n";
   | oth -> dump_unhand := Some oth; failwith "This template only handles modules/packages"

@@ -52,6 +52,12 @@ let rewrite_rtlil v =
                 dbgx := (k, x) :: !dbgx;
                 let sub = Source_text_simplify.template Matchmly.modules x in
 		optlst := (k, sub) :: !optlst;
+                dbgopt := !optlst;
+                let fnam3 = v^"_dump_"^k^".opt.v" in
+                let fd3 = open_out fnam3 in
+                print_endline ("Dumping: " ^ k ^ " to file: "^fnam3);
+                Dump_sysver.dump_template fd3 optlst sub;
+                close_out fd3;
 		) !(Matchmly.modules);
   if not sep_rtl then
     begin
@@ -59,7 +65,6 @@ let rewrite_rtlil v =
       close_out fd'';
     end;
   let optlst = !optlst in
-  dbgopt := optlst;
   List.iter (fun (k,sub) ->
       let fnam3 = v^"_dump_"^k^".opt.v" in
       fprintf fd "read_verilog -sv -overwrite %s\n" fnam3;

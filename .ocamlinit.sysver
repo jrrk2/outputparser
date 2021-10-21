@@ -127,7 +127,6 @@ let v = "examples/cpuregs_wrdata.v";;
 let v = "examples/memtest01.v";;
 let v = "examples/pcpi_fast_mul.v";;
 let v = "examples/ariane_preproc.sv";;
-let v = "examples/initpat.sv";;
 let v = "../picorv32/picorv32.v";;
 let v = "examples/add.v";;
 let v = "examples/add2.v";;
@@ -142,6 +141,7 @@ let v = "examples/count4.v";;
 let v = "examples/count2.v";;
 let v = "examples/count3.v";;
 let v = "examples/count7.v";;
+let v = "examples/initpat1.sv";;
 
 let dbgx = ref None
 
