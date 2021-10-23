@@ -47,6 +47,7 @@ let dbgrepl = ref []
 let dbgsu = ref None
 let coth = ref None
 let (dbgtyp:(string,vtyp)Hashtbl.t ref)  = ref (Hashtbl.create 1)
+let (dbgtyp':(string,vtyp)Hashtbl.t ref)  = ref (Hashtbl.create 1)
 
 let backtrace msg = print_endline ("backtrace: "^(Printexc.get_callstack 5 |> Printexc.raw_backtrace_to_string)^msg)
 
@@ -207,6 +208,9 @@ and width typhash = function
 | PatMember1 (Id _, memb) -> width typhash memb
 | Dot1 (Id id, Id fld) -> let (off,wid,typ) = off_width_field typhash id fld in wid
 | Dot1 (Id id, IdArrayedColon (Id fld, hi, lo)) -> ceval typhash hi - ceval typhash lo + 1
+| AsgnPat [] -> 0
+| AsgnPat (hd::tl) -> width typhash hd + width typhash (AsgnPat tl)
+| PatMemberDflt expr -> width typhash expr
 | oth -> unhand_rtl := Some oth; failwith "width"
 
 and search_field typhash off key = function
@@ -493,6 +497,9 @@ let rec recurs1 (attr: Source_text_rewrite.attr) = function
   | Typ3 (req_t, [PackageRef (pkg_id, Atom "::")]) -> (Source_text_rewrite.descend' {attr with fn=recurs1}) (find_pkg pkg_id req_t)
   | Typ4 (req_t, [PackageRef (pkg_id, Atom "::")], arg3, arg4) -> Typ11 (find_pkg pkg_id req_t, arg3, arg4)
   | Typ7 (nam, expr) as x -> Hashtbl.add attr.Source_text_rewrite.subst (Id nam) expr; (Source_text_rewrite.descend' {attr with fn=recurs1}) x
+  | Typ10 (arg1, arg2, nam) as x ->
+      Hashtbl.add attr.Source_text_rewrite.subst (Id nam) (Typ3 (arg1, arg2));
+       (Source_text_rewrite.descend' {attr with fn=recurs1}) x
   | TypEnum6 (nam, typ, id_lst) as x -> Hashtbl.add attr.Source_text_rewrite.subst (Id nam) (Typ5(typ, id_lst)); (Source_text_rewrite.descend' {attr with fn=recurs1}) x
   | Seq ("", itm :: []) -> itm
   | oth -> Source_text_rewrite.descend' {attr with fn=recurs1} oth
@@ -505,7 +512,8 @@ let signcnv = function
 	| (Deflt,oth) -> failwith "signcnv'"
 	| oth, _ -> unhand_rtl := Some oth; failwith "signcnv"
 
-let mapdims = List.map (function AnyRange (hi,lo) -> (hi,lo) | oth -> failwith "mapdims")
+let mapdim = function AnyRange (hi,lo) -> (hi,lo) | oth -> failwith "mapdims"
+let mapdims = List.map mapdim
 
 let vector_port typhash ix hi lo dir nam =
   update typhash nam (MaybePort (ix, Unsigned_vector(hi,lo), dir))
@@ -569,6 +577,14 @@ let rec struct_union typhash = function
 	       | oth -> unhand_rtl := Some oth; failwith "SUMember12") id_lst
            | SUMember (Typ8 (Atom ("int"|"longint" as kind), Deflt), id_lst) -> List.map (function
                | Id id -> (id, Unsigned_vector (Intgr (atom_width kind - 1), Intgr 0))
+	       | oth -> unhand_rtl := Some oth; failwith "SUMember13") id_lst
+           | SUMember (Typ9 (old_id_t, (AnyRange _ as dim1) :: [], Typ5 (Atom "logic", (AnyRange _ :: _ as dims))), id_lst) -> List.map (function
+               | Id id -> (id, Unsigned_vector (Intgr (csiz' typhash (Unsigned_array (mapdims (dim1 :: dims))) - 1), Intgr 0))
+	       | oth -> unhand_rtl := Some oth; failwith "SUMember13") id_lst
+           | SUMember (Typ9 (old_id, (AnyRange _ as dim1 :: []),
+                             Typ9 (old_id', (AnyRange (lft', rght') :: []), 
+                                   Typ5 (TypEnum3 (AnyRange _ :: _ as dims), e_lst))), id_lst) -> List.map (function
+               | Id id -> (id, Unsigned_vector (Intgr (csiz' typhash (Unsigned_array (mapdims (dim1 :: dims))) - 1), Intgr 0))
 	       | oth -> unhand_rtl := Some oth; failwith "SUMember13") id_lst
            | oth -> unhand_rtl := Some oth; failwith "SUMember"
 
@@ -970,6 +986,7 @@ let rec restrict typhash wid = function
 x -> x
 
 let buffer' bufh typhash expr wid = expr
+let dbgtyp7 = ref []
 
 let rec decl_template' bufh typhash modules pth = function
     | Seq (lbl, lst) -> List.iter (decl_template bufh typhash modules (newpth lbl pth)) lst
@@ -1054,6 +1071,9 @@ let rec decl_template' bufh typhash modules pth = function
               dbgpar := (nam,expr,wid) :: !dbgpar;
               addwire bufh typhash ([wid], Id nam, Vlocal (wid, expr));
 	  | oth -> unhand_rtl := Some oth; failwith "localparam_int") param_lst;
+    | ParamDecl (LocalParamTyp (Typ9 (id_t, [AnyRange (lft, rght)], Typ8 (SUDecl (Atom "packed", memblst), Deflt))), asgnlst) -> List.iter (function
+            | ParamAsgn1 (id, InitPat asgnlst) -> ()
+	    | oth -> unhand_rtl := Some oth; failwith "paramdecl1060") asgnlst
     | NetDecl (Atom "wire" :: [], wire_lst) -> List.iter (function
           | Id nam -> addwire bufh typhash ([], Id nam, Unsigned)
 	  | DeclAsgn (Id nam, (AnyRange _ as x) :: []) ->
@@ -1088,8 +1108,9 @@ let rec decl_template' bufh typhash modules pth = function
       elabenum typhash nam id_lst (Unsigned_vector (lft, rght))
     | TypEnum6 (nam, Typ8 (Atom ("int" as kind), Atom "unsigned"), id_lst) ->
       elabenum typhash nam id_lst (Unsigned_vector (Intgr (atom_width kind - 1), Intgr 0))
-    | Typ7 (nam, Typ5 (Atom "logic", AnyRange(lft,rght) :: AnyRange(lft',rght') :: AnyRange(lft'',rght'') :: [])) -> update typhash (Id nam) (Vtyp nam);
-    | Typ7 (nam, Typ5 (Atom "logic", AnyRange(lft,rght) :: [])) -> update typhash (Id nam) (Vtyp nam);
+    | Typ7 (nam, Typ5 (Atom "logic", (AnyRange _ :: _ as dims ))) as x ->
+      dbgtyp7 := x :: !dbgtyp7;
+      update typhash (Id nam) (Unsigned_array (mapdims dims));
     | Typ7 (nam, Typ8 (SUDecl (Atom "packed", lst), Deflt)) ->
         update typhash (Id nam) (Vsu (Id nam, List.flatten (List.map (struct_union typhash) lst)))
     | Typ7 (nam, Typ8 (Union (Atom "packed", lst), Deflt)) ->
@@ -1106,6 +1127,7 @@ let rec decl_template' bufh typhash modules pth = function
             print_endline old_id;
             addwire bufh typhash ([], Id nam, Unsigned_vector(Intgr (clog2 (List.length elst) - 1), Intgr 0));
 	  | oth -> unhand_rtl := Some oth; failwith "DeclLogic1760") id_lst
+    | Typ10 (typ_t, AnyRange (lft, rght) :: [], typ_t') -> ()
     | DeclLogic2 (wire_lst, (AnyRange(hi,lo) as x) :: []) -> List.iter (function
 	  | Id nam -> update typhash (Id nam) (Unsigned_vector(hi,lo));
           | DeclAsgn (nam, (AnyRange _ :: _ as dims)) -> addwire bufh typhash ([range typhash (nam, x)], nam, Unsigned_array (mapdims (x :: dims)))
@@ -1259,6 +1281,7 @@ let rec parm_map typhash = function
 let module_header modules = function
 | Modul (typ, parm_lst, port_lst, body_lst) ->
   let typhash = Hashtbl.create 255 in
+  dbgtyp' := typhash;
   let bufh = () in
   List.iter (fun itm -> let _ = parm_map typhash itm in ()) parm_lst;
   List.iteri (fun ix itm -> ports typhash (ix+1) itm) port_lst;
@@ -1266,6 +1289,7 @@ let module_header modules = function
   bufh, typhash, port_lst
 | PackageBody (pkg, body_lst) ->
   let typhash = Hashtbl.create 255 in
+  dbgtyp' := typhash;
   let bufh = () in
   List.iter (fun itm -> decl_template bufh typhash modules None itm) body_lst;
   bufh, typhash, []

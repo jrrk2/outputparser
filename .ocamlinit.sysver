@@ -125,7 +125,6 @@ let v = "examples/regindex_bits.v";;
 let v = "examples/cpuregs_wrdata.v";;
 let v = "examples/memtest01.v";;
 let v = "examples/pcpi_fast_mul.v";;
-let v = "examples/ariane_preproc.sv";;
 let v = "../picorv32/picorv32.v";;
 let v = "examples/add.v";;
 let v = "examples/add2.v";;
@@ -141,6 +140,7 @@ let v = "examples/count2.v";;
 let v = "examples/count3.v";;
 let v = "examples/count7.v";;
 let v = "examples/initpat1.sv";;
+let v = "examples/ariane_preproc.sv";;
 
 let dbgx = ref None
 let dbgprt = ref []
@@ -155,8 +155,8 @@ let t id = Hashtbl.find !dbgtyp id;;
 
 (* *)
 let (modlst,x,p,p',status) = rewrite_rtlil v;;
-dbgtyp := List.assoc "frontend" !dbgtyplst;;
-dbgprt := List.assoc "frontend" !dbgports;;
+dbgtyp := List.assoc "fpnew_pkg" !dbgtyplst;;
+dbgprt := List.assoc "fpnew_pkg" !dbgports;;
 let req = Hashtbl.find !dbgtyp "icache_dreq_o";;
 (* *)
 

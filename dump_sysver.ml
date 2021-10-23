@@ -78,6 +78,7 @@ let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | TildeAnd (rhs) -> " ~& " ^ (vexpr typhash) rhs
 | And2 (lhs, rhs) -> (vexpr typhash) lhs ^ " && " ^ (vexpr typhash) rhs
 | Unsigned expr -> "$unsigned("^vexpr typhash expr^")"
+| Signed expr -> "$signed("^vexpr typhash expr^")"
 | Shiftl (lhs, rhs) -> "("^vexpr typhash lhs^" << "^vexpr typhash rhs^")"
 | Shiftr (lhs, rhs) -> "("^vexpr typhash lhs^" >> "^vexpr typhash rhs^")"
 | Shiftr3 (lhs, rhs) -> "("^vexpr typhash lhs^" >>> "^vexpr typhash rhs^")"
@@ -88,6 +89,11 @@ let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | Query (cond', ctrue', cfalse') -> sprintf "%s ? %s : %s" (vexpr typhash cond') (vexpr typhash ctrue') (vexpr typhash cfalse')
 | Deflt -> "()"
 | Dot1(Id lft, Id rght) -> vexpr typhash (dot_extract typhash lft rght)
+| Dot1 (Id lft, IdArrayed2 (Id rght, Intgr ix)) ->
+   vexpr typhash (match dot_extract typhash lft rght with
+     | IdArrayed2 (Id lft', Intgr ix') ->
+       IdArrayed2 (Id lft', Intgr (ix'+ix))
+     | oth -> oth)
 | Dot1 (Id lft, IdArrayedColon (Id rght, Intgr hi, Intgr lo)) ->
    vexpr typhash (match dot_extract typhash lft rght with
      | IdArrayedColon (Id lft', Intgr hi', Intgr lo') ->
@@ -124,6 +130,8 @@ let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | PackageBody (pkg, [Id id]) -> pkg^"::"^id
 | ExprQuote1(lhs, rhs) -> vexpr typhash lhs^"'("^vexpr typhash rhs^")"
 | Sys ("$unsigned", expr) -> vexpr typhash (Unsigned expr)
+| Sys ("$signed", expr) -> vexpr typhash (Signed expr)
+| Sys ("$clog2", StarStar (Intgr n, Intgr m)) -> vexpr typhash (Intgr (clog2 (n lsl m)))
 (*
 | Sys (sys_id, arglst) -> let args = (match arglst with
         | Itmlst lst -> String.concat ", " (List.map (vexpr typhash) lst)
@@ -415,16 +423,24 @@ let rec dump_struct fd typhash = function
       | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
   | SUMember (Typ8 (SUDecl (Atom "packed", lst), Deflt), id_lst) -> List.iter (function
       | Id id -> List.iter (dump_struct fd typhash) lst
-      | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
+      | oth -> unhand_rtl := Some oth; failwith "SUMember10") id_lst
   | SUMember (Typ8 (Atom (("byte") as kind), Deflt), id_lst) -> List.iter (function
       | Id id -> fprintf fd "%s %s; // 371\n" kind id;
-      | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
+      | oth -> unhand_rtl := Some oth; failwith "SUMember11") id_lst
   | SUMember (Typ8 (Atom ("int"|"longint" as kind), Atom "unsigned"), id_lst) -> List.iter (function
       | Id id -> fprintf fd "%s %s; // 374\n" kind  id;
-      | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
+      | oth -> unhand_rtl := Some oth; failwith "SUMember12") id_lst
   | SUMember (Typ8 (Atom ("int"|"longint" as kind), Deflt), id_lst) -> List.iter (function
       | Id id -> fprintf fd "%s %s; // 377\n" kind  id;
-      | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
+      | oth -> unhand_rtl := Some oth; failwith "SUMember13") id_lst
+  | SUMember (Typ9 (id_t, [AnyRange _ as dim1], Typ5 (Atom "logic", dims)), id_lst) -> List.iter (function
+      | Id id -> fprintf fd "logic [%d:0] %s; // 430\n" (csiz' typhash (Unsigned_array (mapdims (dim1 :: dims))) - 1) id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember14") id_lst
+  | SUMember (Typ9 (old_id, (AnyRange _ as dim1 :: []),
+                    Typ9 (old_id', (AnyRange (lft', rght') :: []), 
+                          Typ5 (TypEnum3 (AnyRange _ :: _ as dims), e_lst))), id_lst) -> List.iter (function
+      | Id id -> fprintf fd "logic [%d:0] %s; // 430\n" (csiz' typhash (Unsigned_array (mapdims (dim1 :: dims))) - 1) id;
+      | oth -> unhand_rtl := Some oth; failwith "SUMember15") id_lst
   | oth -> dump_unhand := Some oth; failwith "dump_struct"
 
 let dump_dep = function
@@ -1012,6 +1028,7 @@ let rec proc_dump_template fd typhash modules = function
     | LoopGen1 _ -> ()
     | CondGen1 _ -> ()
     | GenItem _ -> ()
+    | Genvar _ -> ()
     | AlwaysComb2 _ -> ()
     | AlwaysFF _ -> ()
     | AlwaysLatch _ -> ()
