@@ -23,8 +23,6 @@ let string_of_signal = E.string_of_signal
 let rec obin w n =
   (if w > 1 then obin (w-1) (n lsr 1) else "")^string_of_int (n land 1)
 
-let clog2 n = if n = 0 then 0 else int_of_float(ceil(log(float_of_int n)/.log 2.))
-
 let rec obin64 w n =
   (if w > 1 then obin64 (w-1) (Int64.shift_right n 1) else "")^Int64.to_string (Int64.logand n 1L)
 

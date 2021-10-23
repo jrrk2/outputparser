@@ -24,6 +24,8 @@ let remap = ref None
 
 let verbose = try int_of_string (Sys.getenv "MATCHMLY_VERBOSE") > 0 with err -> false
 
+let clog2 n = if n = 0 then 0 else int_of_float(ceil(log(float_of_int n)/.log 2.))
+
 let g str pat =
 let len = String.length pat in
 if String.length str < len then false
@@ -116,6 +118,7 @@ if (!basing == 0) then begin
   value := !width;
   width := 32;
 end;
+if (!width == 0) then width := 1 + clog2(!value);
 Number (!base, !width, !value, (String.sub str (1 + !basing) (String.length str - 1 - !basing)))
 
 let rec event_lst = function

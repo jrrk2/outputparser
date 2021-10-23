@@ -124,3 +124,5 @@ examples/*.v_golden_synth.v
 examples/*.sv_dump.ys
 examples/*.sv_golden_synth.v
 obj_dir/
+examples/*.sv_dump_synth.v
+examples/*.sv_opt_synth.v

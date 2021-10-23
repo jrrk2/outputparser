@@ -15,6 +15,7 @@ let rec obin w n =
 let vlst = ref []
 let dbgfld = ref None
 let dbgdot  = ref []
+let dbgunion = ref []
 
 let dot_extract typhash lft rght = 
   match Hashtbl.find_opt typhash lft with
@@ -456,22 +457,22 @@ let rec stmt_clause fd typhash = function
               fprintf fd "logic [%s : %s] %s ; // 450\n" (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash nam)
 	  | oth -> dump_unhand := Some oth; failwith "DeclLogic2") wire_lst
       | DeclLogic lst -> ()
-      | Seq (id, []) -> fprintf fd "       begin end; // 775	\n"
+      | Seq (id, []) -> fprintf fd "       begin end; // 775\n"
       | Seq (id, lst) ->  List.iter (stmt_clause fd typhash) lst
       | Blocking (Asgn1 (IdArrayed2(id, sel), expr)) -> fprintf fd "        %s[%s] = %s; // 777\n" (vexpr typhash id) (vexpr typhash sel) (vexpr typhash expr)
       | Blocking (Asgn1 (Dot1(Id lft, Id rght), expr)) -> fprintf fd "        %s.%s = %s; // 778\n" lft rght (vexpr typhash expr)
-      | Blocking (Asgn1 (id, expr)) -> fprintf fd "        %s = %s; // 777	\n" (vexpr typhash id) (vexpr typhash expr)
-      | Blocking (FopAsgn (id, expr)) -> fprintf fd "        %s = %s; // 779	\n" (vexpr typhash id) (vexpr typhash expr)
+      | Blocking (Asgn1 (id, expr)) -> fprintf fd "        %s = %s; // 777\n" (vexpr typhash id) (vexpr typhash expr)
+      | Blocking (FopAsgn (id, expr)) -> fprintf fd "        %s = %s; // 779\n" (vexpr typhash id) (vexpr typhash expr)
       | Blocking (FopAsgn1 (id, id', id'', expr)) -> fprintf fd "        %s = %s; // 780\n" (vexpr typhash id) (vexpr typhash expr)
       | Blocking (FopAsgnArrayMemSel (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 781\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
       | Blocking (FopAsgnConcat (idlst, expr)) -> fprintf fd "        %s = %s; // 782	\n" (String.concat ", " (List.map (vexpr typhash) idlst)) (vexpr typhash expr)
       | Blocking (FopAsgnArraySel (id, ix, expr)) -> fprintf fd "        %s[%s] = %s; // 783\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash expr)
-      | Blocking (FopAsgnArrayWid (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 784\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayWid (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 469\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
       | Blocking (FopAsgnArrayRange (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 785\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
       | Blocking (FopAsgnArrayRange2 (id, ix, ix', expr)) -> fprintf fd "        %s[%s][%s] = %s; // 786\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash ix') (vexpr typhash expr)
       | Blocking (FopAsgnArrayField (id,  ix, expr)) -> fprintf fd "        %s = %s; // 787\n" (vexpr typhash (Dot1(id, ix))) (vexpr typhash expr)
 (*
-      | Blocking (FopAsgnArrayField2 (id, ArrayedColon(Id ix, hi, lo), expr)) -> fprintf fd "        %s.%s[%s : %s] = %s; // 788	\n" (vexpr typhash id) ix (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayField2 (id, ArrayedColon(Id ix, hi, lo), expr)) -> fprintf fd "        %s.%s[%s : %s] = %s; // 788\n" (vexpr typhash id) ix (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
 *)
       | Blocking (FopAsgnArrayField3 (id, sel, sel', expr)) ->
           fprintf fd "        %s[%s].%s = %s; // 790	\n" (vexpr typhash id) (vexpr typhash sel) (vexpr typhash sel') (vexpr typhash expr)
@@ -641,12 +642,36 @@ let instance_dump_template fd typhash (typ:rw) params inst pinlst =
     | oth -> failwith "instance type"
 
 let dbgdmpsu = ref None
+let dbgdmpu = ref None
 
 let dump_struct_single fd typhash nam memblst =
   let sulst = List.flatten (List.map (struct_union typhash) memblst) in
   dbgdmpsu := Some sulst;
-  let wid = csiz' !dbgtyp (Vsu (Id nam, sulst)) in
+  let wid = csiz' typhash (Vsu (Id nam, sulst)) in
   fprintf fd "logic [%d : 0] %s; // 607\n" (wid-1) nam
+
+let dump_union fd typhash = function
+  | SUMember (Typ5 (Atom "logic", [AnyRange (hi, lo)]), id_lst) -> List.iter (function
+        | Id id ->
+          let wid = ceval typhash hi - ceval typhash lo + 1 in
+          fprintf fd "logic [%d : 0] %s; // 657\n" (wid-1) id
+        | oth -> dbgdmpu := Some oth; failwith "dump_union") id_lst
+  | SUMember (Typ8 (SUDecl (Atom "packed", memblst), Deflt), id_lst) -> List.iter (function
+        | Id id ->
+          let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+          let wid = csiz' !dbgtyp (Vsu (Id id, sulst)) in
+          fprintf fd "logic [%d : 0] %s; // 663\n" (wid-1) id
+        | oth -> dbgdmpu := Some oth; failwith "dump_union") id_lst
+  | SUMember (Typ5 (TypEnum3 [AnyRange (hi, lo)], e_lst), id_lst) -> List.iter (function
+        | Id id ->
+          let wid = ceval typhash hi - ceval typhash lo + 1 in
+          fprintf fd "logic [%d : 0] %s; // 657\n" (wid-1) id
+        | oth -> dbgdmpu := Some oth; failwith "dump_union") id_lst
+
+  | oth -> dbgdmpu := Some oth; failwith "dump_union"
+(*
+  (dump_vdir dir^" ["^string_of_int (wid-1)^" : 0] "^nam)
+*)
 
 let rec proc_dump_template fd typhash modules = function
     | AlwaysFF (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
@@ -825,7 +850,8 @@ let rec proc_dump_template fd typhash modules = function
         fprintf fd "} %s;\n" nam
     | Typ7 (id_t, Typ8 (Union (Atom "packed", lst), Deflt)) ->
         fprintf fd "typedef union packed { // 718	\n";
-        List.iter (dump_struct fd typhash) lst;
+        dbgunion := lst :: !dbgunion;
+        List.iter (dump_union fd typhash) lst;
         fprintf fd "} %s;\n" id_t
     | Typ7 (id_t, Typ8 (Itmlst lst, Deflt)) ->
         fprintf fd "typedef struct { // 722	\n";
@@ -845,7 +871,14 @@ let rec proc_dump_template fd typhash modules = function
         let f'' = function Id nam -> fprintf fd "    typedef enum {%s} %s; // 614\n" (String.concat ", " (List.map f' id_lst)) nam | _ -> () in
         List.iter f'' id_lst'
     | TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), id_lst) -> dump_enum fd typhash "typedef // 670\n" lft rght id_lst (nam^"; ")
-    | Typ5 (TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), eid_lst), id_lst) -> dump_enum fd typhash "typedef // 671\n" lft rght id_lst (nam^"; ")
+    | Typ5 (TypEnum6 (old_id, TypEnum3 (AnyRange(lft,rght) :: []), eid_lst), id_lst) ->
+          List.iter (function
+            | Id itm ->
+(*
+              dump_enum fd typhash "// 671\n" lft rght eid_lst (itm^"; ")
+*)
+              fprintf fd "logic [%s:%s] %s; // 880\n" (vexpr typhash lft) (vexpr typhash rght) itm
+	    | oth -> dump_unhand := Some oth; failwith "TypEnum6") id_lst
     | TypEnum6 (nam, TypEnum5 (Atom "logic"), id_lst) -> 
         fprintf fd "typedef enum logic {\n\t%s\n} %s; // 660\n" (String.concat ",\n\t" (List.map (function
         | Id e -> e
@@ -863,7 +896,7 @@ let rec proc_dump_template fd typhash modules = function
 	    s'
 	| oth -> dump_unhand := Some oth; failwith "TypEnum6") id_lst)) nam
     | TypEnum6 (nam, Typ8 (Atom "int", Atom "unsigned"), id_lst) -> 
-        fprintf fd "typedef enum unsigned int {\n\t%s\n} %s; // 634\n" (String.concat ",\n\t" (List.map (function
+        fprintf fd "typedef enum int {\n\t%s\n} %s; // 634\n" (String.concat ",\n\t" (List.map (function
         | Id e -> e
         | EnumInit (e, expr) ->
 	    let s = vexpr typhash expr in
@@ -908,8 +941,10 @@ let rec proc_dump_template fd typhash modules = function
                 | oth -> dump_unhand := Some oth; failwith "param_asgn") lst
     | ParamDecl (LocalParamTyp (Typ8 (Atom ("int"|"integer"|"longint"), Deflt)), [ParamAsgn1 (nam , expr)]) ->
         fprintf fd "%s = %s; // 782\n" nam (vexpr typhash expr)
+    | ParamDecl (LocalParamTyp (Typ8 (Atom "int", Atom "unsigned")), [ParamAsgn1 (nam , expr)]) ->
+        fprintf fd "localparam unsigned %s = %s; // 915\n" nam (vexpr typhash expr)
     | ParamDecl (LocalParamTyp (Typ8 (Atom ("int"|"integer"|"longint" as kind), Atom kind')), [ParamAsgn1 (nam , expr)]) ->
-        fprintf fd "localparam %s %s %s = %s; // 784\n" kind' kind nam (vexpr typhash expr)
+        fprintf fd "localparam %s %s %s = %s; // 915\n" kind' kind nam (vexpr typhash expr)
     | ParamDecl (LocalParamTyp (Typ8 (SUDecl (Atom "packed", sulst), Deflt)), id_lst) -> 
         fprintf fd "localparamtyp SUDecl ...; // 737\n"
     | FunDecl (fn, typ, FunGuts (ports, lst)) ->

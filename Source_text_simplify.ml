@@ -61,6 +61,8 @@ let update typhash id expr = match id with
 let is_mem typhash id = match Hashtbl.find_opt typhash id with Some (Vmem _) -> true | _ -> false
 let mem_opt typhash id = match Hashtbl.find_opt typhash id with Some (Vmem opt) -> opt | _ -> failwith "mem_opt"
 
+let clog2 = Matchmly.clog2
+
 let rec ceval typhash = function
 | Intgr n -> n
 | Number (_,_,n,_) -> n
