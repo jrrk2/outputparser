@@ -13,6 +13,33 @@ let rec obin w n =
   (if w > 1 then obin (w-1) (n lsr 1) else "")^string_of_int (n land 1)
 
 let vlst = ref []
+let dbgfld = ref None
+let dbgdot  = ref []
+
+let dot_extract typhash lft rght = 
+  match Hashtbl.find_opt typhash lft with
+    | Some (Vsu _ | MaybePort(_, Vsu _, _)) ->
+      let off,wid,typ = off_width_field typhash lft rght in
+      dbgdot := (lft,(rght,off,wid,typ)) :: !dbgdot;
+      IdArrayedColon (Id lft, Intgr (off+wid-1), Intgr off)
+    | Some oth ->
+      dbgfield := Some oth;
+      dbgdot := (lft,(rght,0,0,oth)) :: !dbgdot;
+      Id (lft^"."^rght)
+    | None -> failwith (lft^" not found in types")
+
+let dot_extract3 typhash lft field subfield = 
+  match Hashtbl.find_opt typhash lft with
+    | Some (Vsu _ | MaybePort(_, Vsu _, _)) ->
+      let off,wid,typ = off_width_field typhash lft field in
+      let field_lst = match typ with
+         | Vsu (Id id, field_lst) -> field_lst
+         | oth -> dbgfld := Some oth; failwith "extract3" in
+      let off',wid',typ' = search_field typhash off subfield field_lst in
+      dbgdot := (lft,(field,off',wid',typ')) :: !dbgdot;
+      IdArrayedColon (Id lft, Intgr (off'+wid'-1), Intgr off')
+    | Some oth -> dbgfield := Some oth; Id (lft^"."^field^"."^subfield)
+    | None -> failwith (lft^" not found in types")
 
 let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | Id s -> s
@@ -50,28 +77,45 @@ let rec vexpr (typhash:(string,vtyp)Hashtbl.t) = function
 | TildeAnd (rhs) -> " ~& " ^ (vexpr typhash) rhs
 | And2 (lhs, rhs) -> (vexpr typhash) lhs ^ " && " ^ (vexpr typhash) rhs
 | Unsigned expr -> "$unsigned("^vexpr typhash expr^")"
-| Shiftl (lhs, rhs) -> "shift_left("^vexpr typhash lhs^", "^vexpr typhash rhs^")"
-| Shiftr (lhs, rhs) -> "shift_right("^vexpr typhash lhs^", "^vexpr typhash rhs^")"
-| Shiftr3 (lhs, rhs) -> "shift_right3("^vexpr typhash lhs^", "^vexpr typhash rhs^")"
+| Shiftl (lhs, rhs) -> "("^vexpr typhash lhs^" << "^vexpr typhash rhs^")"
+| Shiftr (lhs, rhs) -> "("^vexpr typhash lhs^" >> "^vexpr typhash rhs^")"
+| Shiftr3 (lhs, rhs) -> "("^vexpr typhash lhs^" >>> "^vexpr typhash rhs^")"
 | CellPinItem2 (port, expr) -> "." ^ port ^ " ( " ^ vexpr typhash expr ^ " ) "
 | CellPinItemImplied (port) -> "." ^ port ^ " ( " ^ port ^ " ) "
 | CellPinItemNC (port) -> "." ^ port ^ " ( ) "
 | Query (Id cond', ctrue', cfalse') -> sprintf "%s ? %s : %s" cond' (vexpr typhash ctrue') (vexpr typhash cfalse')
 | Query (cond', ctrue', cfalse') -> sprintf "%s ? %s : %s" (vexpr typhash cond') (vexpr typhash ctrue') (vexpr typhash cfalse')
-| Deflt -> "open"
-| Dot1(lft, rght) -> vexpr typhash lft^"."^vexpr typhash rght
-| RedOr (lhs) -> " or (" ^ vexpr typhash lhs ^ ")"
-| RedAnd (lhs) -> " and (" ^ vexpr typhash lhs ^ ")"
-| RedXor (lhs) -> " xor (" ^ vexpr typhash lhs ^ ")"
-| TildeOr (lhs) -> " nor (" ^ vexpr typhash lhs ^ ")"
+| Deflt -> "()"
+| Dot1(Id lft, Id rght) -> vexpr typhash (dot_extract typhash lft rght)
+| Dot1 (Id lft, IdArrayedColon (Id rght, Intgr hi, Intgr lo)) ->
+   vexpr typhash (match dot_extract typhash lft rght with
+     | IdArrayedColon (Id lft', Intgr hi', Intgr lo') ->
+       IdArrayedColon (Id lft', Intgr (lo'+hi), Intgr (lo'+lo))
+     | oth -> oth)
+| Dot1 (Dot1 (Id lft, Id field), Id subfield) -> vexpr typhash (dot_extract3 typhash lft field subfield)
+| RedOr (lhs) -> " | (" ^ vexpr typhash lhs ^ ")"
+| RedAnd (lhs) -> " & (" ^ vexpr typhash lhs ^ ")"
+| RedXor (lhs) -> " ^ (" ^ vexpr typhash lhs ^ ")"
+| TildeOr (lhs) -> " ~| (" ^ vexpr typhash lhs ^ ")"
+| IdArrayed2 (IdArrayed2 (Id mem, ix), ix') ->
+  (match Hashtbl.find_opt typhash mem with
+      | Some (Unsigned_array [hi,lo; hi',lo']) -> vexpr typhash (IdArrayed2 (Id mem, Add (Sub (hi', lo'), Mult (Sub (ix, lo), Add (Sub (hi', lo'), Intgr 1)))))
+      | oth -> failwith "dims")
 | IdArrayed2 (id, ix) -> vexpr typhash id^"["^vexpr typhash ix^"]"
 | IdArrayed3 (PackageBody (pkg, []) :: [], arr) -> pkg^"::"^vexpr typhash arr
+| IdArrayedColon (Number(_,w,n,_), expr, expr') ->
+  let hi = ceval typhash expr and lo = ceval typhash expr' in
+  let mask = 1 lsl (hi-lo) in
+  sprintf "%d'h%x" (hi - lo + 1) ((land) (n lsr lo) (mask-1))
 | IdArrayedColon (id, expr, expr') -> vexpr typhash id^"["^vexpr typhash expr^" : "^vexpr typhash expr'^"]"
-| IdArrayedPlusColon (id, expr, expr') -> vexpr typhash id^"["^vexpr typhash expr^" : "^vexpr typhash expr'^"]"
+| IdArrayedPlusColon (id, expr, expr') ->
+  let lo = ceval typhash expr and wid = ceval typhash expr' in
+  vexpr typhash id^"["^string_of_int (lo+wid-1)^" : "^string_of_int lo^"]"
 | IdArrayedHyphenColon (id, expr, expr') -> vexpr typhash id^"["^vexpr typhash expr^" : "^vexpr typhash expr'^"]"
 | FunRef (fn, arglst) -> fn^"("^String.concat ", " (List.map (vexpr typhash) arglst)^")"
 | FunRef2 (fn, _, arglst) -> fn^"("^String.concat ", " (List.map (vexpr typhash) arglst)^")"
 | AsgnPat [PatMemberDflt (Number _ as expr)] -> "{"^(vexpr typhash expr)^"}"
+| Repl (Intgr n, [expr]) -> " {" ^ String.concat ", " (List.init n (fun _ -> vexpr typhash expr)) ^ "} "
 | Repl (expr', [expr]) -> "{{"^(vexpr typhash expr')^"}{"^(vexpr typhash expr)^"}}"
 | InsideRange (first, last) -> "inside_range("^(vexpr typhash first)^", "^(vexpr typhash last)^")"
 | OpenRange lst -> "open_range("^String.concat ", " (List.map (vexpr typhash) lst)^")"
@@ -177,15 +221,19 @@ let simplify x =
   done;
   !rslt2
 
-let vexpr typhash x = let x' = simplify x in let s = vexpr typhash x' in vlst := (x,x',s) :: !vlst; s
+let vexpr typhash x = let x' = simplify x in let s = vexpr typhash x' in s
 
 let sel_expr typhash x = match simplify x with Intgr _ -> "0" | oth -> vexpr typhash oth
 
 let asgn fd typhash expr = function
-| Id lhs -> fprintf fd "assign %s = %s; // 384	\n" lhs (vexpr typhash expr)
+| Id lhs ->
+  vlst := (lhs,expr) :: !vlst;
+  fprintf fd "assign %s = %s; // 384	\n" lhs (vexpr typhash expr)
 | Concat _ as lst -> fprintf fd "assign %s = %s; // 385	\n" (vexpr typhash lst) (vexpr typhash expr)
-| Dot1 (lft, rght) -> fprintf fd "assign %s.%s = %s; // 386	\n" (vexpr typhash lft) (vexpr typhash rght) (vexpr typhash expr)
-| IdArrayed2 (Id id, ix) -> fprintf fd "assign %s[%s] = %s; // 387	\n" id (vexpr typhash ix) (vexpr typhash expr)
+| Dot1 (lft, rght) as x -> fprintf fd "assign %s = %s; // 386\n" (vexpr typhash x) (vexpr typhash expr)
+| IdArrayed2 (Id id, ix) -> 
+  vlst := (id,expr) :: !vlst;
+  fprintf fd "assign %s[%s] = %s; // 387	\n" id (vexpr typhash ix) (vexpr typhash expr)
 | IdArrayedColon (Id id, hi, lo) -> fprintf fd "assign %s[%s : %s] = %s; // 388	\n" id (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
 | oth -> dump_unhand := Some oth; failwith "asgn"
 
@@ -316,36 +364,65 @@ let parm_dump_template fd typhash parm_lst =
 let decl_mem fd typhash first last hi lo cnt mem =
     fprintf fd "logic [%s : %s] %s [%s : %s]; // 591\n" (vexpr typhash last) (vexpr typhash first) mem (vexpr typhash hi) (vexpr typhash lo)
 
+let dump_enum fd typhash front lft rght elst back =
+        fprintf fd "%senum logic [%s:%s] {\n\t%s\n} %s // 326\n" front (vexpr typhash lft) (vexpr typhash rght) (String.concat ",\n\t" (List.map (function
+        | Id e -> e
+        | EnumInit (e, expr) ->
+	    let s = vexpr typhash expr in
+	    let s' = sprintf "%s = %s" e s in
+	    s'
+	| oth -> dump_unhand := Some oth; failwith "TypEnum6") elst)) back
+
+let dump_vdir = function
+  | In -> "input logic"
+  | Out -> "output logic"
+  | Inout -> "inout wire"
+  | Deflt -> "inout wire"
+  | oth -> dump_unhand := Some oth; failwith "dump_vdir"
+
+let rec dump_unpack_typ typhash prefix sep stem = function
+  | (nam, (Vsu (id, lst))) -> let stem' = stem^"."^nam in String.concat sep (List.map (dump_unpack_typ typhash prefix sep stem') lst)
+  | (nam, ((Unsigned | Signed | Unsigned_vector _ | Signed_vector _ ) as typ')) ->
+    prefix ^ " [" ^ string_of_int (csiz' typhash typ') ^ ":0] \\" ^ stem ^ "." ^ nam ^ " "
+  | oth -> dbgsu := Some oth; failwith "unpack_typ"
+
+let rec dump_struct_flat fd typhash memblst stem =
+  let sep = ";\n" in
+  let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+  dbgsulst := (stem,sulst) :: !dbgsulst;
+  let cat = String.concat sep (List.map (dump_unpack_typ typhash "logic" sep stem) sulst) in
+  fprintf fd "%s; // 758\n" cat
+
 let rec dump_struct fd typhash = function
   | SUMember (Typ6 (Atom ("logic"|"bit"|"byte"|"int"|"longint" as kind)), lst) -> List.iter (function
-      | Id id -> fprintf fd "%s %s;" kind id
+      | Id id -> fprintf fd "logic [%d:0] %s; // 350\n" (atom_width kind - 1) id
       | oth -> unhand_rtl := Some oth; failwith "SUMember5") lst
   | SUMember (Typ5 (Atom kind, AnyRange (lft, rght) :: []), lst) -> List.iter (function
-      | Id id -> fprintf fd "%s [%s:%s] %s;\n" kind  (vexpr typhash lft) (vexpr typhash rght) id;
+      | Id id -> fprintf fd "%s [%s:%s] %s; // 353\n" kind  (vexpr typhash lft) (vexpr typhash rght) id;
       | oth -> unhand_rtl := Some oth; failwith "SUMember2") lst
   | SUMember (Typ5 (Atom kind, AnyRange (lft, rght) :: AnyRange (lft', rght') :: []), lst) -> List.iter (function
-      | Id id -> fprintf fd "%s [%s:%s] [%s:%s] %s;\n" kind (vexpr typhash lft) (vexpr typhash rght) (vexpr typhash lft') (vexpr typhash rght') id;
+      | Id id -> fprintf fd "%s [%s:%s] [%s:%s] %s; // 356\n" kind (vexpr typhash lft) (vexpr typhash rght) (vexpr typhash lft') (vexpr typhash rght') id;
       | oth -> unhand_rtl := Some oth; failwith "SUMember2") lst
   | SUMember (Typ6 (Typ5 (Atom ("logic" as kind), [AnyRange (lft, rght)])), id_lst) -> List.iter (function
-      | Id id -> fprintf fd "%s [%s:%s] %s;\n" kind  (vexpr typhash lft) (vexpr typhash rght) id;
+      | Id id -> fprintf fd "%s [%s:%s] %s; // 359\n" kind  (vexpr typhash lft) (vexpr typhash rght) id;
       | oth -> unhand_rtl := Some oth; failwith "SUMember7") id_lst
   | SUMember (Typ5 (TypEnum3 [AnyRange (lft, rght)], eid_lst), id_lst) -> List.iter (function
-      | Id id -> fprintf fd "logic [%s:%s] %s;\n" (vexpr typhash lft) (vexpr typhash rght) id;
+      | Id id -> fprintf fd "logic [%s:%s] %s; // 362\n" (vexpr typhash lft) (vexpr typhash rght) id;
       | oth -> unhand_rtl := Some oth; failwith "SUMember8") id_lst
   | SUMember (TypEnum6 (id_t, TypEnum3 [AnyRange (lft, rght)], eid_lst), id_lst) ->  List.iter (function
-      | Id id -> fprintf fd "logic [%s:%s] %s;\n" (vexpr typhash lft) (vexpr typhash rght) id;
+      | Id id -> fprintf fd "logic [%s:%s] %s; // 365\n" (vexpr typhash lft) (vexpr typhash rght) id;
       | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
   | SUMember (Typ8 (SUDecl (Atom "packed", lst), Deflt), id_lst) -> List.iter (function
       | Id id -> List.iter (dump_struct fd typhash) lst
       | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
   | SUMember (Typ8 (Atom (("byte") as kind), Deflt), id_lst) -> List.iter (function
-      | Id id -> fprintf fd "%s %s;\n" kind id;
+      | Id id -> fprintf fd "%s %s; // 371\n" kind id;
       | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
   | SUMember (Typ8 (Atom ("int"|"longint" as kind), Atom "unsigned"), id_lst) -> List.iter (function
-      | Id id -> fprintf fd "%s %s;\n" kind  id;
+      | Id id -> fprintf fd "%s %s; // 374\n" kind  id;
       | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
   | SUMember (Typ8 (Atom ("int"|"longint" as kind), Deflt), id_lst) -> List.iter (function
-      | Id id -> fprintf fd "%s %s;\n" kind  id;
+      | Id id -> fprintf fd "%s %s; // 377\n" kind  id;
       | oth -> unhand_rtl := Some oth; failwith "SUMember9") id_lst
   | oth -> dump_unhand := Some oth; failwith "dump_struct"
 
@@ -372,21 +449,27 @@ let rec stmt_clause fd typhash = function
     (match else_lst with BeginBlock else_lst -> List.iter (stmt_clause fd typhash) else_lst | _ -> stmt_clause fd typhash else_lst);
   fprintf fd "        end\n";
       | If1 _ as x -> iff_dump_template fd typhash x
+      | DeclLogic2 (wire_lst, AnyRange (hi, lo) :: []) -> List.iter (function
+	  | Id nam ->
+	  fprintf fd "logic [%s : %s] %s; // 412\n" (vexpr typhash hi) (vexpr typhash lo) (nam)
+	  | DeclAsgn (nam, AnyRange (hi, lo) :: []) ->
+              fprintf fd "logic [%s : %s] %s ; // 450\n" (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash nam)
+	  | oth -> dump_unhand := Some oth; failwith "DeclLogic2") wire_lst
       | DeclLogic lst -> ()
       | Seq (id, []) -> fprintf fd "       begin end; // 775	\n"
       | Seq (id, lst) ->  List.iter (stmt_clause fd typhash) lst
-      | Blocking (Asgn1 (IdArrayed2(id, sel), expr)) -> fprintf fd "        %s[%s] = %s; // 777	\n" (vexpr typhash id) (vexpr typhash sel) (vexpr typhash expr)
-      | Blocking (Asgn1 (Dot1(Id lft, Id rght), expr)) -> fprintf fd "        %s.%s = %s; // 778	\n" lft rght (vexpr typhash expr)
+      | Blocking (Asgn1 (IdArrayed2(id, sel), expr)) -> fprintf fd "        %s[%s] = %s; // 777\n" (vexpr typhash id) (vexpr typhash sel) (vexpr typhash expr)
+      | Blocking (Asgn1 (Dot1(Id lft, Id rght), expr)) -> fprintf fd "        %s.%s = %s; // 778\n" lft rght (vexpr typhash expr)
       | Blocking (Asgn1 (id, expr)) -> fprintf fd "        %s = %s; // 777	\n" (vexpr typhash id) (vexpr typhash expr)
       | Blocking (FopAsgn (id, expr)) -> fprintf fd "        %s = %s; // 779	\n" (vexpr typhash id) (vexpr typhash expr)
-      | Blocking (FopAsgn1 (id, id', id'', expr)) -> fprintf fd "        %s = %s; // 780	\n" (vexpr typhash id) (vexpr typhash expr)
-      | Blocking (FopAsgnArrayMemSel (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 781	\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
+      | Blocking (FopAsgn1 (id, id', id'', expr)) -> fprintf fd "        %s = %s; // 780\n" (vexpr typhash id) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayMemSel (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 781\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
       | Blocking (FopAsgnConcat (idlst, expr)) -> fprintf fd "        %s = %s; // 782	\n" (String.concat ", " (List.map (vexpr typhash) idlst)) (vexpr typhash expr)
-      | Blocking (FopAsgnArraySel (id, ix, expr)) -> fprintf fd "        %s[%s] = %s; // 783	\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash expr)
-      | Blocking (FopAsgnArrayWid (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 784	\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
-      | Blocking (FopAsgnArrayRange (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 785	\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
-      | Blocking (FopAsgnArrayRange2 (id, ix, ix', expr)) -> fprintf fd "        %s[%s][%s] = %s; // 786	\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash ix') (vexpr typhash expr)
-      | Blocking (FopAsgnArrayField (id,  ix, expr)) -> fprintf fd "        %s.%s = %s; // 787	\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash expr)
+      | Blocking (FopAsgnArraySel (id, ix, expr)) -> fprintf fd "        %s[%s] = %s; // 783\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayWid (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 784\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayRange (id, hi, lo, expr)) -> fprintf fd "        %s[%s : %s] = %s; // 785\n" (vexpr typhash id) (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
+      | Blocking (FopAsgnArrayRange2 (id, ix, ix', expr)) -> fprintf fd "        %s[%s][%s] = %s; // 786\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash ix') (vexpr typhash expr)
+      | Blocking (FopAsgnArrayField (id,  ix, expr)) -> fprintf fd "        %s = %s; // 787\n" (vexpr typhash (Dot1(id, ix))) (vexpr typhash expr)
 (*
       | Blocking (FopAsgnArrayField2 (id, ArrayedColon(Id ix, hi, lo), expr)) -> fprintf fd "        %s.%s[%s : %s] = %s; // 788	\n" (vexpr typhash id) ix (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash expr)
 *)
@@ -453,7 +536,7 @@ let rec stmt_clause fd typhash = function
       | SysTaskCall (tid, args) -> fprintf fd "%s(...);\n" tid
       | EquateField (id, field, expr) ->  fprintf fd "            %s.%s <= %s; // 851	\n" (vexpr typhash id) (vexpr typhash field) (vexpr typhash expr)
       | DeclInt2 _ -> ()
-      | DeclLogic2 _ -> ()
+      | DeclLogic2 _ -> fprintf fd "// 491\n"
       | Return expr -> fprintf fd "return %s;\n" (vexpr typhash expr)
       | CaseStmt _ as x -> case_clause fd typhash x
       | SysTaskRef (Atom ("$fwrite" as task), Id f :: tl) -> fprintf fd "%s(%s, ...)" task f
@@ -497,59 +580,177 @@ and iff_dump_template fd typhash = function
       fprintf fd "end\n";
     | oth -> dump_unhand := Some oth; failwith "iff_dump_template"
 
-let dump_enum fd typhash front lft rght elst back =
-        fprintf fd "%senum logic [%s:%s] {\n\t%s\n} %s // 714\n" front (vexpr typhash lft) (vexpr typhash rght) (String.concat ",\n\t" (List.map (function
-        | Id e -> e
-        | EnumInit (e, expr) ->
-	    let s = vexpr typhash expr in
-	    let s' = sprintf "%s = %s" e s in
-	    s'
-	| oth -> dump_unhand := Some oth; failwith "TypEnum6") elst)) back
+(*
+let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules = function
+    | oth -> dump_unhand := Some oth; failwith "decl_dump_template"
+*)
 
-let dump_vdir = function
-  | In -> "input logic"
-  | Out -> "output logic"
-  | Inout -> "inout wire"
-  | Deflt -> "inout wire"
-  | oth -> dump_unhand := Some oth; failwith "dump_vdir"
+let rec sent_dump_template fd typhash (clk:rw) = function
+    | BeginBlock lst -> List.iter (sent_dump_template fd typhash clk) lst
+    | Seq (lbl, lst) -> List.iter (sent_dump_template fd typhash clk) lst
+    | If2 ((Equals (Id rst, lev)|Expression(Equals (Id rst, lev))), if_lst, else_lst) ->
+      let clk = (vexpr typhash clk) in
+  fprintf fd "        if (%s == %s) begin\n" rst (vexpr typhash lev);
+    stmt_clause fd typhash if_lst;
+  fprintf fd "        end else begin\n";
+    stmt_clause fd typhash else_lst;
+  fprintf fd "        end\n";
+    | If2 (Id rst, if_lst, else_lst) ->
+      let clk = (vexpr typhash clk) in
+  fprintf fd "        if (%s == %s) begin\n" rst (vexpr typhash (Number (2, 1, 1, "1")));
+    stmt_clause fd typhash if_lst;
+  fprintf fd "        end else begin\n";
+    stmt_clause fd typhash else_lst;
+  fprintf fd "        end\n";
+    | If2 ((Pling (Id rst)|Tilde (Id rst)), if_lst, else_lst) ->
+      let clk = (vexpr typhash clk) in
+  fprintf fd "        if (%s == %s) begin\n" rst (vexpr typhash (Number (2, 1, 0, "1")));
+    stmt_clause fd typhash if_lst;
+  fprintf fd "        end else begin\n";
+    stmt_clause fd typhash else_lst;
+  fprintf fd "        end\n";
+    | If1 (cond, if_lst) ->
+  fprintf fd "        if (%s) begin\n" (vexpr typhash cond);
+    stmt_clause fd typhash if_lst;
+  fprintf fd "        end\n";
+    | If1 (cond, if_lst) ->
+  fprintf fd "        if (%s) begin\n" (vexpr typhash cond);
+    stmt_clause fd typhash if_lst;
+    | If2 (cond, if_lst, else_lst) ->
+  fprintf fd "        if (%s) begin\n" (vexpr typhash cond);
+    stmt_clause fd typhash if_lst;
+  fprintf fd "        end else begin\n";
+    stmt_clause fd typhash else_lst;
+  fprintf fd "        end\n";
+    | Equate (lhs, rhs) -> fprintf fd "        %s <= %s; // 922	\n" (vexpr typhash lhs) (vexpr typhash rhs);
+    | Blocking (FopAsgn (lhs, rhs)) -> fprintf fd "        %s <= %s; // 922	\n" (vexpr typhash lhs) (vexpr typhash rhs);
+    | DeclData _ -> () 
+    | (CaseStart _ | EquateSelect _) as x -> stmt_clause fd typhash x
+    | oth -> dump_unhand := Some oth; failwith "sent_dump_template"
 
-let rec dump_unpack_typ typhash prefix sep stem = function
-  | (nam, (Vsu (id, lst))) -> let stem' = stem^"."^nam in String.concat sep (List.map (dump_unpack_typ typhash prefix sep stem') lst)
-  | (nam, ((Unsigned | Signed | Unsigned_vector _ | Signed_vector _ ) as typ')) ->
-    prefix ^ " [" ^ string_of_int (csiz' typhash typ') ^ ":0] \\" ^ stem ^ "." ^ nam ^ " "
-  | oth -> dbgsu := Some oth; failwith "unpack_typ"
+let dump_conn typhash = function
+  | (Id _ | CellPinItem2 _ | CellPinItemImplied _ | CellPinItemNC _) as x -> vexpr typhash x
+  | oth -> dump_unhand := Some oth; failwith "inst_arg"
 
-let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = function
+let instance_dump_template fd typhash (typ:rw) params inst pinlst =
+  match typ with 
+    | Id typ ->
+    output_string fd (typ ^ " " ^
+                      inst^" (\n\t"^
+                      String.concat ",\n\t" (List.map (dump_conn typhash) pinlst)^");\n")
+    | oth -> failwith "instance type"
+
+let dbgdmpsu = ref None
+
+let dump_struct_single fd typhash nam memblst =
+  let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+  dbgdmpsu := Some sulst;
+  let wid = csiz' !dbgtyp (Vsu (Id nam, sulst)) in
+  fprintf fd "logic [%d : 0] %s; // 607\n" (wid-1) nam
+
+let rec proc_dump_template fd typhash modules = function
+    | AlwaysFF (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
+  fprintf fd "    // 825 clocked process description goes here\n";
+  dump_deps fd "always_ff" dep_lst;
+  fprintf fd "    begin\n";
+  sent_dump_template fd typhash clk sent_lst;       
+  fprintf fd "    end; // 947	\n";
+  fprintf fd "\n";
+    | AlwaysLegacy (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
+  fprintf fd "    // 833 clocked process description goes here\n";
+  dump_deps fd "always" dep_lst;
+  fprintf fd "    begin\n";
+  sent_dump_template fd typhash clk sent_lst;       
+  fprintf fd "    end; // 947	\n";
+  fprintf fd "\n";
+    | AlwaysLegacy (At (EventOr dep_lst), sent_lst) ->
+  fprintf fd "    // 841 combinational process description goes here\n";
+  dump_deps_comb fd typhash "always" dep_lst;
+  fprintf fd "    begin\n";
+  stmt_clause fd typhash sent_lst;
+  fprintf fd "    end; // 979	\n";
+  fprintf fd "\n";
+    | AlwaysLegacy (AtStar, sent_lst) ->
+  fprintf fd "    // 849 combinational process description goes here\n";
+  dump_deps_comb fd typhash "always" [AtStar];
+  fprintf fd "    begin\n";
+  stmt_clause fd typhash sent_lst;
+  fprintf fd "    end; // 979	\n";
+  fprintf fd "\n";
+    | AlwaysComb2 (sent_lst) ->
+  fprintf fd "    // 853 combinational process description goes here\n";
+  dump_deps_comb fd typhash "always" [AtStar];
+  fprintf fd "    begin\n";
+  stmt_clause fd typhash sent_lst;
+  fprintf fd "    end; // 987	\n";
+  fprintf fd "\n";
+    | AlwaysLatch ( sent_lst ) ->
+  fprintf fd "    // 865 combinational latch process description goes here\n";
+  fprintf fd "    always_latch\n";
+  fprintf fd "    begin\n";
+  stmt_clause fd typhash sent_lst;
+  fprintf fd "    end; // 995	\n";
+  fprintf fd "\n";
+  (* elaboration case *)
+   | CaseStart (Id id, (CaseItm (BeginBlock [] :: Unknown ("$error",_) :: Deflt :: []) :: [])) -> fprintf fd "// elaboration case %s\n" id;
+    | ContAsgn lst -> List.iter (function
+      | Asgn1 (lhs, expr) -> asgn fd typhash expr lhs
+      | oth -> dump_unhand := Some oth; failwith "assign_dump_template") lst
+    | Iff _ -> ()
+    | InstDecl (typ, params, lst) -> List.iter (function
+        | InstNameParen1 (inst, pins) -> instance_dump_template fd typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst pins
+        | InstNameParen2 (inst, InstRange(lft,rght) :: []) -> instance_dump_template fd typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst []
+        | Id id -> fprintf fd "    // %s\n" id
+        | oth -> dump_unhand := Some oth; failwith "InstDecl829") lst;
+    | Typ11 (Typ8 (SUDecl (Atom "packed", memblst), Deflt), AnyRange (hi,lo) :: [], inst_lst) -> List.iter (function
+        | Id stem -> dump_struct_single fd typhash stem memblst;
+        | oth -> failwith "dump_sysver.ml:916") inst_lst
+    | Typ12 ([AnyRange (hi, lo)], Typ8 (SUDecl (Atom "packed", memblst), Deflt), inst_lst) -> List.iter (function
+        | Id stem ->
+          let sep = ";\n" in
+          let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+          dbgsulst := (stem,sulst) :: !dbgsulst;
+          let cat = String.concat sep (List.map (dump_unpack_typ typhash "logic" sep stem) sulst) in
+          fprintf fd "%s; // 755\n" cat
+        | oth -> failwith "dump_sysver.ml:745") inst_lst
+    | Typ12 (AnyRange (hi, lo) :: [], Typ5 (TypEnum3 (AnyRange (hi', lo') :: []), e_lst), inst_lst) -> ()
+    | Itmlst lst -> List.iter (proc_dump_template fd typhash modules) lst
+    | Seq (lbl, lst) -> List.iter (proc_dump_template fd typhash modules) lst
+    | Typ11 (TypEnum6 (old_id, TypEnum3 (AnyRange (lft, rght) :: []), elst), AnyRange (lft', rght') :: [], id_lst) ->
+        List.iter (function
+            | Id id as nam -> fprintf fd "logic [%d: 0] %s; // 930\n" (width typhash nam - 1) id
+            | oth -> failwith "dump_sysver.ml:931") id_lst
     | NetDecl (Atom "wire" :: [], wire_lst) -> List.iter (function
           | Id nam ->
-	      fprintf fd "logic %s; // 610	\n" nam
+	      fprintf fd "logic %s; // 610\n" nam
 	  | DeclAsgn (nam, AnyRange (hi, lo) :: []) ->
-              fprintf fd "logic [%s:%s] %s; // 612	\n" (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash nam)
+              fprintf fd "logic [%s:%s] %s; // 612\n" (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash nam)
           | InitSig (nam, expr) -> (function
-	      | Id id -> fprintf fd "logic %s = %s; // 614	\n" (vexpr typhash nam) (vexpr typhash expr)
-              | ExprOKL lbls -> fprintf fd "logic %s : %s; // 615	\n" (vexpr typhash nam) (String.concat "; " (List.map (vexpr typhash) lbls))
+	      | Id id -> fprintf fd "logic %s = %s; // 614\n" (vexpr typhash nam) (vexpr typhash expr)
+              | ExprOKL lbls -> fprintf fd "logic %s : %s; // 615\n" (vexpr typhash nam) (String.concat "; " (List.map (vexpr typhash) lbls))
 	      | SysFuncCall ("$random", [Deflt]) -> fprintf fd "    signal %s : $random; // 616	\n" (vexpr typhash nam)
-              | Query _ as x -> fprintf fd "logic %s : %s; // 617	\n" (vexpr typhash nam) (vexpr typhash x)
+              | Query _ as x -> fprintf fd "logic %s : %s; // 617\n" (vexpr typhash nam) (vexpr typhash x)
 
 	      | oth -> dump_unhand := Some oth; failwith "initsig") expr
 	  | oth -> dump_unhand := Some oth; failwith "NetDecl'") wire_lst;
     | Itmlst (id_lst) -> List.iter (function
-	  | Id nam -> fprintf fd "logic %s; // 622	\n" nam
-          | Seq(lbl, lst) -> List.iter (decl_dump_template fd typhash modules cnt) lst
+	  | Id nam -> fprintf fd "logic %s; // 544\n" nam
+          | Seq(lbl, lst) -> List.iter (proc_dump_template fd typhash modules) lst
 	  | oth -> dump_unhand := Some oth; failwith "DeclLogic647") id_lst;
     | DeclLogic (reg_lst) -> List.iter (function
-	  | Id nam ->  fprintf fd "logic %s; // 626	\n" nam
+	  | Id nam ->  fprintf fd "logic %s; // 626\n" nam
           | DeclAsgn (nam, AnyRange (hi, lo) :: []) ->
               fprintf fd "logic [%s : %s] %s; // 628\n" (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash nam)
           | VarDeclAsgn (nam, expr) ->
               fprintf fd "logic %s = %s\n" (vexpr typhash nam) (vexpr typhash expr)
 	  | oth -> dump_unhand := Some oth; failwith "DeclLogic651"
         ) reg_lst;
-    | DeclLogic2 (wire_lst, AnyRange (hi, lo) :: []) -> List.iter (function
-	  | Id nam ->
-	  fprintf fd "logic [%s : %s] %s; // 635	\n" (vexpr typhash hi) (vexpr typhash lo) (nam)
-	  | DeclAsgn (nam, AnyRange (hi, lo) :: []) ->
-              fprintf fd "logic [%s : %s] %s ; // 637\n" (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash nam)
+    | DeclLogic2 (wire_lst, (AnyRange (hi, lo) as x) :: []) -> List.iter (function
+	  | Id nam -> fprintf fd "logic [%s : %s] %s; // 635\n" (vexpr typhash hi) (vexpr typhash lo) (nam)
+	  | DeclAsgn (nam, (AnyRange _ :: _ as dims)) ->
+              let wid = width typhash nam in
+              printf "mem siz = %d\n" wid;
+              fprintf fd "logic [%d : 0] %s ; // 746\n" (wid - 1) (vexpr typhash nam)
 	  | oth -> dump_unhand := Some oth; failwith "DeclLogic2") wire_lst
     | DeclLogic2 (wire_lst, AnyRange (hi, lo) :: AnyRange (hi', lo') :: []) -> List.iter (function
 	  | Id nam ->
@@ -568,17 +769,6 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
         fprintf fd "logic [%s:%s] %s[%s:%s]; // 550\n" (vexpr typhash hi) (vexpr typhash lo) nam (vexpr typhash first) (vexpr typhash last)
       | VarDeclAsgn (Id nam, expr) -> fprintf fd "reg [%s:%s] %s = %s;\n" (vexpr typhash hi) (vexpr typhash lo) nam (vexpr typhash expr)
       | oth -> dump_unhand := Some oth; failwith "DeclReg550") reg_lst
-    | CaseStmt _ -> ()
-    | ContAsgn _ -> ()
-    | LoopGen1 _ -> ()
-    | CondGen1 _ -> ()
-    | GenItem _ -> ()
-    | AlwaysComb2 _ -> ()
-    | AlwaysFF _ -> ()
-    | AlwaysLatch _ -> ()
-    | AlwaysLegacy _ -> ()
-    | Initial _ -> ()
-    | Final _ -> ()
     | DeclInt2 id_lst -> List.iter (function
 	| Id itm -> fprintf fd "logic %s; // 672	\n" itm
         | VarDeclAsgn (id, expr) -> fprintf fd "logic %s = %s\n" (vexpr typhash id) (vexpr typhash expr)
@@ -605,22 +795,22 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
           | Id id -> fprintf fd "%s %s;\n" orig_id id
             | oth -> dump_unhand := Some oth; failwith "enum range") id_lst
     | Typ5 (SUDecl (Atom "packed", lst), inst_lst) ->
-        fprintf fd "typedef struct packed { // 610	\n";
+        fprintf fd "typedef struct packed { // 615	\n";
         List.iter (dump_struct fd typhash) lst;
         fprintf fd "} %s;\n" (String.concat ", " (List.map (vexpr typhash) inst_lst));
     | Typ5 (Typ5 (Atom "logic", AnyRange(hi,lo) :: []), inst_lst) -> List.iter (function
-        | Id id -> fprintf fd "logic %s; // 614	\n" id
+        | Id id -> fprintf fd "logic %s; // 619	\n" id
                      | oth -> failwith "dump_sysver.ml:615") inst_lst
     | Typ5 (Typ8 (SUDecl (Atom "packed", lst), su_lst), inst_lst) ->
-        fprintf fd "typedef struct packed { // 618	\n";
+        fprintf fd "struct packed { // 622	\n";
         List.iter (dump_struct fd typhash) lst;
         fprintf fd "} %s;\n" (String.concat ", " (List.map (vexpr typhash) inst_lst));
     | Typ9 (old_id, inst_lst, Typ8 (SUDecl (Atom "packed", su_lst), Deflt)) ->
-        fprintf fd "typedef struct packed { // 622	\n";
+        fprintf fd "typedef struct packed { // 626	\n";
         List.iter (dump_struct fd typhash) su_lst;
         fprintf fd "} %s;\n" (String.concat ", " (List.map (vexpr typhash) inst_lst));
     | Typ6 (SUDecl (Atom "packed", lst)) ->
-        fprintf fd "typedef struct packed { // 626	\n";
+        fprintf fd "typedef struct packed { // 630	\n";
         List.iter (dump_struct fd typhash) lst;
         fprintf fd "};\n"
     | Typ7 (nam, Typ5 (Atom "logic", AnyRange(lft,rght) :: AnyRange(lft',rght') :: AnyRange(lft'',rght'') :: [])) ->
@@ -630,7 +820,7 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
     | Typ7 (nam, Typ5 (Atom "logic", AnyRange(lft,rght) :: [])) ->
         fprintf fd "typedef logic [%s:%s] %s; // 696	\n" (vexpr typhash lft) (vexpr typhash rght) nam
     | Typ7 (nam, Typ8 (SUDecl (Atom "packed", lst), Deflt)) ->
-        fprintf fd "typedef struct packed { // 714	\n";
+        fprintf fd "typedef struct packed { // 646	\n";
         List.iter (dump_struct fd typhash) lst;
         fprintf fd "} %s;\n" nam
     | Typ7 (id_t, Typ8 (Union (Atom "packed", lst), Deflt)) ->
@@ -654,10 +844,10 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
         let f' itm = let s = vexpr typhash itm in  s in
         let f'' = function Id nam -> fprintf fd "    typedef enum {%s} %s; // 614\n" (String.concat ", " (List.map f' id_lst)) nam | _ -> () in
         List.iter f'' id_lst'
-    | TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), id_lst) -> dump_enum fd typhash "typedef " lft rght id_lst (nam^"; ")
-    | Typ5 (TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), eid_lst), id_lst) -> dump_enum fd typhash "typedef " lft rght id_lst (nam^"; ")
+    | TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), id_lst) -> dump_enum fd typhash "typedef // 670\n" lft rght id_lst (nam^"; ")
+    | Typ5 (TypEnum6 (nam, TypEnum3 (AnyRange(lft,rght) :: []), eid_lst), id_lst) -> dump_enum fd typhash "typedef // 671\n" lft rght id_lst (nam^"; ")
     | TypEnum6 (nam, TypEnum5 (Atom "logic"), id_lst) -> 
-        fprintf fd "typedef enum logic {\n\t%s\n} %s; // 618\n" (String.concat ",\n\t" (List.map (function
+        fprintf fd "typedef enum logic {\n\t%s\n} %s; // 660\n" (String.concat ",\n\t" (List.map (function
         | Id e -> e
         | EnumInit (e, expr) ->
 	    let s = vexpr typhash expr in
@@ -721,7 +911,7 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
     | ParamDecl (LocalParamTyp (Typ8 (Atom ("int"|"integer"|"longint" as kind), Atom kind')), [ParamAsgn1 (nam , expr)]) ->
         fprintf fd "localparam %s %s %s = %s; // 784\n" kind' kind nam (vexpr typhash expr)
     | ParamDecl (LocalParamTyp (Typ8 (SUDecl (Atom "packed", sulst), Deflt)), id_lst) -> 
-        fprintf fd "localparamtyp SUDecl ...; // 714\n"
+        fprintf fd "localparamtyp SUDecl ...; // 737\n"
     | FunDecl (fn, typ, FunGuts (ports, lst)) ->
         fprintf fd "// function %s ...\n" fn;
         List.iter (stmt_clause fd typhash) lst;
@@ -732,7 +922,7 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
         fprintf fd "    endfunction\n";
     | FunDecl _ -> ()
     | AutoFunDecl _ -> ()
-    | PkgImport (Itmlst lst) -> List.iter (decl_dump_template fd typhash modules cnt) lst
+    | PkgImport (Itmlst lst) -> List.iter (proc_dump_template fd typhash modules) lst
     | PkgImportItm (pkg, Atom "*") -> ()
     | DeclData (Typ5 (Atom "logic", AnyRange (lft, rght) :: AnyRange (lft', rght') :: []), Deflt, VarDeclAsgn (mem, ExprOKL lst) :: []) -> () (* placeholder *)
     | AssertProperty -> ()
@@ -742,139 +932,20 @@ let rec decl_dump_template fd (typhash:(string,vtyp)Hashtbl.t) modules cnt = fun
         | Id id -> fprintf fd "logic %s; // 733\n" id
         | oth -> failwith "dump_sysver.ml:733") inst_lst
     | Typ12 ([AnyRange (hi, lo)], Typ8 (SUDecl (Atom "packed", memblst), Deflt), inst_lst) -> List.iter (function
+(*
+        | Id stem -> dump_struct_flat fd typhash memblst stem;
+*)
+        | oth -> failwith "dump_sysver.ml:751") inst_lst
+    | Typ11 (Typ8 (SUDecl (Atom "packed", memblst), Deflt), AnyRange (hi, lo) :: [], inst_lst) -> List.iter (function
         | Id stem ->
-          let sep = ";\n" in
-          let sulst = List.flatten (List.map (struct_union typhash) memblst) in
-          dbgsulst := (stem,sulst) :: !dbgsulst;
-          let cat = String.concat sep (List.map (dump_unpack_typ typhash "logic" sep stem) sulst) in
-          fprintf fd "%s; // 755\n" cat
-        | oth -> failwith "dump_sysver.ml:745") inst_lst
-    | Typ11 (Typ8 (SUDecl (Atom "packed", su_lst), Deflt), AnyRange (hi, lo) :: [], inst_lst) -> List.iter (function
-        | Id id -> fprintf fd "%s; // 739\n" id
-        | oth -> failwith "dump_sysver.ml:745") inst_lst
-    | Typ11 (TypEnum6 (old_id, TypEnum3 (AnyRange (lft, rght) :: []), e_lst), AnyRange (lft', rght') :: [], id_lst) ->
+        fprintf fd "struct packed { // 756	\n";
+        List.iter (dump_struct fd typhash) memblst;
+        fprintf fd "} [%s:%s] %s;\n" (vexpr typhash hi) (vexpr typhash lo) (String.concat ", " (List.map (vexpr typhash) inst_lst))
+        | oth -> dump_unhand := Some oth; failwith "dump_sysver.ml:759") inst_lst
+    | Typ11 (TypEnum6 (old_id, TypEnum3 (AnyRange (lft, rght) :: []), elst), AnyRange (lft', rght') :: [], id_lst) ->
         List.iter (function
-            | Id nam -> fprintf fd "%s; // 756\n" nam
-            | oth -> failwith "dump_sysver.ml:758") id_lst
-    | oth -> dump_unhand := Some oth; failwith "decl_dump_template"
-
-let rec sent_dump_template fd typhash (clk:rw) = function
-    | BeginBlock lst -> List.iter (sent_dump_template fd typhash clk) lst
-    | Seq (lbl, lst) -> List.iter (sent_dump_template fd typhash clk) lst
-    | If2 ((Equals (Id rst, lev)|Expression(Equals (Id rst, lev))), if_lst, else_lst) ->
-      let clk = (vexpr typhash clk) in
-  fprintf fd "        if (%s == %s) begin\n" rst (vexpr typhash lev);
-    stmt_clause fd typhash if_lst;
-  fprintf fd "        end else begin\n";
-    stmt_clause fd typhash else_lst;
-  fprintf fd "        end\n";
-    | If2 (Id rst, if_lst, else_lst) ->
-      let clk = (vexpr typhash clk) in
-  fprintf fd "        if (%s == %s) begin\n" rst (vexpr typhash (Number (2, 1, 1, "1")));
-    stmt_clause fd typhash if_lst;
-  fprintf fd "        end else begin\n";
-    stmt_clause fd typhash else_lst;
-  fprintf fd "        end\n";
-    | If2 ((Pling (Id rst)|Tilde (Id rst)), if_lst, else_lst) ->
-      let clk = (vexpr typhash clk) in
-  fprintf fd "        if (%s == %s) begin\n" rst (vexpr typhash (Number (2, 1, 0, "1")));
-    stmt_clause fd typhash if_lst;
-  fprintf fd "        end else begin\n";
-    stmt_clause fd typhash else_lst;
-  fprintf fd "        end\n";
-    | If1 (cond, if_lst) ->
-  fprintf fd "        if (%s) begin\n" (vexpr typhash cond);
-    stmt_clause fd typhash if_lst;
-  fprintf fd "        end\n";
-    | If1 (cond, if_lst) ->
-  fprintf fd "        if (%s) begin\n" (vexpr typhash cond);
-    stmt_clause fd typhash if_lst;
-    | If2 (cond, if_lst, else_lst) ->
-  fprintf fd "        if (%s) begin\n" (vexpr typhash cond);
-    stmt_clause fd typhash if_lst;
-  fprintf fd "        end else begin\n";
-    stmt_clause fd typhash else_lst;
-  fprintf fd "        end\n";
-    | Equate (lhs, rhs) -> fprintf fd "        %s <= %s; // 922	\n" (vexpr typhash lhs) (vexpr typhash rhs);
-    | Blocking (FopAsgn (lhs, rhs)) -> fprintf fd "        %s <= %s; // 922	\n" (vexpr typhash lhs) (vexpr typhash rhs);
-    | DeclData _ -> () 
-    | (CaseStart _ | EquateSelect _) as x -> stmt_clause fd typhash x
-    | oth -> dump_unhand := Some oth; failwith "sent_dump_template"
-
-let dump_conn typhash = function
-  | (Id _ | CellPinItem2 _ | CellPinItemImplied _ | CellPinItemNC _) as x -> vexpr typhash x
-  | oth -> dump_unhand := Some oth; failwith "inst_arg"
-
-let instance_dump_template fd typhash (typ:rw) params inst pinlst =
-  match typ with 
-    | Id typ ->
-    output_string fd (typ ^ " " ^
-                      inst^" (\n\t"^
-                      String.concat ",\n\t" (List.map (dump_conn typhash) pinlst)^");\n")
-    | oth -> failwith "instance type"
-
-let rec proc_dump_template fd typhash cnt = function
-    | DeclReg _ -> ()
-    | DeclLogic _ -> ()
-    | AlwaysFF (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
-  fprintf fd "    // clocked process %d description goes here\n" !cnt;
-  incr cnt;
-  dump_deps fd "always_ff" dep_lst;
-  fprintf fd "    begin\n";
-  sent_dump_template fd typhash clk sent_lst;       
-  fprintf fd "    end; // 947	\n";
-  fprintf fd "\n";
-    | AlwaysLegacy (At (EventOr (Pos clk :: _ as dep_lst)), sent_lst) ->
-  fprintf fd "    // clocked process %d description goes here\n" !cnt;
-  incr cnt;
-  dump_deps fd "always" dep_lst;
-  fprintf fd "    begin\n";
-  sent_dump_template fd typhash clk sent_lst;       
-  fprintf fd "    end; // 947	\n";
-  fprintf fd "\n";
-    | AlwaysLegacy (At (EventOr dep_lst), sent_lst) ->
-  fprintf fd "    // combinational process %d description goes here\n" !cnt;
-  incr cnt;
-  dump_deps_comb fd typhash "always" dep_lst;
-  fprintf fd "    begin\n";
-  stmt_clause fd typhash sent_lst;
-  fprintf fd "    end; // 979	\n";
-  fprintf fd "\n";
-    | AlwaysLegacy (AtStar, sent_lst) ->
-  fprintf fd "    // combinational process %d description goes here\n" !cnt;
-  incr cnt;
-  dump_deps_comb fd typhash "always" [AtStar];
-  fprintf fd "    begin\n";
-  stmt_clause fd typhash sent_lst;
-  fprintf fd "    end; // 979	\n";
-  fprintf fd "\n";
-    | AlwaysComb2 ( (*DepLst dep_lst,*) sent_lst) -> let dep_lst = [] in
-  fprintf fd "    // combinational process %d description goes here\n" !cnt;
-  fprintf fd "    COMB%d: process (%s)\n" !cnt (String.concat ", " dep_lst);
-  incr cnt;
-  fprintf fd "    begin\n";
-  stmt_clause fd typhash sent_lst;
-  fprintf fd "    end; // 987	\n";
-  fprintf fd "\n";
-    | AlwaysLatch ( sent_lst ) ->
-  fprintf fd "    // combinational latch process %d description goes here\n" !cnt;
-  fprintf fd "    LATCH%d: process ()\n" !cnt;
-  incr cnt;
-  fprintf fd "    begin\n";
-  stmt_clause fd typhash sent_lst;
-  fprintf fd "    end; // 995	\n";
-  fprintf fd "\n";
-  (* elaboration case *)
-   | CaseStart (Id id, (CaseItm (BeginBlock [] :: Unknown ("$error",_) :: Deflt :: []) :: [])) -> fprintf fd "// elaboration case %s\n" id;
-    | ContAsgn lst -> List.iter (function
-      | Asgn1 (lhs, expr) -> asgn fd typhash expr lhs
-      | oth -> dump_unhand := Some oth; failwith "assign_dump_template") lst
-    | Iff _ -> ()
-    | InstDecl (typ, params, lst) -> List.iter (function
-        | InstNameParen1 (inst, pins) -> instance_dump_template fd typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst pins
-        | InstNameParen2 (inst, InstRange(lft,rght) :: []) -> instance_dump_template fd typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst []
-        | Id id -> fprintf fd "    // %s\n" id
-        | oth -> dump_unhand := Some oth; failwith "InstDecl829") lst;
+            | Id nam -> dump_enum fd typhash "" lft rght elst (sprintf "%s [%s:%s]; // 768" nam (vexpr typhash lft') (vexpr typhash rght'))
+            | oth -> dump_unhand := Some oth; failwith "dump_sysver.ml:765") id_lst
     | TypEnum4 _ -> ()
     | TypEnum6 _ -> ()
     | Typ2 (typ, _, typ_lst) -> ()
@@ -901,24 +972,19 @@ let rec proc_dump_template fd typhash cnt = function
     | AssertProperty -> ()
     | Port (dir, nam, [AnyRange (hi, lo)], Deflt) -> ()
     | Port (dir, nam, [AnyRange (hi, lo)], Atom "signed") -> ()
-    | Typ11 (Typ8 (SUDecl (Atom "packed", su_lst), Deflt), AnyRange (hi,lo) :: [], inst_lst) -> List.iter (function
-        | Id id -> fprintf fd "%s; // 895\n" id
-        | oth -> failwith "dump_sysver.ml:896") inst_lst
-    | Typ12 ([AnyRange (hi, lo)], Typ8 (SUDecl (Atom "packed", memblst), Deflt), inst_lst) -> List.iter (function
-        | Id stem ->
-          let sep = ";\n" in
-          let sulst = List.flatten (List.map (struct_union typhash) memblst) in
-          dbgsulst := (stem,sulst) :: !dbgsulst;
-          let cat = String.concat sep (List.map (dump_unpack_typ typhash "logic" sep stem) sulst) in
-          fprintf fd "%s; // 755\n" cat
-        | oth -> failwith "dump_sysver.ml:745") inst_lst
-    | Typ12 (AnyRange (hi, lo) :: [], Typ5 (TypEnum3 (AnyRange (hi', lo') :: []), e_lst), inst_lst) -> ()
-    | Itmlst lst -> List.iter (proc_dump_template fd typhash cnt) lst
-    | Seq (lbl, lst) -> List.iter (proc_dump_template fd typhash cnt) lst
-    | Typ11 (TypEnum6 (old_id, TypEnum3 (AnyRange (lft, rght) :: []), e_lst), AnyRange (lft', rght') :: [], id_lst) ->
-        List.iter (function
-            | Id nam -> fprintf fd "%s; // 920\n" nam
-            | oth -> failwith "dump_sysver.ml:921") id_lst
+    | CaseStmt _ -> ()
+    | ContAsgn _ -> ()
+    | LoopGen1 _ -> ()
+    | CondGen1 _ -> ()
+    | GenItem _ -> ()
+    | AlwaysComb2 _ -> ()
+    | AlwaysFF _ -> ()
+    | AlwaysLatch _ -> ()
+    | AlwaysLegacy _ -> ()
+    | Initial _ -> ()
+    | Final _ -> ()
+    | DeclReg _ -> ()
+    | DeclLogic _ -> ()
     | oth -> dump_unhand := Some oth; failwith "proc_dump_template"
 
 let signcnv = function
@@ -934,6 +1000,12 @@ let dump_array_port typhash hi lo dir = function
   | oth -> dump_unhand := Some oth; failwith "dump_array_port"
 
 let dump_port_single typhash nam dir typ = (dump_vdir dir^" "^nam)
+
+let dump_struct_port_single typhash nam dir memblst =
+  let sulst = List.flatten (List.map (struct_union typhash) memblst) in
+  dbgdmpsu := Some sulst;
+  let wid = csiz' !dbgtyp (Vsu (Id nam, sulst)) in
+  (dump_vdir dir^" ["^string_of_int (wid-1)^" : 0] "^nam)
 
 let rec dump_port typhash = function
     | Port ((In|Out|Inout|Deflt) as dir, nam, [], sgn) -> dump_port_single typhash nam dir (signcnv (sgn, Deflt))
@@ -957,55 +1029,50 @@ let rec dump_port typhash = function
     | DotBus (bus, dir, member, AnyRange(hi,lo) :: []) ->
         dump_array_port typhash hi lo Inout bus
     | Port ((In|Out|Inout) as dir, stem, [Typ5 (Typ8 (SUDecl (Atom "packed", memblst), Deflt), [])], Deflt) ->
-        let sep = ",\n\t" in
-        let prefix = dump_vdir dir in
-        let sulst = List.flatten (List.map (struct_union typhash) memblst) in
-        String.concat sep (List.map (dump_unpack_typ typhash prefix sep stem) sulst);
+        dump_struct_port_single typhash stem dir memblst
     | Port ((In|Out|Inout) as dir, id_i, [Typ12 ([], Typ8 (SUDecl (Atom "packed", memblst), Deflt), [])], Deflt) ->
         ("struct port "^id_i^" // 941")
     | Port ((In|Out|Inout) as dir, stem, [Typ8 (SUDecl (Atom "packed", memblst), Deflt)], Deflt) ->
-        let sep = ",\n\t" in
-        let prefix = dump_vdir dir in
-        let sulst = List.flatten (List.map (struct_union typhash) memblst) in
-        String.concat sep (List.map (dump_unpack_typ typhash prefix sep stem) sulst);
+        dump_struct_port_single typhash stem dir memblst
     | Port ((In|Out|Inout) as dir, nam, Typ5 (Typ5 (Atom "logic", AnyRange(hi,lo) :: []), []) :: [], Deflt) ->
         dump_array_port typhash hi lo dir (Id nam)
     | Port ((In|Inout|Out) as dir, stem, [Typ5 (Typ8 (SUDecl (Atom "packed", memblst), Deflt), []); AnyRange (Intgr 1, Intgr 0)], Deflt) ->
-        let sep = ",\n\t" in
-        let prefix = dump_vdir dir in
-        let sulst = List.flatten (List.map (struct_union typhash) memblst) in
-        String.concat sep (List.map (dump_unpack_typ typhash prefix sep stem) sulst);
+        dump_struct_port_single typhash stem dir memblst
     | oth -> dump_unhand := Some oth; failwith "component"
 
+let dbgports = ref []
+let dbgtyplst = ref []
+
 let dump_template fd modules = function
-  | Modul(nam, parm_lst, port_lst, body_lst) as x -> let cnt = ref 1 in
+  | Modul(nam, parm_lst, port_lst, body_lst) as x ->
   fprintf fd "//\n";
   fprintf fd "// This converter does not currently preserve comments and license information\n";
   fprintf fd "//\n";
   fprintf fd "\n";
   let bufh', typhash, ports' = Source_text_simplify.module_header [] x in
+  dbgtyplst := (nam, typhash) :: !dbgtyplst;
+  dbgports := (nam, ports') :: !dbgports;
   fprintf fd "module %s (\n\t%s);\n" nam (String.concat ",\n\t" (List.map (dump_port typhash) port_lst));
 (*
   parm_dump_template fd typhash parm_lst;
 *)
   fprintf fd "    // Signals\n";
   let typlst, othlst = List.partition (function TypEnum6 _ -> true | _ -> false) body_lst in
-  List.iter (decl_dump_template fd typhash modules cnt) (typlst);
+  List.iter (proc_dump_template fd typhash modules) (typlst);
   let components, othlst = List.partition (function InstDecl _ -> true | _ -> false) othlst in
-  List.iter (decl_dump_template fd typhash modules cnt) (List.sort compare components);
-  List.iter (decl_dump_template fd typhash modules cnt) othlst;
-  List.iter (proc_dump_template fd typhash cnt) body_lst;
+  List.iter (proc_dump_template fd typhash modules) (List.sort compare components);
+  List.iter (proc_dump_template fd typhash modules) othlst;
   fprintf fd "\n";
   fprintf fd "endmodule // 1055	\n";
   fprintf fd "\n";
   fprintf fd "\n";
-  | PackageBody (pkg, body_lst) as x -> let cnt = ref 1 in
+  | PackageBody (pkg, body_lst) as x ->
   fprintf fd "//\n";
   fprintf fd "// This converter does not currently preserve comments and license information\n";
   fprintf fd "//\n";
   fprintf fd "\n";
   let bufh', typhash, ports' = Source_text_simplify.module_header [] x in
   fprintf fd "package %s; // 1065	\n" pkg;
-  List.iter (decl_dump_template fd typhash modules cnt) body_lst;
+  List.iter (proc_dump_template fd typhash modules) body_lst;
   fprintf fd "endpackage\n";
   | oth -> dump_unhand := Some oth; failwith "This template only handles modules/packages"

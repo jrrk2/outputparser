@@ -250,8 +250,10 @@ and vtyp =
   | Vpkg of string * string
   | Unsigned
   | Unsigned_vector of rw * rw
+  | Unsigned_array of (rw * rw) list
   | Signed
   | Signed_vector of rw * rw
+  | Signed_array of (rw * rw) list
   | Vsigtyp
   | Vdot
   | Vstr of string

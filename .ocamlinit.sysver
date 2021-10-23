@@ -45,7 +45,6 @@ open Source_text_misc_types.F
 open Source_text_misc
 open String_lit
 open Convert
-open Ver_dump
 ;;
 
 let v = "timer.v";;
@@ -144,6 +143,7 @@ let v = "examples/count7.v";;
 let v = "examples/initpat1.sv";;
 
 let dbgx = ref None
+let dbgprt = ref []
 
 let sat () =
   let x, p, p' = preproc_parse "examples/count3.v_golden_synth.v" in
@@ -155,6 +155,9 @@ let t id = Hashtbl.find !dbgtyp id;;
 
 (* *)
 let (modlst,x,p,p',status) = rewrite_rtlil v;;
+dbgtyp := List.assoc "frontend" !dbgtyplst;;
+dbgprt := List.assoc "frontend" !dbgports;;
+let req = Hashtbl.find !dbgtyp "icache_dreq_o";;
 (* *)
 
 let x crnt = sub' (List.assoc crnt !Matchmly.modules);;

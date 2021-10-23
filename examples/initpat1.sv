@@ -1113,7 +1113,7 @@ endpackage
                              } fu_op;
     typedef struct packed {
         fu_t                      fu;
-        fu_op                     operator;
+        fu_op                     fu_operator;
         logic [XLEN-1:0]             operand_a;
         logic [XLEN-1:0]             operand_b;
         logic [XLEN-1:0]             imm;
@@ -1200,7 +1200,7 @@ endpackage
         logic [63:0]              data;
         logic [7:0]               be;
         fu_t                      fu;
-        fu_op                     operator;
+        fu_op                     fu_operator;
         logic [TRANS_ID_BITS-1:0] trans_id;
     } lsu_ctrl_t;
     typedef struct packed {
@@ -1340,8 +1340,8 @@ endpackage
         logic [63:0]                   data_rdata;
     } dcache_req_o_t;
     typedef struct packed {
-       logic [VLEN-1:0] addr_o;
-    }  addr_t;
+       logic [INSTR_PER_FETCH-1:0] [VLEN-1:0] vaddr ;
+    }  vaddr_t;
     typedef struct packed {
        logic [31:0] instr_o;
     }  instr_t;
@@ -1373,6 +1373,7 @@ endpackage
         data_align = data_tmp[riscv::XLEN-1:0];
     endfunction
     function automatic logic [7:0] be_gen(logic [2:0] addr, logic [1:0] size);
+        be_gen = 8'b0;
         case (size)
             2'b11: begin
                 be_gen = 8'b1111_1111;
@@ -1384,6 +1385,7 @@ endpackage
                     3'b010: be_gen = 8'b0011_1100;
                     3'b011: be_gen = 8'b0111_1000;
                     3'b100: be_gen = 8'b1111_0000;
+                  default: be_gen = 8'b0;
                 endcase
             end
             2'b01: begin
@@ -1395,6 +1397,7 @@ endpackage
                     3'b100: be_gen = 8'b0011_0000;
                     3'b101: be_gen = 8'b0110_0000;
                     3'b110: be_gen = 8'b1100_0000;
+                  default: be_gen = 8'b0;
                 endcase
             end
             2'b00: begin
@@ -1410,7 +1413,6 @@ endpackage
                 endcase
             end
         endcase
-        be_gen = 8'b0;
     endfunction
     function automatic logic [1:0] extract_transfer_size(fu_op op);
         case (op)
@@ -2392,12 +2394,14 @@ module frontend
                                       rvc_jalr, rvc_call;
     logic [VLEN-1:0] rvc_imm[ariane_pkg::INSTR_PER_FETCH-1:0];
     ariane_pkg::instr_t [ariane_pkg::INSTR_PER_FETCH-1:0] instr;
-    ariane_pkg::addr_t [ariane_pkg::INSTR_PER_FETCH-1:0] addr;
+    ariane_pkg::vaddr_t addr;
     logic [ariane_pkg::INSTR_PER_FETCH-1:0]       instruction_valid;
-    ariane_pkg::bht_prediction_t [ariane_pkg::INSTR_PER_FETCH-1:0] bht_prediction;
-    ariane_pkg::btb_prediction_t [ariane_pkg::INSTR_PER_FETCH-1:0] btb_prediction;
-    ariane_pkg::bht_prediction_t [ariane_pkg::INSTR_PER_FETCH-1:0] bht_prediction_shifted;
-    ariane_pkg::btb_prediction_t [ariane_pkg::INSTR_PER_FETCH-1:0] btb_prediction_shifted;
+   logic [(ariane_pkg::INSTR_PER_FETCH)*2-1:0] bht_prediction;
+   
+   logic [(ariane_pkg::INSTR_PER_FETCH)*(VLEN+1)-1:0] btb_prediction;
+   
+    logic [1:0] bht_prediction_shifted[ariane_pkg::INSTR_PER_FETCH-1:0];
+    logic [VLEN:0] btb_prediction_shifted[ariane_pkg::INSTR_PER_FETCH-1:0];
     ariane_pkg::ras_t            ras_predict;
     logic            is_mispredict;
     logic            ras_push, ras_pop;
@@ -2422,8 +2426,8 @@ module frontend
     assign bht_prediction_shifted[0] = (serving_unaligned) ? bht_q : bht_prediction[0];
     assign btb_prediction_shifted[0] = (serving_unaligned) ? btb_q : btb_prediction[0];
     for (genvar i = 1; i < ariane_pkg::INSTR_PER_FETCH; i++) begin : gen_prediction_address
-      assign bht_prediction_shifted[i] = bht_prediction[addr[i][$clog2(ariane_pkg::INSTR_PER_FETCH):1]];
-      assign btb_prediction_shifted[i] = btb_prediction[addr[i][$clog2(ariane_pkg::INSTR_PER_FETCH):1]];
+      assign bht_prediction_shifted[i] = bht_prediction[$clog2(ariane_pkg::INSTR_PER_FETCH):1];
+      assign btb_prediction_shifted[i] = btb_prediction[$clog2(ariane_pkg::INSTR_PER_FETCH):1];
     end
     logic bp_valid;
     logic [ariane_pkg::INSTR_PER_FETCH-1:0] is_branch;
@@ -2447,13 +2451,13 @@ module frontend
       ras_pop = 1'b0;
       ras_update = '0;
       for (int i = ariane_pkg::INSTR_PER_FETCH - 1; i >= 0 ; i--) begin
-        unique case ({is_branch[i], is_return[i], is_jump[i], is_jalr[i]})
+        case ({is_branch[i], is_return[i], is_jump[i], is_jalr[i]})
           4'b0000:;  
           4'b0001: begin
             ras_pop = 1'b0;
             ras_push = 1'b0;
-            if (btb_prediction_shifted[i].valid) begin
-              predict_address = btb_prediction_shifted[i].target_address;
+            if (btb_prediction_shifted[i] >> 64) begin
+              predict_address = btb_prediction_shifted[i];
               cf_type[i] = ariane_pkg::JumpR;
             end
           end
@@ -2473,9 +2477,9 @@ module frontend
           4'b1000: begin
             ras_pop = 1'b0;
             ras_push = 1'b0;
-            if (bht_prediction_shifted[i].valid) begin
-              taken_rvi_cf[i] = rvi_branch[i] & bht_prediction_shifted[i].taken;
-              taken_rvc_cf[i] = rvc_branch[i] & bht_prediction_shifted[i].taken;
+            if (bht_prediction_shifted[i] & 1) begin
+              taken_rvi_cf[i] = rvi_branch[i] & bht_prediction_shifted[i] >> 1;
+              taken_rvc_cf[i] = rvc_branch[i] & bht_prediction_shifted[i] >> 1;
             end else begin
               taken_rvi_cf[i] = rvi_branch[i] & rvi_imm[i][VLEN-1];
               taken_rvc_cf[i] = rvc_branch[i] & rvc_imm[i][VLEN-1];
@@ -2654,7 +2658,7 @@ module instr_realign #(
     input  logic [VLEN-1:0]            address_i,
     input  logic [ariane_pkg::FETCH_WIDTH-1:0]            data_i,
     output logic [ariane_pkg::INSTR_PER_FETCH-1:0]        valid_o,
-    output ariane_pkg::addr_t [ariane_pkg::INSTR_PER_FETCH-1:0] addr_o,
+    output ariane_pkg::vaddr_t [ariane_pkg::INSTR_PER_FETCH-1:0] addr_o,
     output ariane_pkg::instr_t [ariane_pkg::INSTR_PER_FETCH-1:0] instr_o
 );
     logic [3:0] instr_is_compressed;
@@ -2666,7 +2670,8 @@ module instr_realign #(
     logic [VLEN-1:0] unaligned_address_d, unaligned_address_q;
     assign serving_unaligned_o = unaligned_q;
     if (ariane_pkg::FETCH_WIDTH == 32) begin : realign_bp_32
-        always_comb begin : re_align
+        always begin : re_align
+            valid_o = '0;
             unaligned_d = unaligned_q;
             unaligned_address_d = {address_i[VLEN-1:2], 2'b10};
             unaligned_instr_d = data_i[31:16];

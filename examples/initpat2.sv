@@ -907,9 +907,13 @@ endpackage
       is_inside_cacheable_regions = |pass;
     endfunction : is_inside_cacheable_regions
 */
+    localparam XLEN = 64;
+    localparam  FPU_EN     = 1'b1;  
+    localparam IS_XLEN32  = (XLEN == 32) ? 1'b1 : 1'b0;
+    localparam IS_XLEN64  = (XLEN == 32) ? 1'b0 : 1'b1;
     localparam NR_SB_ENTRIES = 8;  
     localparam TRANS_ID_BITS = $clog2(NR_SB_ENTRIES);  
-    localparam ASID_WIDTH    = (riscv::XLEN == 64) ? 16 : 1;
+    localparam ASID_WIDTH    = (XLEN == 64) ? 16 : 1;
     localparam BITS_SATURATION_COUNTER = 2;
     localparam NR_COMMIT_PORTS = 2;
     localparam ENABLE_RENAME = 1'b0;
@@ -918,8 +922,8 @@ endpackage
     localparam int unsigned NR_STORE_PIPE_REGS = 0;
     localparam int unsigned DEPTH_SPEC   = 4;
     localparam int unsigned DEPTH_COMMIT = 4;
-    localparam bit RVF = (riscv::IS_XLEN64 | riscv::IS_XLEN32) & riscv::FPU_EN;  
-    localparam bit RVD = (riscv::IS_XLEN64 ? 1:0) & riscv::FPU_EN;               
+    localparam bit RVF = (IS_XLEN64 | IS_XLEN32) & FPU_EN;  
+    localparam bit RVD = (IS_XLEN64 ? 1:0) & FPU_EN;               
     localparam bit RVA = 1'b1;  
     localparam bit XF16    = 1'b0;  
     localparam bit XF16ALT = 1'b0;  
@@ -945,7 +949,8 @@ endpackage
     localparam bit XF16VEC    = XF16    & XFVEC & FLEN>16;  
     localparam bit XF16ALTVEC = XF16ALT & XFVEC & FLEN>16;  
     localparam bit XF8VEC     = XF8     & XFVEC & FLEN>8;
-    localparam XLEN = 64;
+    localparam VLEN       = (XLEN == 32) ? 32 : 64;
+    localparam PLEN       = (XLEN == 32) ? 34 : 56;     
     localparam XLEN32 = XLEN-32;
     localparam logic [63:0] ARIANE_MARCHID = {32'b0, 32'd3};
     localparam logic [XLEN-1:0] ISA_CODE = (RVA <<  0)   
@@ -958,7 +963,7 @@ endpackage
                                      | (1   << 18)   
                                      | (1   << 20)   
                                      | (NSX << 23)   
-                                     | ((riscv::XLEN == 64 ? 2 : 1) << riscv::XLEN-2);   
+                                     | ((XLEN == 64 ? 2 : 1) << XLEN-2);   
     localparam REG_ADDR_SIZE = 6;
     localparam NR_WB_PORTS = 4;
 /*
@@ -975,24 +980,35 @@ endpackage
     localparam bit ENABLE_CYCLE_COUNT = 1'b1;
     localparam bit ENABLE_WFI = 1'b1;
     localparam bit ZERO_TVAL = 1'b0;
-    localparam logic [63:0] SMODE_STATUS_READ_MASK = riscv::SSTATUS_UIE
-                                                   | riscv::SSTATUS_SIE
-                                                   | riscv::SSTATUS_SPIE
-                                                   | riscv::SSTATUS_SPP
-                                                   | riscv::SSTATUS_FS
-                                                   | riscv::SSTATUS_XS
-                                                   | riscv::SSTATUS_SUM
-                                                   | riscv::SSTATUS_MXR
-                                                   | riscv::SSTATUS_UPIE
-                                                   | riscv::SSTATUS_SPIE
-                                                   | riscv::SSTATUS_UXL
-                                                   | riscv::SSTATUS_SD;
-    localparam logic [63:0] SMODE_STATUS_WRITE_MASK = riscv::SSTATUS_SIE
-                                                    | riscv::SSTATUS_SPIE
-                                                    | riscv::SSTATUS_SPP
-                                                    | riscv::SSTATUS_FS
-                                                    | riscv::SSTATUS_SUM
-                                                    | riscv::SSTATUS_MXR;
+    localparam logic [63:0] SSTATUS_UIE  = 'h00000001;
+    localparam logic [63:0] SSTATUS_SIE  = 'h00000002;
+    localparam logic [63:0] SSTATUS_SPIE = 'h00000020;
+    localparam logic [63:0] SSTATUS_SPP  = 'h00000100;
+    localparam logic [63:0] SSTATUS_FS   = 'h00006000;
+    localparam logic [63:0] SSTATUS_XS   = 'h00018000;
+    localparam logic [63:0] SSTATUS_SUM  = 'h00040000;
+    localparam logic [63:0] SSTATUS_MXR  = 'h00080000;
+    localparam logic [63:0] SSTATUS_UPIE = 'h00000010;
+    localparam logic [63:0] SSTATUS_UXL  = 64'h0000000300000000;
+    localparam logic [63:0] SSTATUS_SD   = {IS_XLEN64, 31'h00000000, ~IS_XLEN64, 31'h00000000};
+    localparam logic [63:0] SMODE_STATUS_READ_MASK = SSTATUS_UIE
+                                                   | SSTATUS_SIE
+                                                   | SSTATUS_SPIE
+                                                   | SSTATUS_SPP
+                                                   | SSTATUS_FS
+                                                   | SSTATUS_XS
+                                                   | SSTATUS_SUM
+                                                   | SSTATUS_MXR
+                                                   | SSTATUS_UPIE
+                                                   | SSTATUS_SPIE
+                                                   | SSTATUS_UXL
+                                                   | SSTATUS_SD;
+    localparam logic [63:0] SMODE_STATUS_WRITE_MASK = SSTATUS_SIE
+                                                    | SSTATUS_SPIE
+                                                    | SSTATUS_SPP
+                                                    | SSTATUS_FS
+                                                    | SSTATUS_SUM
+                                                    | SSTATUS_MXR;
     localparam int unsigned FETCH_FIFO_DEPTH  = 4;
     localparam int unsigned FETCH_WIDTH       = 32;
     localparam int unsigned INSTR_PER_FETCH = FETCH_WIDTH / 16;
@@ -1010,32 +1026,32 @@ endpackage
     } cf_t;
     typedef struct packed {
         logic                   valid;            
-        logic [riscv::VLEN-1:0] pc;               
-        logic [riscv::VLEN-1:0] target_address;   
+        logic [VLEN-1:0] pc;               
+        logic [VLEN-1:0] target_address;   
         logic                   is_mispredict;    
         logic                   is_taken;         
         cf_t                    cf_type;          
     } bp_resolve_t;
     typedef struct packed {
         cf_t                    cf;               
-        logic [riscv::VLEN-1:0] predict_address;  
+        logic [VLEN-1:0] predict_address;  
     } branchpredict_sbe_t;
     typedef struct packed {
         logic                   valid;
-        logic [riscv::VLEN-1:0] pc;              
-        logic [riscv::VLEN-1:0] target_address;
+        logic [VLEN-1:0] pc;              
+        logic [VLEN-1:0] target_address;
     } btb_update_t;
     typedef struct packed {
         logic                   valid;
-        logic [riscv::VLEN-1:0] target_address;
+        logic [VLEN-1:0] target_address;
     } btb_prediction_t;
     typedef struct packed {
         logic                   valid;
-        logic [riscv::VLEN-1:0] ra;
+        logic [VLEN-1:0] ra;
     } ras_t;
     typedef struct packed {
         logic                   valid;
-        logic [riscv::VLEN-1:0] pc;           
+        logic [VLEN-1:0] pc;           
         logic                   taken;
     } bht_update_t;
     typedef struct packed {
@@ -1063,15 +1079,16 @@ endpackage
       logic        sie;
       logic        global_enable;
     } irq_ctrl_t;
+   
 		localparam int unsigned CONFIG_L1I_SIZE    = 16*1024;
     localparam int unsigned ICACHE_SET_ASSOC   = 4;  
     localparam int unsigned ICACHE_INDEX_WIDTH = $clog2(CONFIG_L1I_SIZE / ICACHE_SET_ASSOC);   
-    localparam int unsigned ICACHE_TAG_WIDTH   = riscv::PLEN-ICACHE_INDEX_WIDTH;   
+    localparam int unsigned ICACHE_TAG_WIDTH   = PLEN-ICACHE_INDEX_WIDTH;   
     localparam int unsigned ICACHE_LINE_WIDTH  = 128;  
 		localparam int unsigned CONFIG_L1D_SIZE    = 32*1024;
 	  localparam int unsigned DCACHE_SET_ASSOC   = 8;  
     localparam int unsigned DCACHE_INDEX_WIDTH = $clog2(CONFIG_L1D_SIZE / DCACHE_SET_ASSOC);   
-    localparam int unsigned DCACHE_TAG_WIDTH   = riscv::PLEN-DCACHE_INDEX_WIDTH;   
+    localparam int unsigned DCACHE_TAG_WIDTH   = PLEN-DCACHE_INDEX_WIDTH;   
     localparam int unsigned DCACHE_LINE_WIDTH  = 128;  
     typedef enum logic [6:0] {  
                                ADD, SUB, ADDW, SUBW,
@@ -1178,7 +1195,7 @@ endpackage
 */
     typedef struct packed {
         logic                     valid;
-        logic [riscv::VLEN-1:0]   vaddr;
+        logic [VLEN-1:0]   vaddr;
         logic                     overflow;
         logic [63:0]              data;
         logic [7:0]               be;
@@ -1187,13 +1204,13 @@ endpackage
         logic [TRANS_ID_BITS-1:0] trans_id;
     } lsu_ctrl_t;
     typedef struct packed {
-        logic [riscv::VLEN-1:0] address;         
+        logic [VLEN-1:0] address;         
         logic [31:0]            instruction;     
         branchpredict_sbe_t     branch_predict;  
         exception_t             ex;              
     } fetch_entry_t;
     typedef struct packed {
-        logic [riscv::VLEN-1:0]   pc;             
+        logic [VLEN-1:0]   pc;             
         logic [TRANS_ID_BITS-1:0] trans_id;       
         fu_t                      fu;             
         fu_op                     op;             
@@ -1274,25 +1291,25 @@ endpackage
     } frontend_exception_t;
     typedef struct packed {
         logic                     fetch_valid;      
-        logic [riscv::PLEN-1:0]   fetch_paddr;      
+        logic [PLEN-1:0]   fetch_paddr;      
         exception_t               fetch_exception;  
     } icache_areq_i_t;
     typedef struct packed {
         logic                     fetch_req;        
-        logic [riscv::VLEN-1:0]   fetch_vaddr;      
+        logic [VLEN-1:0]   fetch_vaddr;      
     } icache_areq_o_t;
     typedef struct packed {
         logic                     req;                     
         logic                     kill_s1;                 
         logic                     kill_s2;                 
         logic                     spec;                    
-        logic [riscv::VLEN-1:0]   vaddr;                   
+        logic [VLEN-1:0]   vaddr;                   
     } icache_dreq_i_t;
     typedef struct packed {
         logic                     ready;                   
         logic                     valid;                   
         logic [FETCH_WIDTH-1:0]   data;                    
-        logic [riscv::VLEN-1:0]   vaddr;                   
+        logic [VLEN-1:0]   vaddr;                   
         exception_t               ex;                      
     } icache_dreq_o_t;
     typedef struct packed {
@@ -1322,17 +1339,23 @@ endpackage
         logic                          data_rvalid;
         logic [63:0]                   data_rdata;
     } dcache_req_o_t;
+    typedef struct packed {
+       logic [VLEN-1:0] addr_o;
+    }  addr_t;
+    typedef struct packed {
+       logic [31:0] instr_o;
+    }  instr_t;
     function automatic logic [XLEN-1:0] sext32 (logic [31:0] operand);
         sext32 = {{riscv::XLEN-32{operand[31]}}, operand[31:0]};
     endfunction
-    function automatic logic [riscv::VLEN-1:0] uj_imm (logic [31:0] instruction_i);
-        uj_imm = { {44+riscv::VLEN-64 {instruction_i[31]}}, instruction_i[19:12], instruction_i[20], instruction_i[30:21], 1'b0 };
+    function automatic logic [VLEN-1:0] uj_imm (logic [31:0] instruction_i);
+        uj_imm = { {44+VLEN-64 {instruction_i[31]}}, instruction_i[19:12], instruction_i[20], instruction_i[30:21], 1'b0 };
     endfunction
-    function automatic logic [riscv::VLEN-1:0] i_imm (logic [31:0] instruction_i);
-        i_imm = { {52+riscv::VLEN-64 {instruction_i[31]}}, instruction_i[31:20] };
+    function automatic logic [VLEN-1:0] i_imm (logic [31:0] instruction_i);
+        i_imm = { {52+VLEN-64 {instruction_i[31]}}, instruction_i[31:20] };
     endfunction
-    function automatic logic [riscv::VLEN-1:0] sb_imm (logic [31:0] instruction_i);
-        sb_imm = { {51+riscv::VLEN-64 {instruction_i[31]}}, instruction_i[31], instruction_i[7], instruction_i[30:25], instruction_i[11:8], 1'b0 };
+    function automatic logic [VLEN-1:0] sb_imm (logic [31:0] instruction_i);
+        sb_imm = { {51+VLEN-64 {instruction_i[31]}}, instruction_i[31], instruction_i[7], instruction_i[30:25], instruction_i[11:8], 1'b0 };
     endfunction
     function automatic logic [XLEN-1:0] data_align (logic [2:0] addr, logic [63:0] data);
         logic [2:0] addr_tmp = {(addr[2] && riscv::IS_XLEN64), addr[1:0]};
@@ -1481,7 +1504,7 @@ package ariane_soc;
     DmBaseAddress:          DebugBase,
     NrPMPEntries:           8
   };
-*/
+ */
 endpackage
 
    package axi_pkg;
@@ -1667,8 +1690,11 @@ package ariane_axi_soc;
     localparam AddrWidth = 64;
     localparam DataWidth = 64;
     localparam StrbWidth = DataWidth / 8;
-    typedef logic [ariane_soc::IdWidth-1:0]      id_t;
-    typedef logic [ariane_soc::IdWidthSlave-1:0] id_slv_t;
+  localparam NrSlaves = 2;  
+  localparam IdWidth   = 4;
+  localparam IdWidthSlave = IdWidth + $clog2(NrSlaves);
+    typedef logic [IdWidth-1:0]      id_t;
+    typedef logic [IdWidthSlave-1:0] id_slv_t;
     typedef logic [AddrWidth-1:0] addr_t;
     typedef logic [DataWidth-1:0] data_t;
     typedef logic [StrbWidth-1:0] strb_t;
@@ -1808,6 +1834,7 @@ package ariane_axi_soc;
 endpackage
 
 module ariane_testharness #(
+  parameter logic[63:0] \ArianeCfg.DmBaseAddress = 64'h0,
   parameter int unsigned AXI_USER_WIDTH    = 1,
   parameter int unsigned AXI_ADDRESS_WIDTH = 64,
   parameter int unsigned AXI_DATA_WIDTH    = 64,
@@ -1829,7 +1856,7 @@ module ariane_testharness #(
    ariane_axi_soc::resp_t   axi_ariane_resp;
    
   ariane_dummy #(
-    .ArianeCfg  ( ariane_soc::ArianeSocCfg )
+    .\ArianeCfg.DmBaseAddress ( \ArianeCfg.DmBaseAddress  )
   ) i_ariane (
     .clk_i                ( clk_i               ),
     .rst_ni               ( rst_ni              ),
@@ -1845,11 +1872,15 @@ module ariane_testharness #(
 endmodule // ariane_testharness
 
 module ariane_dummy #(
-  parameter ariane_pkg::ariane_cfg_t ArianeCfg     = ariane_pkg::ArianeDefaultConfig
+    localparam XLEN = 64,
+    localparam VLEN       = (XLEN == 32) ? 32 : 64,
+    localparam PLEN       = (XLEN == 32) ? 34 : 56,
+  parameter logic [63:0] \ArianeCfg.DmBaseAddress = 64'h0
+//  parameter ariane_pkg::ariane_cfg_t ArianeCfg     = ariane_pkg::ArianeDefaultConfig
 ) (
   input  logic                         clk_i,
   input  logic                         rst_ni,
-  input  logic [riscv::VLEN-1:0]       boot_addr_i,   
+  input  logic [VLEN-1:0]       boot_addr_i,   
   input  logic [riscv::XLEN-1:0]       hart_id_i,     
   input  logic [1:0]                   irq_i,         
   input  logic                         ipi_i,         
@@ -1861,11 +1892,11 @@ module ariane_dummy #(
   riscv::priv_lvl_t           priv_lvl;
   ariane_pkg::exception_t                 ex_commit;  
   ariane_pkg::bp_resolve_t                resolved_branch;
-  logic [riscv::VLEN-1:0]     pc_commit;
+  logic [VLEN-1:0]     pc_commit;
   logic                       eret;
   logic [ariane_pkg::NR_COMMIT_PORTS-1:0] commit_ack;
-  logic [riscv::VLEN-1:0]     trap_vector_base_commit_pcgen;
-  logic [riscv::VLEN-1:0]     epc_commit_pcgen;
+  logic [VLEN-1:0]     trap_vector_base_commit_pcgen;
+  logic [VLEN-1:0]     epc_commit_pcgen;
   ariane_pkg::fetch_entry_t             fetch_entry_if_id;
   logic                     fetch_valid_if_id;
   logic                     fetch_ready_id_if;
@@ -1873,10 +1904,10 @@ module ariane_dummy #(
   logic                     issue_entry_valid_id_issue;
   logic                     is_ctrl_fow_id_issue;
   logic                     issue_instr_issue_id;
-   logic [riscv::VLEN-1:0] rs1_forwarding_id_ex;  
-   logic [riscv::VLEN-1:0] rs2_forwarding_id_ex;  
+   logic [VLEN-1:0] rs1_forwarding_id_ex;  
+   logic [VLEN-1:0] rs2_forwarding_id_ex;  
   ariane_pkg::fu_data_t                 fu_data_id_ex;
-  logic [riscv::VLEN-1:0]   pc_id_ex;
+  logic [VLEN-1:0]   pc_id_ex;
   logic                     is_compressed_instr_id_ex;
   logic                     flu_ready_ex_id;
   logic [ariane_pkg::TRANS_ID_BITS-1:0] flu_trans_id_ex_id;
@@ -1946,7 +1977,7 @@ module ariane_dummy #(
   logic                     debug_mode;
   logic                     single_step_csr_commit;
   riscv::pmpcfg_t [15:0]    pmpcfg;
-  logic [riscv::PLEN-3:0] pmpaddr[15:0];
+  logic [PLEN-3:0] pmpaddr[15:0];
   logic [4:0]               addr_csr_perf;
   logic [ariane_pkg::XLEN-1:0]             data_csr_perf, data_perf_csr;
   logic                     we_csr_perf;
@@ -1984,12 +2015,12 @@ module ariane_dummy #(
   logic                     dcache_commit_wbuffer_empty;
   logic                     dcache_commit_wbuffer_not_ni;
   frontend #(
-    .ArianeCfg ( ArianeCfg )
+    .\ArianeCfg.DmBaseAddress ( \ArianeCfg.DmBaseAddress  )
   ) i_frontend (
     .flush_i             ( flush_ctrl_if                 ),  
     .flush_bp_i          ( 1'b0                          ),
     .debug_mode_i        ( debug_mode                    ),
-    .boot_addr_i         ( boot_addr_i[riscv::VLEN-1:0]  ),
+    .boot_addr_i         ( boot_addr_i[VLEN-1:0]  ),
     .icache_dreq_i       ( icache_dreq_cache_if          ),
     .icache_dreq_o       ( icache_dreq_if_cache          ),
     .resolved_branch_i   ( resolved_branch               ),
@@ -2193,7 +2224,7 @@ module ariane_dummy #(
     .halt_csr_o             ( halt_csr_ctrl                 ),
     .commit_instr_i         ( commit_instr_id_commit        ),
     .commit_ack_i           ( commit_ack                    ),
-    .boot_addr_i            ( boot_addr_i[riscv::VLEN-1:0]  ),
+    .boot_addr_i            ( boot_addr_i[VLEN-1:0]  ),
     .hart_id_i              ( hart_id_i[riscv::XLEN-1:0]    ),
     .ex_i                   ( ex_commit                     ),
     .csr_op_i               ( csr_op_commit_csr             ),
@@ -2310,104 +2341,81 @@ module ariane_dummy #(
     .axi_resp_i            ( axi_resp_i                  )
   );
     */
-  int f;
-  final begin
-    $fclose(f);
-  end
-  logic [63:0] cycles;
-  initial begin
-    f = $fopen("trace_hart_00.dasm", "w");
-  end
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      cycles <= 0;
-    end else begin
-      byte mode = "";
-      if (debug_mode) mode = "D";
-      else begin
-        case (priv_lvl)
-        riscv::PRIV_LVL_M: mode = "M";
-        riscv::PRIV_LVL_S: mode = "S";
-        riscv::PRIV_LVL_U: mode = "U";
-        endcase
-      end
-      for (int i = 0; i < ariane_pkg::NR_COMMIT_PORTS; i++) begin
-        if (commit_ack[i] && !commit_instr_id_commit[i].ex.valid) begin
-          $fwrite(f, "%d 0x%0h %s (0x%h) DASM(%h)\n", cycles, commit_instr_id_commit[i].pc, mode, commit_instr_id_commit[i].ex.tval[31:0], commit_instr_id_commit[i].ex.tval[31:0]);
-        end else if (commit_ack[i] && commit_instr_id_commit[i].ex.valid) begin
-          if (commit_instr_id_commit[i].ex.cause == 2) begin
-            $fwrite(f, "Exception Cause: Illegal Instructions, DASM(%h) PC=%h\n", commit_instr_id_commit[i].ex.tval[31:0], commit_instr_id_commit[i].pc);
-          end else begin
-            if (debug_mode) begin
-              $fwrite(f, "%d 0x%0h %s (0x%h) DASM(%h)\n", cycles, commit_instr_id_commit[i].pc, mode, commit_instr_id_commit[i].ex.tval[31:0], commit_instr_id_commit[i].ex.tval[31:0]);
-            end else begin
-              $fwrite(f, "Exception Cause: %5d, DASM(%h) PC=%h\n", commit_instr_id_commit[i].ex.cause, commit_instr_id_commit[i].ex.tval[31:0], commit_instr_id_commit[i].pc);
-            end
-          end
-        end
-      end
-        cycles <= cycles + 1;
-    end
-  end
 endmodule  
 
-module frontend import ariane_pkg::*; #(
-  parameter ariane_pkg::ariane_cfg_t ArianeCfg = ariane_pkg::ArianeDefaultConfig
-) (
+module frontend
+  #(
+    localparam XLEN = 64,
+    localparam VLEN = (XLEN == 32) ? 32 : 64,
+  parameter logic[63:0] \ArianeCfg.DmBaseAddress = 64'h0
+)
+ (
   input  logic               clk_i,               
   input  logic               rst_ni,              
   input  logic               flush_i,             
   input  logic               flush_bp_i,          
   input  logic               debug_mode_i,
-  input  logic [riscv::VLEN-1:0]        boot_addr_i,
-  input  bp_resolve_t        resolved_branch_i,   
+  input  logic [VLEN-1:0]        boot_addr_i,
+  input  ariane_pkg::bp_resolve_t        resolved_branch_i,   
   input  logic               set_pc_commit_i,     
-  input  logic [riscv::VLEN-1:0] pc_commit_i,         
-  input  logic [riscv::VLEN-1:0] epc_i,               
+  input  logic [VLEN-1:0] pc_commit_i,         
+  input  logic [VLEN-1:0] epc_i,               
   input  logic               eret_i,              
-  input  logic [riscv::VLEN-1:0] trap_vector_base_i,  
+  input  logic [VLEN-1:0] trap_vector_base_i,  
   input  logic               ex_valid_i,          
   input  logic               set_debug_pc_i,      
-  output icache_dreq_i_t     icache_dreq_o,
-  input  icache_dreq_o_t     icache_dreq_i,
-  output fetch_entry_t       fetch_entry_o,        
+  output  struct packed {
+        logic                     req;                     
+        logic                     kill_s1;                 
+        logic                     kill_s2;                 
+        logic                     spec;                    
+        logic [VLEN-1:0]   vaddr;                   
+    } icache_dreq_o,
+  input struct packed {
+        logic                     ready;                   
+        logic                     valid;                   
+        logic [ariane_pkg::FETCH_WIDTH-1:0]   data;                    
+        logic [VLEN-1:0]   vaddr;                   
+        ariane_pkg::exception_t               ex;                      
+    } icache_dreq_i,
+  output ariane_pkg::fetch_entry_t       fetch_entry_o,        
   output logic               fetch_entry_valid_o,  
   input  logic               fetch_entry_ready_i   
 );
-    logic [FETCH_WIDTH-1:0] icache_data_q;
+    logic [ariane_pkg::FETCH_WIDTH-1:0] icache_data_q;
     logic                   icache_valid_q;
     ariane_pkg::frontend_exception_t icache_ex_valid_q;
-    logic [riscv::VLEN-1:0] icache_vaddr_q;
+    logic [VLEN-1:0] icache_vaddr_q;
     logic                   instr_queue_ready;
     logic [ariane_pkg::INSTR_PER_FETCH-1:0] instr_queue_consumed;
-    btb_prediction_t        btb_q;
-    bht_prediction_t        bht_q;
+    ariane_pkg::btb_prediction_t        btb_q;
+    ariane_pkg::bht_prediction_t        bht_q;
     logic                   if_ready;
-    logic [riscv::VLEN-1:0] npc_d, npc_q;  
+    logic [VLEN-1:0] npc_d, npc_q;  
     logic                   npc_rst_load_q;
     logic                   replay;
-    logic [riscv::VLEN-1:0] replay_addr;
+    logic [VLEN-1:0] replay_addr;
     logic [$clog2(ariane_pkg::INSTR_PER_FETCH)-1:0] shamt;
     assign shamt = icache_dreq_i.vaddr[$clog2(ariane_pkg::INSTR_PER_FETCH):1];
-    logic [INSTR_PER_FETCH-1:0]       rvi_return, rvi_call, rvi_branch,
+    logic [ariane_pkg::INSTR_PER_FETCH-1:0]       rvi_return, rvi_call, rvi_branch,
                                       rvi_jalr, rvi_jump;
-    logic [INSTR_PER_FETCH-1:0][riscv::VLEN-1:0] rvi_imm;
-    logic [INSTR_PER_FETCH-1:0]       rvc_branch, rvc_jump, rvc_jr, rvc_return,
+    logic [VLEN-1:0] rvi_imm[ariane_pkg::INSTR_PER_FETCH-1:0];
+    logic [ariane_pkg::INSTR_PER_FETCH-1:0]       rvc_branch, rvc_jump, rvc_jr, rvc_return,
                                       rvc_jalr, rvc_call;
-    logic [INSTR_PER_FETCH-1:0][riscv::VLEN-1:0] rvc_imm;
-    logic [INSTR_PER_FETCH-1:0][31:0] instr;
-    logic [INSTR_PER_FETCH-1:0][riscv::VLEN-1:0] addr;
-    logic [INSTR_PER_FETCH-1:0]       instruction_valid;
-    bht_prediction_t [INSTR_PER_FETCH-1:0] bht_prediction;
-    btb_prediction_t [INSTR_PER_FETCH-1:0] btb_prediction;
-    bht_prediction_t [INSTR_PER_FETCH-1:0] bht_prediction_shifted;
-    btb_prediction_t [INSTR_PER_FETCH-1:0] btb_prediction_shifted;
-    ras_t            ras_predict;
+    logic [VLEN-1:0] rvc_imm[ariane_pkg::INSTR_PER_FETCH-1:0];
+    ariane_pkg::instr_t [ariane_pkg::INSTR_PER_FETCH-1:0] instr;
+    ariane_pkg::addr_t [ariane_pkg::INSTR_PER_FETCH-1:0] addr;
+    logic [ariane_pkg::INSTR_PER_FETCH-1:0]       instruction_valid;
+    ariane_pkg::bht_prediction_t [ariane_pkg::INSTR_PER_FETCH-1:0] bht_prediction;
+    ariane_pkg::btb_prediction_t [ariane_pkg::INSTR_PER_FETCH-1:0] btb_prediction;
+    ariane_pkg::bht_prediction_t [ariane_pkg::INSTR_PER_FETCH-1:0] bht_prediction_shifted;
+    ariane_pkg::btb_prediction_t [ariane_pkg::INSTR_PER_FETCH-1:0] btb_prediction_shifted;
+    ariane_pkg::ras_t            ras_predict;
     logic            is_mispredict;
     logic            ras_push, ras_pop;
-    logic [riscv::VLEN-1:0]     ras_update;
-    logic [riscv::VLEN-1:0]                 predict_address;
-    cf_t  [ariane_pkg::INSTR_PER_FETCH-1:0] cf_type;
+    logic [VLEN-1:0]     ras_update;
+    logic [VLEN-1:0]                 predict_address;
+    ariane_pkg::cf_t  [ariane_pkg::INSTR_PER_FETCH-1:0] cf_type;
     logic [ariane_pkg::INSTR_PER_FETCH-1:0] taken_rvi_cf;
     logic [ariane_pkg::INSTR_PER_FETCH-1:0] taken_rvc_cf;
     logic serving_unaligned;
@@ -2425,17 +2433,17 @@ module frontend import ariane_pkg::*; #(
     );
     assign bht_prediction_shifted[0] = (serving_unaligned) ? bht_q : bht_prediction[0];
     assign btb_prediction_shifted[0] = (serving_unaligned) ? btb_q : btb_prediction[0];
-    for (genvar i = 1; i < INSTR_PER_FETCH; i++) begin : gen_prediction_address
-      assign bht_prediction_shifted[i] = bht_prediction[addr[i][$clog2(INSTR_PER_FETCH):1]];
-      assign btb_prediction_shifted[i] = btb_prediction[addr[i][$clog2(INSTR_PER_FETCH):1]];
+    for (genvar i = 1; i < ariane_pkg::INSTR_PER_FETCH; i++) begin : gen_prediction_address
+      assign bht_prediction_shifted[i] = bht_prediction[addr[i][$clog2(ariane_pkg::INSTR_PER_FETCH):1]];
+      assign btb_prediction_shifted[i] = btb_prediction[addr[i][$clog2(ariane_pkg::INSTR_PER_FETCH):1]];
     end
     logic bp_valid;
-    logic [INSTR_PER_FETCH-1:0] is_branch;
-    logic [INSTR_PER_FETCH-1:0] is_call;
-    logic [INSTR_PER_FETCH-1:0] is_jump;
-    logic [INSTR_PER_FETCH-1:0] is_return;
-    logic [INSTR_PER_FETCH-1:0] is_jalr;
-    for (genvar i = 0; i < INSTR_PER_FETCH; i++) begin
+    logic [ariane_pkg::INSTR_PER_FETCH-1:0] is_branch;
+    logic [ariane_pkg::INSTR_PER_FETCH-1:0] is_call;
+    logic [ariane_pkg::INSTR_PER_FETCH-1:0] is_jump;
+    logic [ariane_pkg::INSTR_PER_FETCH-1:0] is_return;
+    logic [ariane_pkg::INSTR_PER_FETCH-1:0] is_jalr;
+    for (genvar i = 0; i < ariane_pkg::INSTR_PER_FETCH; i++) begin
       assign is_branch[i] =  instruction_valid[i] & (rvi_branch[i] | rvc_branch[i]);
       assign is_call[i] = instruction_valid[i] & (rvi_call[i] | rvc_call[i]);
       assign is_return[i] = instruction_valid[i] & (rvi_return[i] | rvc_return[i]);
@@ -2446,11 +2454,11 @@ module frontend import ariane_pkg::*; #(
       taken_rvi_cf = '0;
       taken_rvc_cf = '0;
       predict_address = '0;
-      for (int i = 0; i < INSTR_PER_FETCH; i++)  cf_type[i] = ariane_pkg::NoCF;
+      for (int i = 0; i < ariane_pkg::INSTR_PER_FETCH; i++)  cf_type[i] = ariane_pkg::NoCF;
       ras_push = 1'b0;
       ras_pop = 1'b0;
       ras_update = '0;
-      for (int i = INSTR_PER_FETCH - 1; i >= 0 ; i--) begin
+      for (int i = ariane_pkg::INSTR_PER_FETCH - 1; i >= 0 ; i--) begin
         unique case ({is_branch[i], is_return[i], is_jump[i], is_jalr[i]})
           4'b0000:;  
           4'b0001: begin
@@ -2481,8 +2489,8 @@ module frontend import ariane_pkg::*; #(
               taken_rvi_cf[i] = rvi_branch[i] & bht_prediction_shifted[i].taken;
               taken_rvc_cf[i] = rvc_branch[i] & bht_prediction_shifted[i].taken;
             end else begin
-              taken_rvi_cf[i] = rvi_branch[i] & rvi_imm[i][riscv::VLEN-1];
-              taken_rvc_cf[i] = rvc_branch[i] & rvc_imm[i][riscv::VLEN-1];
+              taken_rvi_cf[i] = rvi_branch[i] & rvi_imm[i][VLEN-1];
+              taken_rvc_cf[i] = rvc_branch[i] & rvc_imm[i][VLEN-1];
             end
             if (taken_rvi_cf[i] || taken_rvc_cf[i]) cf_type[i] = ariane_pkg::Branch;
           end
@@ -2499,15 +2507,15 @@ module frontend import ariane_pkg::*; #(
     end
     always_comb begin
       bp_valid = 1'b0;
-      for (int i = 0; i < INSTR_PER_FETCH; i++) bp_valid |= ((cf_type[i] != NoCF & cf_type[i] != Return) | ((cf_type[i] == Return) & ras_predict.valid));
+      for (int i = 0; i < ariane_pkg::INSTR_PER_FETCH; i++) bp_valid |= ((cf_type[i] != ariane_pkg::NoCF & cf_type[i] != ariane_pkg::Return) | ((cf_type[i] == ariane_pkg::Return) & ras_predict.valid));
     end
     assign is_mispredict = resolved_branch_i.valid & resolved_branch_i.is_mispredict;
     assign icache_dreq_o.req = instr_queue_ready;
     assign if_ready = icache_dreq_i.ready & instr_queue_ready;
     assign icache_dreq_o.kill_s1 = is_mispredict | flush_i | replay;
     assign icache_dreq_o.kill_s2 = icache_dreq_o.kill_s1 | bp_valid;
-    bht_update_t bht_update;
-    btb_update_t btb_update;
+    ariane_pkg::bht_update_t bht_update;
+    ariane_pkg::btb_update_t btb_update;
     logic speculative_q,speculative_d;
     assign speculative_d = (speculative_q && !resolved_branch_i.valid || |is_branch || |is_return || |is_jalr) && !flush_i;
     assign icache_dreq_o.spec = speculative_d;
@@ -2521,7 +2529,7 @@ module frontend import ariane_pkg::*; #(
     assign btb_update.pc    = resolved_branch_i.pc;
     assign btb_update.target_address = resolved_branch_i.target_address;
     always_comb begin : npc_select
-      automatic logic [riscv::VLEN-1:0] fetch_address;
+      logic [VLEN-1:0] fetch_address;
       if (npc_rst_load_q) begin
         npc_d         = boot_addr_i;
         fetch_address = boot_addr_i;
@@ -2533,16 +2541,16 @@ module frontend import ariane_pkg::*; #(
         fetch_address = predict_address;
         npc_d = predict_address;
       end
-      if (if_ready) npc_d = {fetch_address[riscv::VLEN-1:2], 2'b0}  + 'h4;
+      if (if_ready) npc_d = {fetch_address[VLEN-1:2], 2'b0}  + 'h4;
       if (replay) npc_d = replay_addr;
       if (is_mispredict) npc_d = resolved_branch_i.target_address;
       if (eret_i) npc_d = epc_i;
       if (ex_valid_i) npc_d = trap_vector_base_i;
-      if (set_pc_commit_i) npc_d = pc_commit_i + {{riscv::VLEN-3{1'b0}}, 3'b100};
-      if (set_debug_pc_i) npc_d = ArianeCfg.DmBaseAddress[riscv::VLEN-1:0] + dm::HaltAddress[riscv::VLEN-1:0];
+      if (set_pc_commit_i) npc_d = pc_commit_i + {{VLEN-3{1'b0}}, 3'b100};
+      if (set_debug_pc_i) npc_d = \ArianeCfg.DmBaseAddress [VLEN-1:0] + dm::HaltAddress[VLEN-1:0];
       icache_dreq_o.vaddr = fetch_address;
     end
-    logic [FETCH_WIDTH-1:0] icache_data;
+    logic [ariane_pkg::FETCH_WIDTH-1:0] icache_data;
     assign icache_data = icache_dreq_i.data >> {shamt, 4'b0};
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
@@ -2568,8 +2576,8 @@ module frontend import ariane_pkg::*; #(
           end else if (icache_dreq_i.ex.cause == riscv::INSTR_ACCESS_FAULT) begin
             icache_ex_valid_q <= ariane_pkg::FE_INSTR_ACCESS_FAULT;
           end else icache_ex_valid_q <= ariane_pkg::FE_NONE;
-          btb_q                <= btb_prediction[INSTR_PER_FETCH-1];
-          bht_q                <= bht_prediction[INSTR_PER_FETCH-1];
+          btb_q                <= btb_prediction[ariane_pkg::INSTR_PER_FETCH-1];
+          bht_q                <= bht_prediction[ariane_pkg::INSTR_PER_FETCH-1];
         end
       end
     end // always_ff @ (posedge clk_i or negedge rst_ni)
@@ -2607,7 +2615,7 @@ module frontend import ariane_pkg::*; #(
       .bht_update_i     ( bht_update       ),
       .bht_prediction_o ( bht_prediction   )
     );
-    for (genvar i = 0; i < INSTR_PER_FETCH; i++) begin : gen_instr_scan
+    for (genvar i = 0; i < ariane_pkg::INSTR_PER_FETCH; i++) begin : gen_instr_scan
       instr_scan i_instr_scan (
         .instr_i      ( instr[i]      ),
         .rvi_return_o ( rvi_return[i] ),
@@ -2646,37 +2654,40 @@ module frontend import ariane_pkg::*; #(
     );
  */
 endmodule
-module instr_realign import ariane_pkg::*; (
+module instr_realign #(
+    localparam XLEN = 64,
+    localparam VLEN = (XLEN == 32) ? 32 : 64
+) (
     input  logic                              clk_i,
     input  logic                              rst_ni,
     input  logic                              flush_i,
     input  logic                              valid_i,
     output logic                              serving_unaligned_o,  
-    input  logic [riscv::VLEN-1:0]            address_i,
-    input  logic [FETCH_WIDTH-1:0]            data_i,
-    output logic [INSTR_PER_FETCH-1:0]        valid_o,
-    output logic [INSTR_PER_FETCH-1:0][riscv::VLEN-1:0]  addr_o,
-    output logic [INSTR_PER_FETCH-1:0][31:0]  instr_o
+    input  logic [VLEN-1:0]            address_i,
+    input  logic [ariane_pkg::FETCH_WIDTH-1:0]            data_i,
+    output logic [ariane_pkg::INSTR_PER_FETCH-1:0]        valid_o,
+    output ariane_pkg::addr_t [ariane_pkg::INSTR_PER_FETCH-1:0] addr_o,
+    output ariane_pkg::instr_t [ariane_pkg::INSTR_PER_FETCH-1:0] instr_o
 );
     logic [3:0] instr_is_compressed;
-    for (genvar i = 0; i < INSTR_PER_FETCH; i ++) begin
+    for (genvar i = 0; i < ariane_pkg::INSTR_PER_FETCH; i ++) begin
         assign instr_is_compressed[i] = ~&data_i[i * 16 +: 2];
     end
     logic [15:0] unaligned_instr_d,   unaligned_instr_q;
     logic        unaligned_d,         unaligned_q;
-    logic [riscv::VLEN-1:0] unaligned_address_d, unaligned_address_q;
+    logic [VLEN-1:0] unaligned_address_d, unaligned_address_q;
     assign serving_unaligned_o = unaligned_q;
-    if (FETCH_WIDTH == 32) begin : realign_bp_32
+    if (ariane_pkg::FETCH_WIDTH == 32) begin : realign_bp_32
         always_comb begin : re_align
             unaligned_d = unaligned_q;
-            unaligned_address_d = {address_i[riscv::VLEN-1:2], 2'b10};
+            unaligned_address_d = {address_i[VLEN-1:2], 2'b10};
             unaligned_instr_d = data_i[31:16];
             valid_o[0] = valid_i;
             instr_o[0] = (unaligned_q) ? {data_i[15:0], unaligned_instr_q} : data_i[31:0];
             addr_o[0]  = (unaligned_q) ? unaligned_address_q : address_i;
             valid_o[1] = 1'b0;
             instr_o[1] = '0;
-            addr_o[1]  = {address_i[riscv::VLEN-1:2], 2'b10};
+            addr_o[1]  = {address_i[VLEN-1:2], 2'b10};
             if (instr_is_compressed[0] || unaligned_q) begin
                 if (instr_is_compressed[1]) begin
                     unaligned_d = 1'b0;
@@ -2685,21 +2696,21 @@ module instr_realign import ariane_pkg::*; (
                 end else begin
                     unaligned_d = 1'b1;
                     unaligned_instr_d = data_i[31:16];
-                    unaligned_address_d = {address_i[riscv::VLEN-1:2], 2'b10};
+                    unaligned_address_d = {address_i[VLEN-1:2], 2'b10};
                 end
             end  
             if (valid_i && address_i[1]) begin
                 if (!instr_is_compressed[0]) begin
                     valid_o = '0;
                     unaligned_d = 1'b1;
-                    unaligned_address_d = {address_i[riscv::VLEN-1:2], 2'b10};
+                    unaligned_address_d = {address_i[VLEN-1:2], 2'b10};
                     unaligned_instr_d = data_i[15:0];
                 end else begin
                     valid_o = 1'b1;
                 end
             end
         end
-    end else if (FETCH_WIDTH == 64) begin : realign_bp_64
+    end else if (ariane_pkg::FETCH_WIDTH == 64) begin : realign_bp_64
         initial begin
           $error("Not propperly implemented");
         end
@@ -2712,11 +2723,11 @@ module instr_realign import ariane_pkg::*; (
             instr_o[0] = data_i[31:0];
             addr_o[0]  = address_i;
             instr_o[1] = '0;
-            addr_o[1]  = {address_i[riscv::VLEN-1:3], 3'b010};
+            addr_o[1]  = {address_i[VLEN-1:3], 3'b010};
             instr_o[2] = {16'b0, data_i[47:32]};
-            addr_o[2]  = {address_i[riscv::VLEN-1:3], 3'b100};
+            addr_o[2]  = {address_i[VLEN-1:3], 3'b100};
             instr_o[3] = {16'b0, data_i[63:48]};
-            addr_o[3]  = {address_i[riscv::VLEN-1:3], 3'b110};
+            addr_o[3]  = {address_i[VLEN-1:3], 3'b110};
             if (unaligned_q) begin
                 instr_o[0] = {data_i[15:0], unaligned_instr_q};
                 addr_o[0] = unaligned_address_q;
@@ -2737,7 +2748,7 @@ module instr_realign import ariane_pkg::*; (
                 end else begin
                     instr_o[1] = data_i[47:16];
                     valid_o[1] = valid_i;
-                    addr_o[2] = {address_i[riscv::VLEN-1:3], 3'b110};
+                    addr_o[2] = {address_i[VLEN-1:3], 3'b110};
                     if (instr_is_compressed[2]) begin
                         unaligned_d = 1'b0;
                         instr_o[2] = {16'b0, data_i[63:48]};
@@ -2765,7 +2776,7 @@ module instr_realign import ariane_pkg::*; (
                 end else begin
                     instr_o[1] = data_i[47:16];
                     valid_o[1] = valid_i;
-                    addr_o[2] = {address_i[riscv::VLEN-1:3], 3'b110};
+                    addr_o[2] = {address_i[VLEN-1:3], 3'b110};
                     if (instr_is_compressed[3]) begin
                         instr_o[2] = data_i[63:48];
                         valid_o[2] = valid_i;
@@ -2776,11 +2787,11 @@ module instr_realign import ariane_pkg::*; (
                     end
                 end
             end else begin
-                addr_o[1] = {address_i[riscv::VLEN-1:3], 3'b100};
+                addr_o[1] = {address_i[VLEN-1:3], 3'b100};
                 if (instr_is_compressed[2]) begin
                     instr_o[1] = {16'b0, data_i[47:32]};
                     valid_o[1] = valid_i;
-                    addr_o[2] = {address_i[riscv::VLEN-1:3], 3'b110};
+                    addr_o[2] = {address_i[VLEN-1:3], 3'b110};
                     if (instr_is_compressed[3]) begin
                         valid_o[2] = valid_i;
                         addr_o[2] = {16'b0, data_i[63:48]};
@@ -2796,17 +2807,17 @@ module instr_realign import ariane_pkg::*; (
             end
             case (address_i[2:1])
                 2'b01: begin
-                    addr_o[0] = {address_i[riscv::VLEN-1:3], 3'b010};
+                    addr_o[0] = {address_i[VLEN-1:3], 3'b010};
                     if (instr_is_compressed[1]) begin
                         instr_o[0] = {16'b0, data_i[31:16]};
                         valid_o[0] = valid_i;
                         if (instr_is_compressed[2]) begin
                             valid_o[1] = valid_i;
                             instr_o[1] = {16'b0, data_i[47:32]};
-                            addr_o[1] = {address_i[riscv::VLEN-1:3], 3'b100};
+                            addr_o[1] = {address_i[VLEN-1:3], 3'b100};
                             if (instr_is_compressed[3]) begin
                                 instr_o[2] = {16'b0, data_i[63:48]};
-                                addr_o[2] = {address_i[riscv::VLEN-1:3], 3'b110};
+                                addr_o[2] = {address_i[VLEN-1:3], 3'b110};
                                 valid_o[2] = valid_i;
                             end else begin
                                 unaligned_d = 1'b1;
@@ -2815,13 +2826,13 @@ module instr_realign import ariane_pkg::*; (
                             end
                         end else begin
                             instr_o[1] = data_i[63:32];
-                            addr_o[1] = {address_i[riscv::VLEN-1:3], 3'b100};
+                            addr_o[1] = {address_i[VLEN-1:3], 3'b100};
                             valid_o[1] = valid_i;
                         end
                     end else begin
                         instr_o[0] = data_i[47:16];
                         valid_o[0] = valid_i;
-                        addr_o[1] = {address_i[riscv::VLEN-1:3], 3'b110};
+                        addr_o[1] = {address_i[VLEN-1:3], 3'b110};
                         if (instr_is_compressed[3]) begin
                             instr_o[1] = data_i[63:48];
                             valid_o[1] = valid_i;
@@ -2842,7 +2853,7 @@ module instr_realign import ariane_pkg::*; (
                             instr_o[1] = data_i[63:48];
                         end else begin
                             unaligned_d = 1'b1;
-                            unaligned_address_d = {address_i[riscv::VLEN-1:3], 3'b110};
+                            unaligned_address_d = {address_i[VLEN-1:3], 3'b110};
                             unaligned_instr_d = data_i[63:48];
                         end
                     end else begin
@@ -2855,7 +2866,7 @@ module instr_realign import ariane_pkg::*; (
                     valid_o = '0;
                     if (!instr_is_compressed[3]) begin
                         unaligned_d = 1'b1;
-                        unaligned_address_d = {address_i[riscv::VLEN-1:3], 3'b110};
+                        unaligned_address_d = {address_i[VLEN-1:3], 3'b110};
                         unaligned_instr_d = data_i[63:48];
                     end else begin
                         valid_o[3] = valid_i;

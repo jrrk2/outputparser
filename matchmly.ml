@@ -363,6 +363,7 @@ let rec mly = function
 | TUPLE3(STRING("module_common_item419"), Always, arg2) ->
     (match arg2 with 
         | TUPLE3 (STRING "statement_item680", event, block) -> AlwaysLegacy(mly event, mly block)
+        | TUPLE5 (STRING "seq_block615", TUPLE4 (STRING "seq_blockFront624", Begin, COLON, IDENTIFIER lbl), TLIST lst, End, EMPTY_TOKEN) -> AlwaysComb(Seq(lbl, rml lst) :: [])
         | oth -> othpat1 := Some oth; failwith "module_common_item419")
 | TUPLE3(STRING("module_common_item420"), Always_ff, arg2) ->
     (match arg2 with 
