@@ -48,13 +48,14 @@ let rewrite_rtlil v =
   fprintf fd "write_ilang %s_golden_synth.rtlil\n" v;
   fprintf fd "write_verilog %s_golden_synth.v\n" v;
 (* *)
-  List.iter (fun (k, x) ->
+  List.iteri (fun ix (k, x) ->
                 dbgxlst := (k, x) :: !dbgxlst;
                 let sub = Source_text_simplify.template Matchmly.modules x in
 		optlst := (k, sub) :: !optlst;
                 dbgopt := !optlst;
-                let fnam3 = v^"_dump_"^k^".opt.v" in
+                let fnam3 = v^"_dump_"^string_of_int ix^"_"^k^".opt.v" in
                 let fd3 = open_out fnam3 in
+                fprintf fd "read_verilog -sv -overwrite %s\n" fnam3;
                 print_endline ("Dumping: " ^ k ^ " to file: "^fnam3);
                 Dump_sysver.dump_template fd3 optlst sub;
                 close_out fd3;
@@ -65,13 +66,6 @@ let rewrite_rtlil v =
       close_out fd'';
     end;
   let optlst = !optlst in
-  List.iter (fun (k,sub) ->
-      let fnam3 = v^"_dump_"^k^".opt.v" in
-      fprintf fd "read_verilog -sv -overwrite %s\n" fnam3;
-      let fd3 = open_out fnam3 in
-      print_endline ("Dumping: " ^ k ^ " to file: "^fnam3);
-      Dump_sysver.dump_template fd3 optlst sub;
-      close_out fd3) optlst;
   fprintf fd "write_ilang %s_opt_proc.rtlil\n" v;
   fprintf fd "synth\n";
   fprintf fd "write_ilang %s_opt_synth.rtlil\n" v;

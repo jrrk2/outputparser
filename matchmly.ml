@@ -294,9 +294,9 @@ let rec mly = function
        | oth -> othpat1 := Some oth; failwith "exprOrDataTypeEqE1106")
 | TUPLE3(STRING("exprScope1328"), arg1, arg2) ->
 (match arg1, arg2 with
-       | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], IDENTIFIER member -> PackageRef(pkg, Id member)
-       | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TUPLE7 (STRING "idArrayed2504", arg1, LBRACK, hi, COLON, lo, RBRACK) ->
-         IdArrayedColon(PackageRef(pkg, mly arg1), mly hi, mly lo)
+       | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], IDENTIFIER member -> PackageRef(pkg, member)
+       | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TUPLE7 (STRING "idArrayed2504", IDENTIFIER id, LBRACK, hi, COLON, lo, RBRACK) ->
+         IdArrayedColon(PackageRef(pkg, id), mly hi, mly lo)
        | oth -> othpat2 := Some oth; failwith "exprScope1328")
 | TUPLE3(STRING("fIdScoped1051"), arg1, arg2) as oth -> mayfail oth  "fIdScoped1051"
 | TUPLE3(STRING("fexpr1174"), PLUS, arg2) as oth -> mayfail oth  "fexpr1174"
@@ -439,7 +439,7 @@ let rec mly = function
 | TUPLE3(STRING("simple_type259"), arg1, arg2) -> 
 (match arg1, arg2 with
     | EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id_t -> Typ1(id_t)
-    | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER id_t -> Typ3(id_t, PackageRef (pkg, Id id_t) :: [])
+    | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER id_t -> Typ3(id_t, PackageRef (pkg, id_t) :: [])
     | oth -> othpat2 := Some oth; failwith "simple_type259")
 | TUPLE3(STRING("specify_block1469"), Specify, Endspecify) -> Unimplemented ("specify_block1469", [])
 | TUPLE3(STRING("statement_item645"), arg1, SEMICOLON) ->
@@ -590,14 +590,14 @@ let rec mly = function
     | TUPLE4 (STRING "data_typeBasic263", Reg, (EMPTY_TOKEN|Signed as signed), EMPTY_TOKEN), TLIST lst -> DeclReg(rml lst, [], signed_flag signed)
     | TUPLE4 (STRING "data_typeBasic263", Reg, (EMPTY_TOKEN|Signed as signed), TLIST lst'), TLIST lst -> DeclReg(rml lst, rml lst', signed_flag signed)
     | TUPLE4 (STRING "data_type261", TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst' ->
-      Typ2(typ_id, [PackageRef(pkg, Id typ_id)], rml lst')
+      Typ2(typ_id, [PackageRef(pkg, typ_id)], rml lst')
     | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst), TLIST lst' -> Typ2(typ_id, rml lst, rml lst')
     | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst -> Typ3(typ_id, rml lst)
     | TUPLE6 (STRING "enumDecl323", Enum, base_type, LBRACE, TLIST lst, RBRACE), TLIST lst' -> TypEnum4(mly base_type, rml lst, rml lst')
     | TUPLE3 (STRING "data_declarationVarFront356", (Automatic|Static as t), base_type), TLIST lst -> DeclData(mly t, mly base_type, rml lst)
     | TUPLE4 (STRING "data_declarationVarFront357", (Const as t), EMPTY_TOKEN, base_type), TLIST lst -> DeclData(mly t, mly base_type, rml lst)
     | TUPLE4 (STRING "data_type261", TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst'), TLIST lst'' ->
-      Typ4(typ_id, [PackageRef(pkg, Id typ_id)], rml lst', rml lst'')
+      Typ4(typ_id, [PackageRef(pkg, typ_id)], rml lst', rml lst'')
     | TUPLE3 (STRING "data_typeNoRef267", struct_decl, TLIST lst), TLIST lst' -> Typ11(mly struct_decl, rml lst, rml lst')
     | TUPLE3 (STRING "data_typeNoRef267", struct_decl, EMPTY_TOKEN), TLIST lst' -> Typ5(mly struct_decl, rml lst')
     | String, TLIST lst -> Typ5(mly arg1, rml lst)
@@ -609,7 +609,7 @@ let rec mly = function
 | TUPLE4(STRING("data_declarationVarFrontClass358"), Var, arg2, arg3) as oth -> mayfail oth  "data_declarationVarFrontClass358"
 | TUPLE4(STRING("data_type261"), arg1, arg2, arg3) ->
 (match arg1, arg2, arg3 with
-       | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER id_t, EMPTY_TOKEN -> Typ3(id_t, PackageRef(pkg, Id id_t) :: [])
+       | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER id_t, EMPTY_TOKEN -> Typ3(id_t, PackageRef(pkg, id_t) :: [])
        | EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id_t, EMPTY_TOKEN -> Typ1(id_t)
        | EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER id_t, TLIST lst -> Typ3(id_t, rml lst)
        | oth -> othpat3 := Some oth; failwith "data_type261")
@@ -1295,8 +1295,8 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
 | TUPLE6(STRING("for_initializationItem775"), Var, arg2, arg3, EQUALS, arg5) as oth -> mayfail oth  "for_initializationItem775"
 | TUPLE6(STRING("funcRef788"), arg1, arg2, LPAREN, arg4, RPAREN) ->
 (match arg1, arg2, arg4 with
- | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], IDENTIFIER id, (EMPTY_TOKEN | TLIST [EMPTY_TOKEN]) -> FunRef2(id, PackageRef(pkg, Id id) :: [], [])
- | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], IDENTIFIER id, TLIST lst' -> FunRef2(id, PackageRef(pkg, Id id) :: [], rml lst')
+ | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], IDENTIFIER id, (EMPTY_TOKEN | TLIST [EMPTY_TOKEN]) -> FunRef2(id, PackageRef(pkg, id) :: [], [])
+ | TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], IDENTIFIER id, TLIST lst' -> FunRef2(id, PackageRef(pkg, id) :: [], rml lst')
  | oth -> othpat3 := Some oth; failwith "funcRef788")
 | TUPLE6(STRING("function_prototype1026"), Function, arg2, LPAREN, arg4, RPAREN) as oth -> mayfail oth  "function_prototype1026"
 | TUPLE6(STRING("function_subroutine_callNoMethod794"), arg1, With_HYPHEN_then_HYPHEN_LPAREN, LPAREN, arg4, RPAREN) as oth -> mayfail oth  "function_subroutine_callNoMethod794"
@@ -1337,10 +1337,10 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
       | TUPLE4 (STRING "data_typeBasic263", (Reg|Logic), (EMPTY_TOKEN|Signed), TLIST lst), IDENTIFIER port -> Port(mly dir, port, rml lst, Deflt)
       | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: [], Deflt)
       | TUPLE4 (STRING "data_type261", TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port ->
-        Port(mly dir, port, Typ2(typ, [PackageRef(pkg, Id typ)], []) :: [], Deflt)
+        Port(mly dir, port, Typ2(typ, [PackageRef(pkg, typ)], []) :: [], Deflt)
       | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: rml lst, Deflt)
       | TUPLE4 (STRING "data_type261", TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER typ, TLIST lst'), IDENTIFIER port ->
-        Port(mly dir, port, Typ2(typ, [PackageRef(pkg, Id typ)], []) :: rml lst', Deflt)
+        Port(mly dir, port, Typ2(typ, [PackageRef(pkg, typ)], []) :: rml lst', Deflt)
       | oth -> othpat2 := Some oth; failwith "port87")
 | TUPLE6(STRING("port90"), arg1, arg2, arg3, arg4, arg5) ->
   (match  arg1, arg2, arg3, arg4, arg5 with
@@ -1615,7 +1615,7 @@ m
 | TUPLE8(STRING("system_f_call_or_t989"), DLR_sscanf, LPAREN, arg3, COMMA, arg5, arg6, RPAREN) as oth -> mayfail oth  "system_f_call_or_t989"
 | TUPLE8(STRING("type_declaration368"), Typedef, arg2, arg3, arg4, arg5, arg6, SEMICOLON) ->
 ( match arg2, arg3, arg4, arg5, arg6 with
-	| TYPE_HYPHEN_IDENTIFIER id_t, TLIST lst, IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN -> Typ10(id_t, rml lst, id)
+	| TYPE_HYPHEN_IDENTIFIER id_t, TLIST lst, IDENTIFIER id, EMPTY_TOKEN, EMPTY_TOKEN -> Typ9(id_t, rml lst, Id id)
         | oth -> failwith "type_declaration368")
 | TUPLE8(STRING("vltItem2663"), arg1, HYPHEN_HYPHEN_file, STRING arg3, HYPHEN_HYPHEN_lines, INTEGER_NUMBER arg5, HYPHEN, INTEGER_NUMBER arg7) as oth -> mayfail oth  "vltItem2663"
 | TUPLE8(STRING("vltItem2668"), arg1, HYPHEN_HYPHEN_file, STRING arg3, HYPHEN_HYPHEN_lines, INTEGER_NUMBER arg5, HYPHEN, INTEGER_NUMBER arg7) as oth -> mayfail oth  "vltItem2668"
@@ -1739,7 +1739,7 @@ and parmf modid = function
                                                                                                         TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)],
                                                                                                         TYPE_HYPHEN_IDENTIFIER id_cc, EMPTY_TOKEN)),
                   TUPLE5 (STRING "param_assignment537", IDENTIFIER nam, EMPTY_TOKEN, EMPTY_TOKEN,
-				       TUPLE3 (STRING "exprOrDataTypeEqE1106", EQUALS, expr))) -> PackageParam2(id_cc, nam, [PackageRef (pkg, Id id_cc)], mly expr)
+				       TUPLE3 (STRING "exprOrDataTypeEqE1106", EQUALS, expr))) -> PackageParam2(id_cc, nam, [PackageRef (pkg, id_cc)], mly expr)
               | TUPLE3 (STRING "paramPortDeclOrArg73",
 			TUPLE3 (STRING "parameter_port_declarationTypeFrontE184", Parameter, Type),
 			TUPLE5 (STRING "type_assignment540", (TYPE_HYPHEN_IDENTIFIER nam|IDENTIFIER nam), EMPTY_TOKEN, EQUALS,

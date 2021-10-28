@@ -163,7 +163,7 @@ let rec split_pair = function
   | PackageBody(string1, rw_lst2) -> PackageBody(string1, fst(split_pair_lst rw_lst2)), PackageBody(string1, snd(split_pair_lst rw_lst2))
   | PackageParam(rw_lst1, Split(rw2, rw2')) -> PackageParam(fst(split_pair_lst rw_lst1), rw2), PackageParam(snd(split_pair_lst rw_lst1), rw2')
   | PackageParam2(string1, string2, rw_lst3, Split(rw4, rw4')) -> PackageParam2(string1, string2, fst(split_pair_lst rw_lst3), rw4), PackageParam2(string1, string2, snd(split_pair_lst rw_lst3), rw4')
-  | PackageRef(string1, Split(rw2, rw2')) -> PackageRef(string1, rw2), PackageRef(string1, rw2')
+  | PackageRef(string1, string2) -> PackageRef(string1, string2), PackageRef(string1, string2)
   | Param(string1, Split(rw2, rw2'), rw_lst3) -> Param(string1, rw2, fst(split_pair_lst rw_lst3)), Param(string1, rw2', snd(split_pair_lst rw_lst3))
   | ParamAsgn1(string1, Split(rw2, rw2')) -> ParamAsgn1(string1, rw2), ParamAsgn1(string1, rw2')
   | ParamAsgn2(string1, rw_lst2, Split(rw3, rw3')) -> ParamAsgn2(string1, fst(split_pair_lst rw_lst2), rw3), ParamAsgn2(string1, snd(split_pair_lst rw_lst2), rw3')

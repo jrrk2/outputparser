@@ -352,7 +352,7 @@ let rec rw = function
 
 and flatten lst = List.flatten (List.map (function ELIST lst -> List.map rw lst | oth -> [rw oth]) lst)
  
-type attr = {subst: (rw,rw)Hashtbl.t; fn: attr -> rw -> rw; pth: string}
+type attr = {subst: (rw,rw)Hashtbl.t; fn: attr -> rw -> rw; pth: string; pkg: string}
 
 let rec descend' (attr:attr) = function
   | Active(vtyp1, rw2, rw3) -> Active(vtyp1, descend_itm attr rw2, descend_itm attr rw3)
@@ -516,7 +516,7 @@ let rec descend' (attr:attr) = function
   | PackageBody(string1, rw_lst2) -> PackageBody(string1, descend_lst attr rw_lst2)
   | PackageParam(rw_lst1, rw2) -> PackageParam(descend_lst attr rw_lst1, descend_itm attr rw2)
   | PackageParam2(string1, string2, rw_lst3, rw4) -> PackageParam2(string1, string2, descend_lst attr rw_lst3, descend_itm attr rw4)
-  | PackageRef(string1, rw2) -> PackageRef(string1, descend_itm attr rw2)
+  | PackageRef(string1, string2) -> PackageRef(string1, string2)
   | Param(string1, rw2, rw_lst3) -> Param(string1, descend_itm attr rw2, descend_lst attr rw_lst3)
   | ParamAsgn1(string1, rw2) -> ParamAsgn1(string1, descend_itm attr rw2)
   | ParamAsgn2(string1, rw_lst2, rw3) -> ParamAsgn2(string1, descend_lst attr rw_lst2, descend_itm attr rw3)

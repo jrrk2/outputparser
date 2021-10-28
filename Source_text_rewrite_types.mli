@@ -163,7 +163,7 @@ type rw =
   | PackageBody of string * rw list
   | PackageParam of rw list * rw
   | PackageParam2 of string * string * rw list * rw
-  | PackageRef of string * rw
+  | PackageRef of string * string
   | Param of string * rw * rw list
   | ParamAsgn1 of string * rw
   | ParamAsgn2 of string * rw list * rw

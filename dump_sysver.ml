@@ -180,7 +180,7 @@ let rec vexpr'' (typhash:(string,vtyp)Hashtbl.t) = function
 | ValueRange (lft, rght) -> "["^vexpr typhash lft^" .. "^vexpr typhash rght^"]"
 | String s -> s
 | AtStar -> "*"
-| PackageRef (pkg_id, Id id) -> pkg_id ^ "::" ^ id
+| PackageRef (pkg_id, id) -> pkg_id ^ "::" ^ id
 | Dot1 (FunRef2 _, _) -> "FunRef2.x" (* placeholder *)
 | Itmlst _ -> "Itmlst ..." (* placeholder *)
 | Dot1 (Id value, IdArrayed2 (Id mantissa, Sub (FunRef2 _, _))) -> "Dot1 ..." (* placeholder *)
@@ -497,7 +497,7 @@ let rec dump_struct fd typhash = function
                           Typ5 (TypEnum3 (AnyRange _ :: _ as dims), e_lst))), id_lst) -> List.iter (function
       | Id id -> fprintf fd "logic [%d:0] %s; // 430\n" (csiz' typhash (Unsigned_array (mapdims (dim1 :: dims))) - 1) id;
       | oth -> dump_unhand := Some oth; failwith "SUMember15") id_lst
-  | SUMember (Typ1 id_t, inst_lst) -> fprintf fd "Missing: %s;\n" id_t
+  | SUMember (Typ6 (PackageRef (pkgid, idp)), id_lst) -> dump_struct fd typhash (SUMember (find_pkg pkgid idp, id_lst))
   | SUMember (Typ3 (old_id, [Typ5 (Atom "logic", [AnyRange (lft, rght)])]), id_lst) -> List.iter (function
       | Id id -> fprintf fd "logic [%s:%s] %s; // 362\n" (vexpr typhash lft) (vexpr typhash rght) id;
       | oth -> dump_unhand := Some oth; failwith "SUMember16") id_lst
@@ -522,12 +522,27 @@ let rec dump_struct fd typhash = function
       | None -> print_endline ("Missing: "^id_t); Unsigned_vector(Intgr 0, Intgr 0) in
     List.iter (function 
         | Id id -> fprintf fd "logic [%d:0] %s; // 430\n" (csiz' typhash typ') id;
-	| oth -> dump_unhand := Some oth; failwith "SUMember19") id_lst
-  | SUMember (Typ3 (old_id, [PackageRef (pkgid, Id idp)]), id_lst) ->
+	| oth -> dump_unhand := Some oth; failwith "SUMember_525") id_lst
+  | SUMember (Typ9 (old_id, [AnyRange (lft,rght)], PackageRef (pkgid, new_id)), id_lst) -> List.iter (function
+      | Id id -> fprintf fd "logic [%d:0] %s; // 527\n" (abs (ceval typhash rght - ceval typhash lft) + 1) id;
+      | oth -> dump_unhand := Some oth; failwith "SUMember_528") id_lst
+  | SUMember (Typ3 (old_id, [PackageRef (pkgid, idp)]), id_lst) ->
     let x = match find_pkg pkgid idp with
       | (Typ5 _ | Typ8 _ | TypEnum6 _ as x) -> x
-      | oth -> dump_unhand := Some oth; failwith "SUMember20" in
+      | oth -> dump_unhand := Some oth; failwith "SUMember_532" in
     dump_struct fd typhash (SUMember (x, id_lst))
+  | SUMember (Typ6 (TypEnum6 (old_id, TypEnum3 [AnyRange (hi, lo)], e_lst)), id_lst) -> List.iter (function
+      | Id id -> fprintf fd "logic [%s:%s] %s; // 535\n" (vexpr typhash hi) (vexpr typhash lo) id;
+      | oth -> dump_unhand := Some oth; failwith "SUMember_536") id_lst
+  | SUMember (Typ6 (Typ8 (SUDecl (Atom "packed", lst), Deflt)), id_lst) -> List.iter (function
+      | Id id -> List.iter (dump_struct fd typhash) lst
+      | oth -> dump_unhand := Some oth; failwith "SUMember_539") id_lst
+  | SUMember (Atom "logic", id_lst) -> List.iter (function
+      | Id id -> fprintf fd "logic %s; // 541\n" id
+      | oth -> dump_unhand := Some oth; failwith "SUMember_542") id_lst
+  | SUMember (Typ1 id_t, id_lst) -> List.iter (function
+      | Id id -> fprintf fd "logic %s; // 544 %s FIXME\n" id id_t
+      | oth -> dump_unhand := Some oth; failwith "SUMember_542") id_lst
   | oth -> dump_unhand := Some oth; failwith "dump_struct"
 
 let dump_dep = function
@@ -734,7 +749,7 @@ let dump_struct_single fd typhash nam memblst =
   let wid = csiz' typhash (Vsu (Id nam, sulst)) in
   fprintf fd "logic [%d : 0] %s; // 607\n" (wid-1) nam
 
-let dump_union fd typhash = function
+let rec dump_union fd typhash = function
   | SUMember (Typ5 (Atom "logic", [AnyRange (hi, lo)]), id_lst) -> List.iter (function
         | Id id ->
           let wid = ceval typhash hi - ceval typhash lo + 1 in
@@ -756,10 +771,12 @@ let dump_union fd typhash = function
           let wid = atom_width kind in
           fprintf fd "logic [%d : 0] %s; // 657\n" (wid-1) id
         | oth -> dbgdmpu := Some oth; failwith "dump_union_729") id_lst
-  | SUMember (Typ1 id_t, id_lst) -> List.iter (function 
+  | SUMember (TypEnum6 (old_id, TypEnum3 [AnyRange (hi, lo)], e_lst), id_lst) -> List.iter (function
         | Id id ->
-          fprintf fd "%s %s; // 752\n" id_t id
-        | oth -> dbgdmpu := Some oth; failwith "dump_union_753") id_lst
+          let wid = ceval typhash hi - ceval typhash lo + 1 in
+          fprintf fd "logic [%d : 0] %s; // 657\n" (wid-1) id
+        | oth -> dbgdmpu := Some oth; failwith "dump_union_724") id_lst
+  | SUMember (Typ6 (PackageRef (pkgid, idp)), id_lst) -> dump_union fd typhash (SUMember (find_pkg pkgid idp, id_lst))
   | oth -> dbgdmpu := Some oth; failwith "dump_union_726"
 (*
   (dump_vdir dir^" ["^string_of_int (wid-1)^" : 0] "^nam)
@@ -1183,6 +1200,11 @@ let rec proc_dump_template fd typhash modules = function
         | oth -> failwith "dump_sysver.ml:916") inst_lst
     | DotBus (Id bus, Id dir, Id inst, [AnyRange (hi, lo)]) -> fprintf fd "// %s.%s.%s[%s:%s] // 1175\n" bus dir inst (vexpr typhash hi) (vexpr typhash lo)
     | Deflt -> fprintf fd "// Deflt // 1183\n"
+    | Typ11 (Typ5 (TypEnum3 [AnyRange (hi, lo)], e_lst), [TypEnum6 (old_id, TypEnum3 [AnyRange (hi', lo')], e_lst')], inst_lst) -> fprintf fd "// 1197\n"
+    | Typ11 (Typ5 (TypEnum3 [AnyRange (hi, lo)], e_lst), [AnyRange (hi', lo')], inst_lst) -> fprintf fd "// 1198\n"
+    | Typ11 (Atom "logic", [AnyRange (lft, rght)], inst_lst) -> fprintf fd "// 1199\n"
+    | Typ11 (Typ5 (TypEnum5 (Atom "logic"), e_lst), [TypEnum6 (old_id, TypEnum5 (Atom "logic"), e_lst')], inst_lst) -> fprintf fd "// 1203\n"
+    | Typ11 (Typ8 (SUDecl (Atom "packed", su_lst), Deflt), [Typ8 (SUDecl (Atom "packed", su_lst'), Deflt)], inst_lst) -> fprintf fd "// 1204\n"
     | oth -> dump_unhand := Some oth; failwith "proc_dump_template"
 
 let signcnv = function
@@ -1223,15 +1245,15 @@ let rec dump_port typhash = function
     | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: AnyRange(hi', lo') :: [], sgn) -> dump_array_port typhash hi lo dir (Id nam)
     | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: AnyRange(hi', lo') :: AnyRange(hi'', lo'') :: [], sgn) -> dump_array_port typhash hi lo dir (Id nam)
     | Port ((In|Out|Inout) as dir, nam, Typ6 (Atom primtyp) :: [], sgn) -> dump_port_single typhash nam dir Unsigned
-    | Port (Deflt, nam, Typ2 (typ_t, PackageRef (pkg, _) :: [], []) :: AnyRange (hi, lo) :: [], sgn) ->
+    | Port (Deflt, nam, Typ2 (typ_t, PackageRef (pkg, idp) :: [], []) :: AnyRange (hi, lo) :: [], sgn) ->
         dump_array_port typhash hi lo Inout (Id nam)
     | Port ((In|Out|Inout) as dir, nam, Typ2 (typ_t, [], []) :: AnyRange (hi, lo) :: [], sgn) ->
         dump_array_port typhash hi lo dir (Id nam)
     | Port ((In|Out|Inout) as dir, nam, Typ2 (typ_t, [], []) :: [], sgn) ->
         dump_port_single typhash nam dir (signcnv (sgn, Deflt))
-    | Port ((In|Out|Inout) as dir, nam, Typ2 (typ_e, (PackageRef (pkg, _)) :: [], []) :: [], sgn) ->
+    | Port ((In|Out|Inout) as dir, nam, Typ2 (typ_e, (PackageRef (pkg, idp)) :: [], []) :: [], sgn) ->
         dump_port_single typhash nam dir (signcnv (sgn, Deflt))
-    | Port ((In|Out|Inout) as dir, nam, Typ2 (typ_e, (PackageRef (pkg, _)) :: [], []) :: AnyRange (hi, lo) :: [], sgn) ->
+    | Port ((In|Out|Inout) as dir, nam, Typ2 (typ_e, (PackageRef (pkg, idp)) :: [], []) :: AnyRange (hi, lo) :: [], sgn) ->
         dump_array_port typhash hi lo dir (Id nam)
     | Dot3 (bus, dir, member) -> "dot3 port"
     | DotBus (bus, dir, member, AnyRange(hi,lo) :: []) ->
@@ -1272,9 +1294,9 @@ let rec dump_port typhash = function
       dump_struct_port_single typhash nam dir memblst
     | Port ((In|Inout|Out) as dir, nam, [Typ12 ([TypEnum6 (id_t, TypEnum3 (AnyRange _ :: _ as dims), e_lst)], Typ5 (TypEnum3 (AnyRange _ :: _ as dims'), e_lst'), [])], Deflt) ->
       dump_port_array_dims typhash nam dir (dims@dims')
-    | Port ((In|Inout|Out) as dir, nam, [Typ2 (old_id, [PackageRef (pkg, Id entry)], [])], Deflt) ->
+    | Port ((In|Inout|Out) as dir, nam, [Typ2 (old_id, [PackageRef (pkg, entry)], [])], Deflt) ->
         dump_port_single typhash nam dir Unsigned
-    | Port ((In|Inout|Out) as dir, nam, (Typ2 (old_id, [PackageRef (pkg, Id entry)], []) :: AnyRange(hi,lo) :: []), Deflt) ->
+    | Port ((In|Inout|Out) as dir, nam, (Typ2 (old_id, [PackageRef (pkg, entry)], []) :: AnyRange(hi,lo) :: []), Deflt) ->
       dump_array_port typhash hi lo dir (Id nam)
     | Port ((In|Inout|Out) as dir, nam, [Typ2 (old_id,[TypEnum6 (id_t, TypEnum5 (Atom "logic"), e_lst)], [])], Deflt) ->
       dump_array_port typhash (Intgr (clog2 (List.length e_lst))) (Intgr 0) dir (Id nam)
@@ -1292,6 +1314,14 @@ let rec dump_port typhash = function
       dump_port_array_dims typhash nam dir (dims@dims')
     | Port (Deflt, nam, Typ8 (SUDecl (Atom ("packed"|"signed" as signage), memblst), Deflt) :: AnyRange (hi,lo) :: [], Deflt) ->
       dump_array_port typhash hi lo Inout (Id nam)
+    | Port ((In|Inout|Out) as dir, nam, [Typ11 (Typ8 (SUDecl (Atom "packed", lst), Deflt), [], []); AnyRange (hi, lo)], Deflt) ->
+      dump_array_port typhash hi lo dir (Id nam)
+    | Port ((In|Inout|Out) as dir, nam, [Typ11 (Typ5 (TypEnum3 [AnyRange (hi, lo)], e_lst), [], []); AnyRange (hi', lo')], Deflt) ->
+      dump_array_port typhash hi lo dir (Id nam)
+    | Port ((In|Inout|Out) as dir, nam, [Atom "logic"], Deflt) ->
+        dump_port_single typhash nam dir Unsigned
+    | Port ((In|Inout|Out) as dir, nam, [Typ11 (Atom "logic", [], []); AnyRange (hi, lo)], Deflt) -> 
+      dump_array_port typhash hi lo dir (Id nam)
 
     | oth -> dump_unhand := Some oth; failwith "dump_component"
 
