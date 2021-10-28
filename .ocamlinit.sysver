@@ -140,6 +140,14 @@ let v = "examples/count2.v";;
 let v = "examples/count3.v";;
 let v = "examples/count7.v";;
 let v = "examples/initpat1.sv";;
+let v = "../yosys/tests/svtypes/struct_simple.sv";;
+let v = "../yosys/tests/svtypes/typedef_struct_port.sv";;
+let v = "../yosys/tests/verilog/struct_access.sv";;
+let v = "../yosys/tests/svtypes/union_simple.sv";;
+let v = "../yosys/tests/svtypes/typedef_struct.sv";;
+let v = "../yosys/tests/svtypes/typedef_scopes.sv";;
+let v = "examples/typedef_struct.sv";;
+let v = "../yosys/tests/svtypes/struct_array.sv";;
 let v = "examples/ariane_preproc.sv";;
 
 let dbgx = ref None
@@ -155,10 +163,11 @@ let t id = Hashtbl.find !dbgtyp id;;
 
 (* *)
 let (modlst,x,p,p',status) = rewrite_rtlil v;;
+(*
 dbgtyp := List.assoc "fpnew_pkg" !dbgtyplst;;
 dbgprt := List.assoc "fpnew_pkg" !dbgports;;
 let req = Hashtbl.find !dbgtyp "icache_dreq_o";;
-(* *)
+*)
 
 let x crnt = sub' (List.assoc crnt !Matchmly.modules);;
 let u = snd (List.hd modlst);;

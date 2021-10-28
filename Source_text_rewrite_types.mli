@@ -88,6 +88,7 @@ type rw =
   | FopAsgnArrayField7 of rw * rw * rw * rw * rw
   | FopAsgnArrayField8 of rw * rw * rw * rw * rw
   | FopAsgnArrayField9 of rw * rw * rw * rw * rw * rw
+  | FopAsgnArrayField10 of rw * rw * rw * rw
   | FopAsgnArrayMemSel of rw * rw * rw * rw
   | FopAsgnArrayRange of rw * rw * rw * rw
   | FopAsgnArrayRange2 of rw * rw * rw * rw

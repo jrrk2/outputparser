@@ -11,7 +11,7 @@ let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") with err -> 0
 let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
 let dumpver = try int_of_string (Sys.getenv "DUMP_VER") > 0 with err -> false
 
-let dbgx = ref []
+let dbgxlst = ref []
 let dbgopt = ref []
 
 let dbgtree = ref Source_text.EMPTY_TOKEN
@@ -49,7 +49,7 @@ let rewrite_rtlil v =
   fprintf fd "write_verilog %s_golden_synth.v\n" v;
 (* *)
   List.iter (fun (k, x) ->
-                dbgx := (k, x) :: !dbgx;
+                dbgxlst := (k, x) :: !dbgxlst;
                 let sub = Source_text_simplify.template Matchmly.modules x in
 		optlst := (k, sub) :: !optlst;
                 dbgopt := !optlst;

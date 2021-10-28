@@ -90,6 +90,7 @@ let getstr = function
   | FopAsgnArrayField7 _ -> "FopAsgnArrayField7"
   | FopAsgnArrayField8 _ -> "FopAsgnArrayField8"
   | FopAsgnArrayField9 _ -> "FopAsgnArrayField9"
+  | FopAsgnArrayField10 _ -> "FopAsgnArrayField10"
   | FopAsgnArrayMemSel _ -> "FopAsgnArrayMemSel"
   | FopAsgnArrayRange _ -> "FopAsgnArrayRange"
   | FopAsgnArrayRange2 _ -> "FopAsgnArrayRange2"
@@ -290,7 +291,7 @@ let rec rw = function
 | VBAR_EQ|PLUS_EQ
 | PLING_EQ|DOT_STAR|STAR_STAR
 | TYPE_HYPHEN_IDENTIFIER _|IDENTIFIER_HYPHEN_COLON_COLON _|QUOTE_LBRACE
-| DLR_display|DLR_stop|DLR_finish|DLR_write
+| DLR_display|DLR_stop|DLR_finish|DLR_write|DLR_countones
 | DLR_signed|DLR_unsigned|DLR_time|DLR_readmemh|DLR_clog2|DLR_bits|DLR_error
 | Module|Always|Assign|Reg|Wire|Logic|Bit|Int|Integer
 | Unsigned|Signed|Real
@@ -440,6 +441,7 @@ let rec descend' (attr:attr) = function
   | FopAsgnArrayField7(rw1, rw2, rw3, rw4, rw5) -> FopAsgnArrayField7(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5)
   | FopAsgnArrayField8(rw1, rw2, rw3, rw4, rw5) -> FopAsgnArrayField8(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5)
   | FopAsgnArrayField9(rw1, rw2, rw3, rw4, rw5, rw6) -> FopAsgnArrayField9(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5, descend_itm attr rw6)
+  | FopAsgnArrayField10(rw1, rw2, rw3, rw4) -> FopAsgnArrayField10(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
   | FopAsgnArrayMemSel(rw1, rw2, rw3, rw4) -> FopAsgnArrayMemSel(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
   | FopAsgnArrayRange(rw1, rw2, rw3, rw4) -> FopAsgnArrayRange(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
   | FopAsgnArrayRange2(rw1, rw2, rw3, rw4) -> FopAsgnArrayRange2(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)

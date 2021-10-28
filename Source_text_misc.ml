@@ -61,6 +61,7 @@ let stash' (ind:ind) = function
   | oth -> othconn := Some oth; failwith "stash'"
 
 let dbgstash = ref []
+let dbgfilt = ref []
 
 let addff (ind:ind) signal = let op = atom signal in Hashtbl.replace ind.wires signal ( Some op )
 
@@ -68,10 +69,19 @@ let stash_ops = function TokConn ([TokID pin], _) -> (match trim pin with "Y" ->
 
 let stash (ind:ind) kind inst conns =
   dbgstash := (kind, inst, conns) :: !dbgstash;
-  let pin, net = stash' ind (List.hd (List.filter stash_ops conns)) in
-  if trim pin = "Q" then addff ind net; (* prevent infinite recursion *)
-  if Hashtbl.mem ind.stash net then failwith ("Multiple gates driving: "^E.string_of_signal net);
-  Hashtbl.replace ind.stash net (kind,inst,conns)
+  let filt_ops = List.filter stash_ops conns in
+  dbgfilt := filt_ops;
+  if filt_ops <> [] then 
+    begin
+      let pin, net = stash' ind (List.hd filt_ops) in
+      if trim pin = "Q" then addff ind net; (* prevent infinite recursion *)
+      if Hashtbl.mem ind.stash net then failwith ("Multiple gates driving: "^E.string_of_signal net);
+      Hashtbl.replace ind.stash net (kind,inst,conns)
+    end
+  else
+    begin
+      print_endline ("instance "^kind^" not translated")
+    end
 
 (* split a constant into individual bits *)
 
