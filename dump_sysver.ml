@@ -147,6 +147,7 @@ let rec vexpr'' (typhash:(string,vtyp)Hashtbl.t) = function
 | FunRef (fn, arglst) -> fn^"("^String.concat ", " (List.map (vexpr typhash) arglst)^")"
 | FunRef2 (fn, _, arglst) -> fn^"("^String.concat ", " (List.map (vexpr typhash) arglst)^")"
 | AsgnPat [PatMemberDflt (Number _ as expr)] -> "{"^(vexpr typhash expr)^"}"
+| AsgnPat lst -> String.concat "; " (List.map (vexpr typhash) lst)
 | Repl (Intgr n, [expr]) -> if n >= 0 then " {" ^ String.concat ", " (List.init n (fun _ -> vexpr typhash expr)) ^ "} " else "{ ... }"
 | Repl (expr', [expr]) -> "{{"^(vexpr typhash expr')^"}{"^(vexpr typhash expr)^"}}"
 | InsideRange (first, last) -> "inside_range("^(vexpr typhash first)^", "^(vexpr typhash last)^")"
@@ -174,7 +175,6 @@ let rec vexpr'' (typhash:(string,vtyp)Hashtbl.t) = function
 | Atom ".*" -> "" (* placeholder *)
 | Atom kind -> kind (* placeholder *)
 | Typ1 id_t -> id_t
-| AsgnPat lst -> String.concat "; " (List.map (vexpr typhash) lst)
 | PatMember1 (Id id, expr) -> id ^ " == " ^ vexpr typhash expr
 | PatMemberDflt expr -> vexpr typhash expr
 | ValueRange (lft, rght) -> "["^vexpr typhash lft^" .. "^vexpr typhash rght^"]"
@@ -729,9 +729,9 @@ let dump_unhand_conn = ref None
 let dump_conn typhash = function
   | CellPinItem2 (pin, ExprOKL (InitPair _ :: _)) as x when false -> dump_unhand := Some x; failwith "dump_conn'"
   | CellPinItem2 (pin, ExprOKL (InitPair (Typ8 (SUDecl (Atom "packed", sulst), Deflt), InitPat patlst) :: _)) ->
-    String.concat ";" (List.map (function
+     "." ^ pin ^ " ( { " ^ String.concat ", " (List.map (function
       | (SUMember (arg1, arg2), PatMember1 (Id rhs, expr)) -> print_endline rhs; rhs
-      | oth -> dump_unhand_conn := Some oth; failwith "dump_conn'") (List.combine sulst patlst))
+      | oth -> dump_unhand_conn := Some oth; failwith "dump_conn'") (List.combine sulst patlst))^" } )"
   | (Id _ | CellPinItem2 _ | CellPinItemImplied _ | CellPinItemNC _) as x -> vexpr typhash x
   | oth -> dump_unhand := Some oth; failwith "dump_conn"
 
@@ -1096,12 +1096,16 @@ let rec proc_dump_template fd typhash modules = function
         fprintf fd "localparamtyp SUDecl ...; // 737\n"
     | FunDecl (fn, typ, FunGuts (ports, lst)) ->
         fprintf fd "// function %s ...\n" fn;
+(*
         List.iter (stmt_clause fd typhash) lst;
         fprintf fd "    endfunction\n";
+*)
     | AutoFunDecl (fn, typ, FunGuts (ports, lst)) ->
         fprintf fd "// function automatic %s ...\n" fn;
+(*
         List.iter (stmt_clause fd typhash) lst;
         fprintf fd "    endfunction\n";
+*)
     | FunDecl _ -> ()
     | AutoFunDecl _ -> ()
     | PkgImport (Itmlst lst) -> List.iter (proc_dump_template fd typhash modules) lst

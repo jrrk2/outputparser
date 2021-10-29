@@ -262,6 +262,7 @@ and vtyp =
   | Vfun of string
   | Venum of string
   | Vintf of rw
+  | Vintfarray of rw * rw * rw
   | MaybePort of int * vtyp * rw
   | Vemember of string * string * vtyp * int
   | Task of rw * rw * rw

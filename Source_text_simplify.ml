@@ -84,7 +84,7 @@ let dbgwida = ref 0
 let dbgwids = ref 0
 let dbgpar = ref []
 let dbgatom = ref ""
-let dbgpkg = ref None
+let dbgpkg = ref []
 let dbgpair = ref []
 let dbgalweq = ref None
 let dbgmap = ref None
@@ -194,7 +194,7 @@ let rec ceval typhash = function
 | Float f -> int_of_float f
 | PackageRef (pkgid, idp) ->
     let x = match find_pkg pkgid idp with
-      | (Number _ | Intgr _ | Sys _ as x) -> x
+      | x when expr_begin x -> x
       | oth -> unhand_rtl := Some oth; failwith "ceval_141" in
     ceval typhash x
 | Dot1 (FunRef2 _, _) -> 1 (* placeholder *)
@@ -413,7 +413,7 @@ and width typhash = function
 | PatMemberDflt expr -> width typhash expr
 | PackageRef (pkgid, id) ->
   (match find_pkg pkgid id with
-   | (Number _ | Intgr _ | Query _ | ExprOKL _) as x -> width typhash x
+   | x when expr_begin x -> width typhash x
    | oth -> unhand_rtl := Some oth; failwith "width218")
 | FunRef2 _ -> 1 (* placeholder *)
 | ExprQuote1 (typ', FunRef2 _) -> 1 (* placeholder *)
@@ -554,7 +554,15 @@ and recursp (attr: Source_text_rewrite.attr) = function
       (Typ9 (id_t, lst, PackageRef (attr.pth, id)))
   | Itmlst (itm :: []) -> itm
   | Seq ("", itm :: []) -> itm
+  | ParamAsgn1 _ as x -> Source_text_rewrite.descend' {attr with fn=recursp'} x
   | oth -> Source_text_rewrite.descend' {attr with fn=recursp} oth
+
+and recursp' (attr: Source_text_rewrite.attr) = function
+  | Id id ->
+    (Source_text_rewrite.descend' {attr with fn=recursp'})
+      (PackageRef (attr.pth, id))
+  | PatMember1 _ as x -> x
+  | oth -> Source_text_rewrite.descend' {attr with fn=recursp'} oth
 
 and subp' pth lst =
    let subst' = Hashtbl.create 255 in
@@ -581,12 +589,17 @@ and find_pkg pkg_id req_t =
       search_pkg rslt req_t itm
     ) pkgbody;
   if verbose > 1 then print_endline ("leaving "^pkg_id);
-  dbgpkg := Some (req_t,pkg_id,!rslt,pkgbody);
+  dbgpkg := (pkg_id, req_t, !rslt) :: !dbgpkg;
   match !rslt with
     | None -> (unhand_pkg := Some (pkg_id,req_t); failwith "find_pkg")
     | Some rslt ->
       let attr = {Source_text_rewrite.fn=recurs_pkg pkgbody; subst=Hashtbl.create 255; pth=""; pkg=pkg_id} in
       recurs_pkg pkgbody attr rslt
+
+and expr_begin = function
+| PackageRef (pkgid, idp) -> expr_begin (find_pkg pkgid idp)
+| Number _ | Intgr _ | Query _ | ExprOKL _ | And _ | Or _ | Xor _ | Add _ | Sub _ | Mult _ | Div _ | StarStar _ | Sys _ -> true
+| _ -> false
 
 and recurs_pkg pkgbody (attr: Source_text_rewrite.attr) = function
   | Id req_t ->
@@ -911,6 +924,11 @@ let dump_subst subst' =
 let dbgrecur = ref []
 let dbgrecur3 = ref []
 
+let modinst kind = match List.assoc_opt kind !(Matchmly.modules) with
+  | Some (Modul(kind', params, ports, body)) -> ports
+  | Some (IntfDecl(kind', params, ports, body)) -> (match ports with Deflt -> [] | PortsStar ports -> ports)
+  | oth -> print_endline ("Warning: modinst "^kind^" is missing"); []
+
 let rec recurs2 (attr: Source_text_rewrite.attr) = function
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs2 attr exp)
   | ForLoop ([Asgn1 (Id ix, strt)], stop, Asgn1 (Id ix'', Add (Id ix''', inc)), body) ->
@@ -960,12 +978,8 @@ let rec recurs2 (attr: Source_text_rewrite.attr) = function
   | IdArrayed3 (PackageRef (pkg_id, id') :: [], IdArrayedColon (Id nam, hi, lo)) ->
     Source_text_rewrite.descend' {attr with fn=recurs2} (IdArrayedColon (find_pkg pkg_id nam, hi, lo))
   | InstDecl (Id kind, params, (InstNameParen1 _ :: _ as lst)) ->
-      let modinst = match List.assoc_opt kind !(Matchmly.modules) with
-          | Some (Modul(kind', params, ports, body)) -> ports
-          | Some (IntfDecl(kind', params, ports, body)) -> (match ports with Deflt -> [] | PortsStar ports -> ports)
-          | oth -> print_endline ("Warning: modinst "^kind^" is missing"); [] in
       let porthash = Hashtbl.create 255 in
-      List.iteri (ports porthash) modinst;
+      List.iteri (ports porthash) (modinst kind);
       Source_text_rewrite.descend' {attr with fn=recurs2} (InstDecl (Id kind, List.map (recur_param) params, recur_inst porthash lst))
   | CellParamItem2 (cfg, PackageRef (pkg_id, req_t)) ->
       Source_text_rewrite.descend' {attr with fn=recurs2} (CellParamItem2 (cfg, find_pkg pkg_id req_t))
@@ -1158,7 +1172,7 @@ and elabeval attr = function
   1 (* placeholder *)
 | PackageRef (pkgid, idp) ->
     let x = match find_pkg pkgid idp with
-      | (Add _ | Sub _ | Mult _ | Div _ as x) -> x
+      | x when expr_begin x -> x
       | oth -> unhand_rtl := Some oth; failwith "elabeval_1098" in
     elabeval attr x
 | String s -> List.fold_left ( + ) 0 (List.init (String.length s) (fun ix -> (Char.code s.[ix]) lsl (ix*8)))
@@ -1192,11 +1206,11 @@ and recurs3 (attr: Source_text_rewrite.attr) = function
           dump_subst attr.subst;
           recurs3 attr exp in repl
   | Typ1 id_t ->
-    print_endline ("Typ1("^id_t^")");
+    if verbose > 1 then print_endline ("Typ1("^id_t^")");
     dump_subst attr.subst;
     (match Hashtbl.find_opt attr.subst (Id id_t) with None -> Typ1 id_t | Some exp -> (* recurs3 attr *) exp)
   | Typ2 (id_t, arg2, arg3) ->
-    print_endline ("Typ2("^id_t^", _, _)");
+    if verbose > 1 then print_endline ("Typ2("^id_t^", _, _)");
     dump_subst attr.subst;
     (match Hashtbl.find_opt attr.subst (Id id_t) with None -> Typ2 (id_t, arg2, arg3) | Some exp -> (* recurs3 attr *) Typ11(exp, arg2, arg3))
   | Typ3 (id_t, id_lst) -> 
@@ -1292,7 +1306,7 @@ let addmem bufh typhash first_last_lst wid' = function
 | oth -> failwith ("Argument "^(Source_text_rewrite.getstr oth)^" of addmem must be memory Id")
 
 let elabenum typhash nam id_lst typ' =
-  print_endline ("elabenum: "^nam);
+  if verbose > 1 then print_endline ("elabenum: "^nam);
   update typhash (Id nam) (Venum nam);
     let strt = ref 0 in
     List.iter (function
@@ -1498,7 +1512,21 @@ let rec decl_template' bufh typhash modules pth = function
         List.iter (function
             | (Id nam) -> elabenum typhash nam elst (Unsigned_vector (lft, rght))
             | oth -> unhand_rtl := Some oth; failwith "enum array") id_lst
-    | InstDecl (typ, params, lst) -> List.iter (function
+    | InstDecl (Id kind, params, lst) ->
+      let _ = match List.assoc_opt kind !(Matchmly.modules) with
+        | Some (IntfDecl(kind', params, ports, body)) -> List.iter (function
+            | InstNameParen1 (bus, itmlst) -> update typhash (Id bus) (Vintf (Id kind'))
+            | InstNameParen2 (bus, [InstRange (hi, lo)]) -> update typhash (Id bus) (Vintfarray (Id kind', hi, lo))
+            | oth -> unhand_rtl := Some oth; failwith "InstDecl1506") lst;
+        | oth -> () in
+      let modports = modinst kind in
+      List.iter (function
+        | (InstNameParen1 _ | InstNameParen2 _) -> ()
+        | Id id ->
+          addwire bufh typhash ([], Id id, Unsigned_vector(Intgr 31, Intgr 0));
+        | oth -> unhand_rtl := Some oth; failwith "InstDecl1634") lst;
+    | InstDecl ((Typ5 _ | Typ8 _ as kind), params, lst) ->
+      List.iter (function
         | (InstNameParen1 _ | InstNameParen2 _) -> ()
         | Id id ->
           addwire bufh typhash ([], Id id, Unsigned_vector(Intgr 31, Intgr 0));
@@ -1728,7 +1756,6 @@ let sub' x =
    dbgsub' := Some pass2;
    let pass2' = split' pass2 in
    dump_subst subst';
-   print_endline "recurs3";
    let pass3 = recurs3 {fn=recurs3; subst=subst'; pth=""; pkg=""} pass2' in
    dump_subst subst';
    let attr = {Source_text_rewrite.fn=simplify'; subst=subst'; pth=""; pkg=""} in

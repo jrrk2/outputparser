@@ -149,6 +149,7 @@ let v = "../yosys/tests/svtypes/typedef_scopes.sv";;
 let v = "examples/typedef_struct.sv";;
 let v = "../yosys/tests/svtypes/struct_array.sv";;
 let v = "examples/ariane_preproc.sv";;
+let v = "examples/periph.sv";;
 
 let dbgx = ref None
 let dbgprt = ref []
