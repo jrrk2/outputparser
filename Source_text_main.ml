@@ -15,24 +15,26 @@ let dbgxlst = ref []
 let dbgopt = ref []
 
 let dbgtree = ref Source_text.EMPTY_TOKEN
-let dbgmatch = ref Deflt
+let dbgmatch = ref []
 
 let preproc_parse v =
   let p = Source_text_rewrite.parse_output_ast_from_pipe v in
   let p' = Source_text_rewrite.rw p in
   dbgtree := p';
-  let x = Matchmly.mly p' in
-  dbgmatch := x;
-  x, p, p'
+  let top = match Matchmly.mly p' with Itmlst lst -> lst | oth -> failwith "top" in
+  dbgmatch := top;
+  let topmods = List.filter (function (k,_) -> List.mem (Id k) top) !(Matchmly.modules) in
+  topmods, p, p'
+
+let find x = List.assoc x !(Matchmly.modules)
 
 let rewrite_rtlil v =
   let status = ref true in
   if verbose > 1 then print_endline ("Parsing: "^v);
-  Matchmly.modules := [];
 (*
   let p = Source_text_preproc.parse' Source_text_rewrite.parse_output_ast_from_function v in
 *)
-  let x, p, p' = preproc_parse v in
+  let topmods, p, p' = preproc_parse v in
   let optlst = ref [] in
   let fnam = v^"_dump.ys" in
   let fd = open_out fnam in
@@ -59,7 +61,7 @@ let rewrite_rtlil v =
                 print_endline ("Dumping: " ^ k ^ " to file: "^fnam3);
                 Dump_sysver.dump_template fd3 optlst sub;
                 close_out fd3;
-		) !(Matchmly.modules);
+		) topmods;
   if not sep_rtl then
     begin
       close_out fd';
@@ -134,7 +136,7 @@ let rewrite_rtlil v =
     printf "yosys stopped by signal %d\n" signal;
     status := false;
     signal in
-  optlst, x, p, p', !status
+  optlst, topmods, p, p', !status
 
 let _ = if Array.length Sys.argv > 1 then Array.iteri (fun ix itm -> try
     if ix > 0 then let optlst,x,p,p',status = rewrite_rtlil itm in

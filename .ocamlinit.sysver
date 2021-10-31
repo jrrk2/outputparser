@@ -150,15 +150,10 @@ let v = "examples/typedef_struct.sv";;
 let v = "../yosys/tests/svtypes/struct_array.sv";;
 let v = "examples/ariane_preproc.sv";;
 let v = "examples/periph.sv";;
+let v = "examples/count8.sv";;
 
 let dbgx = ref None
 let dbgprt = ref []
-
-let sat () =
-  let x, p, p' = preproc_parse "examples/count3.v_golden_synth.v" in
-  let xlst = match x with Itmlst (x) -> x | _ -> [x] in
-  dbgx := Some x;
-  cnv_satv' Convert.func ["nam",xlst]
 
 let t id = Hashtbl.find !dbgtyp id;;
 

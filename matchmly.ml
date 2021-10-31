@@ -2,7 +2,8 @@ open Source_text_rewrite_types
 open Source_text_lex
 open Source_text
 
-let modules = ref []
+let modules = ref [("",Deflt)]
+let submodules = ref []
 let mlst = ref []
 let attlst = ref []
 let othpat = ref None
@@ -357,7 +358,13 @@ let rec mly = function
 | TUPLE3(STRING("member_decl_assignment291"), IDENTIFIER id, EMPTY_TOKEN) -> Id id
 | TUPLE3(STRING("member_decl_assignment291"), arg1, arg2) as oth -> mayfail oth  "member_decl_assignment291"
 | TUPLE3(STRING("member_decl_assignment294"), EQUALS, arg2) as oth -> mayfail oth  "member_decl_assignment294"
-| TUPLE3(STRING("ml_start0"), TLIST arg1, EOF_TOKEN) -> Itmlst (List.map mly arg1)
+| TUPLE3(STRING("ml_start0"), TLIST arg1, EOF_TOKEN) ->
+  modules := [];
+  submodules := [];
+  let _ = List.map mly arg1 in
+  let topmods = List.map (fun (k,x) -> Id k) (List.filter (function (k,_) -> not (List.mem k !submodules)) !modules) in
+  Itmlst topmods
+
 | TUPLE3(STRING("modportPortsDecl163"), arg1, arg2) -> (match arg1, arg2 with
 				      | (Input|Output|Inout),IDENTIFIER id -> PortDir(mly arg1, mly arg2)
 				      | oth -> othpat2 := Some oth; failwith "modportPortsDecl163")
@@ -367,7 +374,7 @@ let rec mly = function
 | TUPLE3(STRING("modportPortsDecl167"), Import, arg2) as oth -> mayfail oth  "modportPortsDecl167"
 | TUPLE3(STRING("modportPortsDecl168"), Export, arg2) as oth -> mayfail oth  "modportPortsDecl168"
 | TUPLE3(STRING("module_common_item419"), Always, arg2) ->
-    (match arg2 with 
+    (match arg2 with
         | TUPLE3 (STRING "statement_item680", event, block) -> AlwaysLegacy(mly event, mly block)
         | TUPLE5 (STRING "seq_block615", TUPLE4 (STRING "seq_blockFront624", Begin, COLON, IDENTIFIER lbl), TLIST lst, End, EMPTY_TOKEN) -> AlwaysComb(Seq(lbl, rml lst) :: [])
         | oth -> othpat1 := Some oth; failwith "module_common_item419")
@@ -400,6 +407,7 @@ let rec mly = function
     (match arg1,arg2 with 
         | Parameter, EMPTY_TOKEN -> Atom "Parameter"
         | Parameter, Real -> Atom "Parameter_real"
+        | Parameter, TUPLE3 (STRING "implicit_typeE363", (EMPTY_TOKEN|Signed as sgn), TLIST lst) -> Param("Parameter", signed_flag sgn, rml lst)
         | Localparam, EMPTY_TOKEN -> Atom "localparam"
         | Localparam, TUPLE3 (STRING "implicit_typeE363", (EMPTY_TOKEN|Signed as sgn), TLIST lst) -> Param("localparam", signed_flag sgn, rml lst)
         | oth -> othpat2 := Some oth; failwith "parameter_declarationFront177")
@@ -591,7 +599,7 @@ let rec mly = function
     | TUPLE4 (STRING "data_typeBasic263", Reg, (EMPTY_TOKEN|Signed as signed), TLIST lst'), TLIST lst -> DeclReg(rml lst, rml lst', signed_flag signed)
     | TUPLE4 (STRING "data_type261", TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst' ->
       Typ2(typ_id, [PackageRef(pkg, typ_id)], rml lst')
-    | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst), TLIST lst' -> Typ2(typ_id, rml lst, rml lst')
+    | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, TLIST lst), TLIST lst' -> Typ11(Typ1 typ_id, rml lst, rml lst')
     | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ_id, EMPTY_TOKEN), TLIST lst -> Typ3(typ_id, rml lst)
     | TUPLE6 (STRING "enumDecl323", Enum, base_type, LBRACE, TLIST lst, RBRACE), TLIST lst' -> TypEnum4(mly base_type, rml lst, rml lst')
     | TUPLE3 (STRING "data_declarationVarFront356", (Automatic|Static as t), base_type), TLIST lst -> DeclData(mly t, mly base_type, rml lst)
@@ -1040,7 +1048,10 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
        | TUPLE5 (STRING "packageFront21", Package, EMPTY_TOKEN, IDENTIFIER_HYPHEN_COLON_COLON pkg_cc, SEMICOLON),
          TLIST lst,
          (EMPTY_TOKEN|TUPLE3 (STRING "endLabelE2519", COLON, IDENTIFIER_HYPHEN_COLON_COLON _)) ->
-	 let p = PackageBody (pkg_cc, rml lst) in modules := (pkg_cc,p) :: !modules; p
+	 let p = PackageBody (pkg_cc, rml lst) in
+           modules := (pkg_cc,p) :: !modules;
+           submodules := pkg_cc :: !submodules;
+           p
        | oth -> othpat3 := Some oth; failwith "package_declaration20")
 | TUPLE5(STRING("par_block617"), arg1, arg2, Join, arg4) as oth -> mayfail oth  "par_block617"
 | TUPLE5(STRING("par_block618"), arg1, arg2, Join_any, arg4) as oth -> mayfail oth  "par_block618"
@@ -1338,7 +1349,7 @@ CellPinItemNC(match arg2 with IDENTIFIER id -> id | oth -> failwith "cellpinItem
       | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: [], Deflt)
       | TUPLE4 (STRING "data_type261", TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER typ, EMPTY_TOKEN), IDENTIFIER port ->
         Port(mly dir, port, Typ2(typ, [PackageRef(pkg, typ)], []) :: [], Deflt)
-      | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, [], []) :: rml lst, Deflt)
+      | TUPLE4 (STRING "data_type261", EMPTY_TOKEN, TYPE_HYPHEN_IDENTIFIER typ, TLIST lst), IDENTIFIER port -> Port(mly dir, port, Typ2(typ, rml lst, []) :: [], Deflt)
       | TUPLE4 (STRING "data_type261", TLIST [TUPLE3 (STRING "packageClassScopeItem2593", IDENTIFIER_HYPHEN_COLON_COLON pkg, COLON_COLON)], TYPE_HYPHEN_IDENTIFIER typ, TLIST lst'), IDENTIFIER port ->
         Port(mly dir, port, Typ2(typ, [PackageRef(pkg, typ)], []) :: rml lst', Deflt)
       | oth -> othpat2 := Some oth; failwith "port87")
@@ -1578,6 +1589,7 @@ CondGen1(mly arg3, mly arg5, mly arg7)
        | TUPLE4 (STRING "intFront108", Interface, EMPTY_TOKEN, IDENTIFIER id), params, ports, decls, EMPTY_TOKEN ->
          let intf = IntfDecl(id, mly params, mly ports, mly decls) in
          modules := (id,intf) :: !modules;
+         submodules := id :: !submodules;
          intf
        | oth -> othpat5 := Some oth; failwith "interface_declaration106")
 | TUPLE8(STRING("module_declaration51"), arg1, params, arg3, SEMICOLON, itmlst, Endmodule, arg7) ->
@@ -1794,7 +1806,16 @@ and itemsf portlst itmlst =
       | DotBus _ as x -> x (* placeholder *)
       | oth -> remap := Some oth; failwith "ports") ports in
   dbgportitms' := ports';
+  List.iter (mark_submod) itms;
   ports', itms
+
+and mark_submod = function
+      | InstDecl (Id kind, _, _) -> submodules := kind :: !submodules;
+      | GenItem (_, lst) -> List.iter (mark_submod) lst
+      | Itmlst lst -> List.iter (mark_submod) lst
+      | CondGen1 (_, if', else') -> mark_submod if'; mark_submod else'
+      | LoopGen1 (_, _, _, _, _, lst) -> List.iter (mark_submod) lst
+      | oth -> ()
 
 and rml pat = List.rev_map mly pat
 
