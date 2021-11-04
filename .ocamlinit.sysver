@@ -1,3 +1,4 @@
+#use "topfind";;
 
 (*
 open Output
@@ -18,8 +19,8 @@ close_out fd
 *)
 
 (*
-#use "topfind";;
-#require "msat";;
+w#use "topfind";;
+w#require "msat";;
 *)
 #print_depth 1000000;;
 #print_length 10000000;;

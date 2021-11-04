@@ -2,7 +2,7 @@ open Source_text
 open Source_text_convert
 open Source_text_rewrite_types
 
-let modlst,x,p,p',status = rewrite_sat "../yosys/share/simcells.v" "convert.ml"
+let modlst,x,p,p',status = rewrite_sat "examples/simcells.v" "convert.ml"
 
 let grep nam = let cmd = "grep "^String.sub nam 1 (String.length nam - 1)^"., Source_text_main.ml" in print_endline cmd; Unix.system cmd
 

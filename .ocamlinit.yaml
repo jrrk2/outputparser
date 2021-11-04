@@ -1,0 +1,31 @@
+
+#require "yaml";;
+#require "yaml.unix" ;;
+
+let files = ref [];;
+let _ =
+    let pth = "../UHDM/model" in
+    let dir = Unix.opendir pth in
+    try while true do
+    files := (pth ^ "/" ^ Unix.readdir dir) :: !files;
+    done with e -> Unix.closedir dir
+
+let read f =
+    let fd = open_in f in
+    let lines = ref [] in
+    let e = try while true do
+    let lin = input_line fd in
+    if lin <> "" && lin.[0] <> '#' then
+       begin
+       print_endline lin;
+       lines := lin :: !lines;
+       end
+    done; failwith ""
+    with e -> close_in fd; e in
+    e, String.concat "" (List.rev !lines)
+
+let y lines =
+    Yaml.of_string (String.concat "" (List.rev !lines))
+
+let x = read "../UHDM/model/always.yaml"
+;;

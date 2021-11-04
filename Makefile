@@ -45,7 +45,7 @@ clean:
 ###############################################################################
 
 Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.mli classify.ml matchmly.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml Source_text_preproc.ml Source_text_rewrite.ml dump_rtlil.ml Input.cmo Input_types.cmo Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Source_text_misc_types.mli Source_text_misc.ml ver_dump.ml Input_rewrite.ml dump_sysver.ml Source_text_main.ml convert.ml Source_text_split.ml Source_text_simplify.ml
-	ocamlfind ocamlmktop -package msat -linkpkg -g -o $@ unix.cma Source_text_types.cmo Source_text.cmo Source_text_lex.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Input_rewrite_types.mli Source_text_rewrite_types.mli classify.ml matchmly.ml Source_text_rewrite.ml Source_text_preproc.ml Input_types.ml Input.ml Source_text_misc_types.mli ord_input.ml Input_lex.ml Input_rewrite.ml Source_text_misc.ml Source_text_split.ml Input_dump.ml convert.ml Source_text_simplify.ml dump_sysver.ml Source_text_main.ml
+	ocamlfind ocamlmktop -package msat,sexplib -linkpkg -g -o $@ unix.cma Source_text_types.cmo Source_text.cmo Source_text_lex.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Input_rewrite_types.mli Source_text_rewrite_types.mli classify.ml matchmly.ml Source_text_rewrite.ml Source_text_preproc.ml Input_types.ml Input.ml Source_text_misc_types.mli ord_input.ml Input_lex.ml Input_rewrite.ml Source_text_misc.ml Source_text_split.ml Input_dump.ml convert.ml Source_text_simplify.ml dump_sysver.ml Source_text_main.ml
 
 Source_text: Source_text.cmx Source_text_types.cmx Source_text_lex.ml Source_text_rewrite_types.mli dump_rtlil.ml Input.cmx Input_types.ml Input_rewrite_types.mli ord_input.ml Input_lex.ml classify.ml matchmly.ml Source_text_preproc.ml Source_text_rewrite.ml Input_dump.ml Source_text_misc_types.mli Source_text_misc.ml ver_dump.ml Source_text_main.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml dump_sysver.ml convert.ml Source_text_split.ml Source_text_simplify.ml
 	ocamlfind ocamlopt -package msat -linkpkg -g -o $@ unix.cmxa Source_text_types.cmx Source_text.cmx Source_text_lex.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Input_rewrite_types.mli Source_text_rewrite_types.mli classify.ml matchmly.ml Source_text_rewrite.ml Source_text_preproc.ml Input_types.ml Input.ml Input_rewrite_types.mli Source_text_split.ml ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml Source_text_misc_types.mli Source_text_misc.ml convert.ml Source_text_simplify.ml dump_sysver.ml Source_text_main.ml
@@ -74,12 +74,12 @@ Source_text_old: Source_text.cmx Source_text_types.cmx Source_text_lex.ml Source
 sat_example: String_lit.ml Msat_tseitin.ml mycnf.ml mycnf_main.ml
 	ocamlfind ocamlopt -package msat -linkpkg -g -o $@ String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} mycnf.ml mycnf_main.ml
 
-convert: ../yosys/share/simcells.v
+convert_top: examples/simcells.v
 	cp .ocamlinit.convert .ocamlinit
 	./Source_text_convert_top
 	cp .ocamlinit.top .ocamlinit
 
-convert.ml: ../yosys/share/simcells.v
+convert.ml: examples/simcells.v
 	./Source_text_convert $< $@
 
 Source_text.mly Source_text_types.ml: V3ParseBison.output Source_text.patch

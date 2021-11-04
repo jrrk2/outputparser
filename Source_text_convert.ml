@@ -112,10 +112,10 @@ and scan_itms x = scan_itms' (opt x)
 let template = function
 | Modul (nam, [], ports, itms) ->
 let ports' = List.map (function
-        | Port (Deflt, nam, [], Deflt) -> nam
+        | Port (dir, nam, [], Deflt) -> nam
         | oth -> othx := Some oth; failwith "ports") ports in
 itms' := itms;
-(List.sort compare ports', List.flatten (List.map (scan_itms) itms))
+(List.sort compare ports', List.flatten (List.map (scan_itms) (ports@itms)))
 | oth -> othx := Some oth; failwith "template"
 
 let rec dump_expr = function
@@ -168,18 +168,19 @@ let rewrite_sat v fil =
   let buf = Buffer.create 1000 in
   let fd = open_out fil in
   bprintf buf "open Input_rewrite_types\n";
-  bprintf buf "open Source_text_rewrite_types\n";
-  bprintf buf "open Source_text_rewrite\n";
+  bprintf buf "open Source_text_misc\n";
+  bprintf buf "open Source_text_misc_types\n";
   bprintf buf "\n";
   bprintf buf "let verbose = try int_of_string (Sys.getenv \"CNF_VERBOSE\") with err -> 0\n";
   bprintf buf "\n";
   bprintf buf "let dbgfunc = ref []\n";
   bprintf buf "let othst = ref []\n";
   bprintf buf "let othclst = ref []\n";
+  bprintf buf "let othloop = ref []\n";
   bprintf buf "let othwlst = ref []\n";
   bprintf buf "let othconn = ref None\n";
   bprintf buf "\n";
-  bprintf buf "let rec func ind klst kind conns = match kind, pinmap ind klst conns with\n";
+  bprintf buf "let rec func ind loopchk klst kind conns = match kind, pinmap ind loopchk klst conns with\n";
   bprintf buf "  | \"\", [\"\",E.GND,None] -> failwith \"GND\" (* dummy to force type inference *)\n";
   bprintf buf "\n";
   List.iter (dump_sat buf) modlst;
@@ -191,14 +192,20 @@ let rewrite_sat v fil =
   bprintf buf "          | None -> othwlst := (k,\"\") :: !othwlst) ind.wires;\n";
   bprintf buf "      othwlst := List.sort compare !othwlst;\n";
   bprintf buf "      othst := List.map (fun (pin, net, _) -> Hashtbl.find_opt ind.stash net) lst;\n";
-  bprintf buf "      failwith (\"func: unmatched \"^oth)\n";
+  bprintf buf "      othloop := !loopchk;\n";
+  bprintf buf "      List.iter (function \n";
+  bprintf buf "            | E.SCALAR s,_, _ -> print_endline s\n";
+  bprintf buf "            | E.INDEXED (s,ix), _, _ -> print_endline (s^\"[\"^string_of_int ix^\"]\")\n";
+  bprintf buf "            | oth -> failwith \"loopchk\") (List.rev !loopchk);\n";
+  bprintf buf "      failwith (\"func: unmatched \"^oth^\", possibly due to logic loop\")\n";
   bprintf buf "\n";
-  bprintf buf "and recurse ind klst signal = function\n";
+  bprintf buf "and recurse ind loopchk klst signal = function\n";
   bprintf buf "| Some (kind, inst, conns) ->\n";
+  bprintf buf "  loopchk := (signal,inst,kind) :: !loopchk;\n";
   bprintf buf "  if not (List.mem inst klst) then\n";
   bprintf buf "    begin\n";
   bprintf buf "    if verbose > 2 then print_endline (\"recurse into \" ^ E.string_of_signal signal ^ \" (instance: \" ^ inst ^ \", kind: \" ^ kind ^ \" )\");\n";
-  bprintf buf "    func ind (inst :: klst) kind conns;\n";
+  bprintf buf "    func ind loopchk (inst :: klst) kind conns;\n";
   bprintf buf "    if verbose > 2 then print_endline (\"recurse into \"^E.string_of_signal signal^\" returned from \" ^ kind);\n";
   bprintf buf "    end\n";
   bprintf buf "  else\n";
@@ -210,21 +217,21 @@ let rewrite_sat v fil =
   bprintf buf "| None ->\n";
   bprintf buf "  print_endline (\"recurse into \"^E.string_of_signal signal^\" failed\"); None\n";
   bprintf buf "\n";
-  bprintf buf "and getcon ind klst pin = function\n";
+  bprintf buf "and getcon ind loopchk klst pin = function\n";
   bprintf buf "  | E.GND -> Some F.f_false\n";
   bprintf buf "  | PWR -> Some F.f_true\n";
   bprintf buf "  | signal -> match Hashtbl.find_opt ind.wires signal with\n";
   bprintf buf "    | Some (Some _ as x) -> x\n";
-  bprintf buf "    | Some None -> if pin <> \"Y\" then recurse ind klst signal (Hashtbl.find_opt ind.stash signal) else None\n";
+  bprintf buf "    | Some None -> if pin <> \"Y\" then recurse ind loopchk klst signal (Hashtbl.find_opt ind.stash signal) else None\n";
   bprintf buf "    | None -> failwith (E.string_of_signal signal ^\" not declared\")\n";
   bprintf buf "\n";
-  bprintf buf "and conn' ind klst = function\n";
-  bprintf buf "  | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> let s = idx signal ix in pin, s, getcon ind klst pin s\n";
-  bprintf buf "  | TokConn ([TokID pin], [TokID signal]) -> let s = (scalar signal) in pin, s, getcon ind klst pin s\n";
-  bprintf buf "  | TokConn ([TokID pin], [TokVal lev]) -> let s = (cnv_pwr lev) in pin, s, getcon ind klst pin s\n";
+  bprintf buf "and conn' ind loopchk klst = function\n";
+  bprintf buf "  | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> let s = idx signal ix in pin, s, getcon ind loopchk klst pin s\n";
+  bprintf buf "  | TokConn ([TokID pin], [TokID signal]) -> let s = (scalar signal) in pin, s, getcon ind loopchk klst pin s\n";
+  bprintf buf "  | TokConn ([TokID pin], [TokVal lev]) -> let s = (cnv_pwr lev) in pin, s, getcon ind loopchk klst pin s\n";
   bprintf buf "  | oth -> othconn := Some oth; failwith \"conn'\"\n";
   bprintf buf "\n";
-  bprintf buf "and pinmap ind klst conns = List.sort compare (List.map (conn' ind klst) conns)\n";
+  bprintf buf "and pinmap ind loopchk klst conns = List.sort compare (List.map (conn' ind loopchk klst) conns)\n";
   bprintf buf "\n";
   Buffer.output_buffer fd buf;
   close_out fd;

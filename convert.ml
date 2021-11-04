@@ -2,10 +2,6 @@ open Input_rewrite_types
 open Source_text_misc
 open Source_text_misc_types
 
-(*
-open Source_text_rewrite_types
-*)
-
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") with err -> 0
 
 let dbgfunc = ref []
@@ -18,18 +14,6 @@ let othconn = ref None
 let rec func ind loopchk klst kind conns = match kind, pinmap ind loopchk klst conns with
   | "", ["",E.GND,None] -> failwith "GND" (* dummy to force type inference *)
 
-  | "$_ALDFFE_NNN_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) (knot (e))) (ad) (knot (l))) (q)
-  | "$_ALDFFE_NNP_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) ((e))) (ad) (knot (l))) (q)
-  | "$_ALDFFE_NPN_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) (knot (e))) (ad) ((l))) (q)
-  | "$_ALDFFE_NPP_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) ((e))) (ad) ((l))) (q)
-  | "$_ALDFFE_PNN_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) (knot (e))) (ad) (knot (l))) (q)
-  | "$_ALDFFE_PNP_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) ((e))) (ad) (knot (l))) (q)
-  | "$_ALDFFE_PPN_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) (knot (e))) (ad) ((l))) (q)
-  | "$_ALDFFE_PPP_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\E", _, Some e) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (mux2 (atom q) (d) ((e))) (ad) ((l))) (q)
-  | "$_ALDFF_NN_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (d) (ad) (knot (l))) (q)
-  | "$_ALDFF_NP_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (d) (ad) ((l))) (q)
-  | "$_ALDFF_PN_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (d) (ad) (knot (l))) (q)
-  | "$_ALDFF_PP_",("\\AD", _, Some ad) :: ("\\C", _, Some c) :: ("\\D", _, Some d) :: ("\\L", _, Some l) :: ("\\Q", q, Some _) :: [] -> addnxt "nxt" ind (mux2 (d) (ad) ((l))) (q)
   | "$_ANDNOT_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (and2 (a) (knot (b)))
   | "$_AND_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (and2 (a) (b))
   | "$_AOI3_",("\\A", _, Some a) :: ("\\B", _, Some b) :: ("\\C", _, Some c) :: ("\\Y", y, found) :: [] -> if found = None then addfunc ind y (knot (or2 (and2 (a) (b)) (c)))
