@@ -61,6 +61,7 @@ let rewrite_rtlil v =
                 print_endline ("Dumping: " ^ k ^ " to file: "^fnam3);
                 Dump_sysver.dump_template fd3 optlst sub;
                 close_out fd3;
+                print_endline (print_source (sexp_of_rw sub));
 		) topmods;
   if not sep_rtl then
     begin

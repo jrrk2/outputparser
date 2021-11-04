@@ -1,4 +1,6 @@
 #use "topfind";;
+#require "sexplib";;
+#require "ppx_sexp_conv";;
 
 (*
 open Output
@@ -19,8 +21,8 @@ close_out fd
 *)
 
 (*
-w#use "topfind";;
-w#require "msat";;
+#use "topfind";;
+#require "msat";;
 *)
 #print_depth 1000000;;
 #print_length 10000000;;
@@ -30,6 +32,7 @@ w#require "msat";;
 #directory "/Users/jonathan/.opam/413/lib/msat/backend"
 #directory "/Users/jonathan/.opam/413/lib/msat/sat"
 #directory "/Users/jonathan/.opam/413/lib/msat"
+#directory "/Users/jonathan/.opam/413/lib/sexplib"
 
 open Source_text_rewrite_types
 open Source_text_rewrite
@@ -46,6 +49,11 @@ open Source_text_misc_types.F
 open Source_text_misc
 open String_lit
 open Convert
+open Sexplib
+open Sexplib.Std
+open Ppx_sexp_conv_lib.Sexp
+open Sexplib0__.Sexp
+open Sexplib.Sexp
 ;;
 
 let v = "timer.v";;
@@ -135,7 +143,6 @@ let v = "examples/junk3.v";;
 let v = "examples/junk1.v";;
 let v = "examples/slib_fifo.sv";;
 let v = "apb_uart.sv";;
-let v = "examples/count0.v";;
 let v = "examples/count4.v";;
 let v = "examples/count2.v";;
 let v = "examples/count3.v";;
@@ -152,14 +159,22 @@ let v = "../yosys/tests/svtypes/struct_array.sv";;
 let v = "examples/ariane_preproc.sv";;
 let v = "examples/periph.sv";;
 let v = "examples/count8.sv";;
+let v = "examples/count0.v";;
 
 let dbgx = ref None
 let dbgprt = ref []
 
 let t id = Hashtbl.find !dbgtyp id;;
 
-(* *)
 let (modlst,x,p,p',status) = rewrite_rtlil v;;
+
+(*
+let x' = match !dbgsub with Some x -> print_source (sexp_of_rw x) | None -> "";;
+let _ = print_endline x';;
+let y' = Sexp.of_string x';;
+let y = rw_of_sexp y';;
+*)
+
 (*
 dbgtyp := List.assoc "fpnew_pkg" !dbgtyplst;;
 dbgprt := List.assoc "fpnew_pkg" !dbgports;;

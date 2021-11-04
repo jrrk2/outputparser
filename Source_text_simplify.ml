@@ -1059,6 +1059,9 @@ and parm_map typhash = function
     update typhash (Id typid) (Unsigned)
   | TypParam (typid, Atom "logic", [AnyRange (hi, lo)]) ->
     update typhash (Id typid) (Unsigned_vector(hi,lo))
+  | TypParam (typid, Typ5 (Atom "logic", [AnyRange (hi, lo)]), []) ->
+    update typhash (Id typid) (Unsigned_vector(hi,lo))
+
   | TypParam (typid, Typ8 (SUDecl (Atom "packed", su_lst), Deflt), []) ->
     update typhash (Id typid) (Vsu (Id typid, List.flatten (List.map (struct_union typhash) su_lst)))
   | Param (lhs, FunRef2 (id , guts, args), _) -> ()
@@ -1800,6 +1803,9 @@ and split_always typhash' act_seq rst_seq evlst rst =
         | Active (Unsigned_vector (hi, lo), _, expr) as x ->
              dbgnew := (k,x) :: !dbgnew;
              nlst := DeclReg (k :: [], AnyRange (hi, lo) :: [], Deflt) :: !nlst;
+        | Active (MaybePort (_, Unsigned, dir), _, expr) as x ->
+             dbgnew := (k,x) :: !dbgnew;
+             nlst := DeclReg (k :: [], [], Deflt) :: !nlst;
         | oth -> unhand_rtl := Some oth; failwith "split1137") subh;
     print_endline (string_of_int (Hashtbl.length init'));
     List.sort_uniq compare !nlst @ newseq :: newseq' :: [] 

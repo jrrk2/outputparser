@@ -1,5 +1,8 @@
+open Sexplib
+open Sexplib.Std
+open Ppx_sexp_conv_lib.Sexp
 
-type mem_opts = {off:int list; siz:int list; wid:int; tot:int}
+type mem_opts = {off:int list; siz:int list; wid:int; tot:int} [@@deriving sexp]
 
 type rw =
   | Active of vtyp * rw * rw
@@ -244,7 +247,7 @@ type rw =
   | While of rw * rw list
   | WireExpr of rw * rw
   | Xnor of rw * rw
-  | Xor of rw * rw
+  | Xor of rw * rw [@@deriving sexp]
 
 and vtyp =
   | Vint of int
@@ -272,9 +275,32 @@ and vtyp =
   | Vreal of float
   | Vlocal of int * rw
   | Vsu of rw * (string * vtyp) list
-  | Vsua of int * int * (string * vtyp) list
+  | Vsua of int * int * (string * vtyp) list [@@deriving sexp]
 
 type dead = 
 | Undecidable
 | Always_false
 | Always_true
+
+(* example conversions for Sexplib interface *)
+
+let print_source x' =
+   let buf = Buffer.create 10000 in
+   let formatter = Format.formatter_of_buffer buf in
+   Sexplib.Sexp.pp_hum formatter x';
+   Format.pp_print_flush formatter ();
+   Buffer.contents buf
+
+type int_str_pair_lst = (int * string) list [@@deriving sexp]
+
+let (x : int_str_pair_lst) = [1,"one"; 2,"two"];;
+
+let x' = sexp_of_int_str_pair_lst x |> Sexp.to_string;;
+
+let (x : vtyp) = Vstr "hello"
+
+let ex1 = sexp_of_vtyp x |> Sexp.to_string
+
+let s12 = [%sexp_of: (int * string) list] [1,"one"; 2,"two"] |> Sexp.to_string
+
+let ex2 = (Atom "jello") |> sexp_of_rw |> Sexp.to_string
