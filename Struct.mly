@@ -7229,10 +7229,11 @@
 %token Szip
 
 %type <token> ml_start
+%type <token list>opt_pref
 %start ml_start
 %%
 
-ml_start: input_lst EOF_TOKEN { TLIST $1 }
+ml_start: input_lst EOF_TOKEN { TLIST (List.rev $1) }
 
 input_lst: { [] }
   | input_lst extern { $2 :: $1 }
@@ -7255,6 +7256,7 @@ input_lst: { [] }
   | input_lst typekw { $2 :: $1 }
   | input_lst trait { $2 :: $1 }
   | input_lst comment { $2 :: $1 }
+  | input_lst declarekw { $2 :: $1 }
 
 comment: TOK_COMMENT { TOK_COMMENT $1 }
 
@@ -7265,6 +7267,8 @@ arena: Smake_arenas PLING LPAREN pub RPAREN SEMICOLON { TLIST [] }
 thread: Sthread_local PLING junk_br { TLIST [] }
 
 noderef: node PLING opt_nosemi SEMICOLON { TLIST [] }
+
+declarekw: Sdeclare_keywords PLING junk_br { TLIST [] }
 
 node: Snode_ref { }
   | Snode_ref_group { }
@@ -7353,6 +7357,7 @@ macro_arg: TOK_ID { }
   | Snode_ref_group { }
   | Smake_arenas { }
   | Stuple_impls { }
+  | Sdeclare_keywords { }
 
 opt_nobrace: { }
   | opt_nobrace nobracebr { }
@@ -7389,13 +7394,13 @@ struct_lst: { [] }
   | struct_lst hash { $1 }
 
 opt_struct: id { $1 }
-  | AMPERSAND QUOTE id pth opt_post { $4 }
-  | id LESS SOption LESS opt_pref id wild GREATER GREATER { TUPLE3($1,$6,$7) }
+  | AMPERSAND QUOTE id pth opt_post { TUPLE5( AMPERSAND, QUOTE, $3, $4, TLIST (List.rev $5) ) }
+  | id LESS SOption LESS opt_pref id wild GREATER GREATER { TUPLE5($1, SOption, TLIST(List.rev $5), $6,$7) }
   | id LESS id GREATER { TUPLE2($1,$3) }
-  | id LESS QUOTE id GREATER { TUPLE2($1,$4) }
+  | id LESS QUOTE id GREATER { TUPLE3($1,QUOTE,$4) }
   | SVec LESS opt_pref wild GREATER { TUPLE2(SVec, $4) }
   | SSpanned LESS pth GREATER { TUPLE2 (SSpanned, $3) }
-  | SOption LESS opt_opt GREATER { SOption }
+  | SOption LESS opt_opt GREATER { TUPLE2(SOption, $3) }
   | SBox LESS opt_struct GREATER { TUPLE2(SBox, $3) }
 
 opt_opt: opt_struct { $1 }
@@ -7406,19 +7411,19 @@ opt_lst2: { [ ] }
   | opt_lst2 COMMA opt_itm2 { $3 :: $1 }
 
 opt_itm2: id { $1 }
-  | id LESS QUOTE id GREATER { $1 }
+  | id LESS QUOTE id GREATER { TUPLE3 ($1, QUOTE, $4) }
   | SVec LESS opt_itm2 GREATER { TUPLE2(SVec, $3) }
 
-wild: id LESS QUOTE id GREATER { $1 }
+wild: id LESS QUOTE id GREATER { TUPLE3 ($1, QUOTE, $4) }
   | SSpanned LESS id GREATER { TUPLE2(SSpanned, $3) }
   | opt_opt { $1 }
 
-opt_pref: { }
-  | AMPERSAND QUOTE id {  }
-  | HASH LBRACK id RBRACK { }
+opt_pref: { [] }
+  | AMPERSAND QUOTE id { [ TUPLE3(AMPERSAND, QUOTE, $3) ] }
+  | HASH LBRACK id RBRACK { [] }
 
-opt_post: {  }
-  | LESS QUOTE id GREATER {  }
+opt_post: { [] }
+  | LESS QUOTE id GREATER { [ TUPLE2(QUOTE,$3) ] }
 
 id: TOK_ID { TOK_ID $1 }
 
@@ -7428,7 +7433,7 @@ pth: id { $1 }
   | SVec LESS opt_enumbr GREATER { TUPLE2(Svec, $3) }
   | SSpanned LESS pth GREATER { TUPLE2(SSpanned, $3) }
   | SOption LESS pth_lst GREATER { TUPLE2(SOption, TLIST (List.rev $3)) }
-  | SBox LESS id opt_post GREATER { TUPLE2(SBox, $3) }
+  | SBox LESS id opt_post GREATER { TUPLE3(SBox, $3, TLIST (List.rev $4)) }
 
 enumbr_lst: { [] }
   | enumbr_lst enumbr { $2 :: $1 }
@@ -7439,13 +7444,13 @@ enum_lst: { [] }
   | enum_lst hash { $1 }
 
 opt_enumbr: { TLIST [] }
-  | pth { $1 }
-  | id opt_post { $1 }
+  | id opt_post { TUPLE2 ($1, TLIST (List.rev $2)) }
   | LPAREN LPAREN RPAREN RPAREN { TLIST [] }
   | LPAREN pth_lst RPAREN { TUPLE2 (LPAREN, TLIST ( List.rev $2) ) }
   | LBRACE inner_lst RBRACE { TUPLE2 (LBRACE, TLIST ( List.rev $2) ) }
+  | pth { $1 }
 
-inner: id COLON opt_pref ipth opt_post { TUPLE3(COLON, $1, $4) }
+inner: id COLON opt_pref ipth opt_post { TUPLE5(COLON, $1, TLIST (List.rev $3), $4, TLIST (List.rev $5)) }
 
 ipth: id { $1 }
   | id COLON COLON id { TUPLE3(COLON, $1, $4) }
@@ -7453,7 +7458,7 @@ ipth: id { $1 }
   | SVec LESS opt_pref opt_enumbr GREATER { TUPLE2(Svec, $4) }
   | SSpanned LESS pth GREATER { TUPLE2(SSpanned, $3) }
   | SOption LESS pth_lst GREATER { TUPLE2(SOption, TLIST (List.rev $3)) }
-  | SBox LESS id opt_post GREATER { TUPLE2(SBox, $3) }
+  | SBox LESS id opt_post GREATER { TUPLE3(SBox, $3, TLIST (List.rev $4)) }
 
 inner_lst: { [] }
   | inner { [$1] }
@@ -7463,8 +7468,8 @@ inner_lst: { [] }
   | inner_lst COMMA comment inner{ $3 :: $4 :: $1 }
   | inner_lst COMMA { $1 }
 
-pth_lst: opt_pref pth opt_post { [$2] }
-  | pth_lst COMMA opt_pref pth opt_post { $4 :: $1 }
+pth_lst: opt_pref pth opt_post { [ TUPLE3 (TLIST (List.rev $1), $2, TLIST (List.rev $3)) ] }
+  | pth_lst COMMA opt_pref pth opt_post { TUPLE3 (TLIST (List.rev $3), $4, TLIST (List.rev $5)) :: $1 }
   | LPAREN inner_lst RPAREN { [] }
 
 structbr: TOK_ID { TOK_ID $1 }

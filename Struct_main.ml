@@ -17,6 +17,9 @@ let p' = ref []
 
 let parse arg =
   let fil = "../moore/src/svlog/syntax/"^arg^".rs" in
+(*
+  let fil = "junk.rs" in
+*)
   let ch = open_in fil in
   let p = parse_output_ast_from_chan ch in
   close_in ch;

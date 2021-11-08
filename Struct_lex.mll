@@ -3365,7 +3365,9 @@ Sdeclare_generics, "declare_generics";
 Sdeclare_group, "declare_group";
 Sdeclare_group_temp, "declare_group_temp";
 Sdeclare_intf_objs, "declare_intf_objs";
+*)
 Sdeclare_keywords, "declare_keywords";
+(*
 Sdeclare_pkg, "declare_pkg";
 Sdeclare_pkg_inst, "declare_pkg_inst";
 Sdeclare_primary_name, "declare_primary_name";

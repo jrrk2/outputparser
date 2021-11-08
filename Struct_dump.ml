@@ -5,12 +5,27 @@ let unhand = ref None
 
 let dump_map ast = function
         | TUPLE2 (SBox, TOK_ID memb) -> ast ^ memb
+        | TUPLE3 (TLIST [], TUPLE2 (SBox, TOK_ID memb), TLIST []) -> ast ^ memb
         | TUPLE2 (Svec, TOK_ID kind) -> ast ^ kind ^ " array"
         | TUPLE2 (SSpanned, TOK_ID nam) -> ast ^ nam
         | TUPLE2 (SOption, TLIST [TUPLE2 (SBox, TOK_ID memb)]) -> ast ^ memb ^ " option"
         | TOK_ID id -> ast ^ id
         | TUPLE2 (SOption, TLIST [TOK_ID memb]) -> ast ^ memb ^ " option"
-        | oth -> unhand := Some oth; failwith "dump_itm_enum"
+        | TUPLE2 (Svec, TUPLE2 (TOK_ID kind, TLIST [TUPLE2 (QUOTE, TOK_ID a)])) -> "('" ^ ast ^ a ^ ")" ^ ast ^ kind ^ " array"
+        | TUPLE3 (TLIST [], TUPLE2 (Svec, TUPLE2 (TOK_ID kind, TLIST [TUPLE2 (QUOTE, TOK_ID a)])), TLIST []) -> "('" ^ ast ^ a ^ ")" ^ ast ^ kind ^ " array"
+        | TUPLE3 (TLIST [], TOK_ID kind, TLIST [TUPLE2 (QUOTE, TOK_ID a)]) -> "('" ^ ast ^ a ^ ")" ^ ast ^ kind
+        | TUPLE3 (TLIST [], TOK_ID kind, TLIST []) -> ast ^ kind
+        | TUPLE3 (TLIST [], TUPLE2 (SSpanned, TOK_ID kind), TLIST []) -> ast ^ kind
+        | TUPLE3 (TLIST [], TUPLE2 (SOption, TLIST [TUPLE3 (TLIST [], TUPLE2 (SBox, TOK_ID memb), TLIST [])]), TLIST []) -> ast ^ memb ^ " option"
+        | TUPLE3 (TLIST [], TUPLE2 (SOption, TLIST [TUPLE3 (TLIST [], TOK_ID memb, TLIST [TUPLE2 (QUOTE, TOK_ID a)])]), TLIST []) -> "('" ^ ast ^ a ^ ")" ^ ast ^ memb ^ " option"
+        | TUPLE3 (TLIST [TUPLE3 (AMPERSAND, QUOTE, TOK_ID a)], TOK_ID memb, TLIST [TUPLE2 (QUOTE, TOK_ID q)]) ->  "('" ^ ast ^ a ^ ")" ^ ast ^ memb
+        | TUPLE3 (TOK_ID memb, QUOTE, TOK_ID a) -> "('" ^ ast ^ a ^ ")" ^ ast ^ memb
+        | TUPLE3 (TLIST [], TUPLE3 (SBox, TOK_ID memb, TLIST [TUPLE2 (QUOTE, TOK_ID a)]), TLIST []) -> "('" ^ ast ^ a ^ ")" ^ ast ^ memb
+        | TUPLE3 (TLIST [], TUPLE2 (SOption, TLIST [TUPLE3 (TLIST [], TUPLE3 (SBox, TOK_ID expr, TLIST [TUPLE2 (QUOTE, TOK_ID a)]), TLIST [])]), TLIST []) ->
+          "('" ^ ast ^ a ^ ")" ^ ast ^ expr ^ " option"
+        | TUPLE3 (TLIST [], TUPLE2 (SOption, TLIST [TUPLE3 (TLIST [], TOK_ID expr, TLIST [])]), TLIST []) ->
+          ast ^ expr ^ " option"
+        | oth -> unhand := Some oth; failwith "dump_map"
 
 let map_star ast lst = String.concat " * " (List.map (dump_map ast) lst)
 
@@ -53,14 +68,40 @@ let dump_itm fd ast typlst = function
   fprintf fd "        %s: %s%s option;\n" memb ast expr;
         | TUPLE3 (COLON, TOK_ID memb, TUPLE2 (SOption, TLIST [])) ->
   fprintf fd "        %s: unit option;\n" memb;
+        | TUPLE3 (COLON, TOK_ID memb, TUPLE2 (Svec, TUPLE2 (TOK_ID expr, TLIST [TUPLE2 (QUOTE, TOK_ID a)]))) -> 
+  fprintf fd "        %s: ('%s%s)%s%s array;\n" memb ast a ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TUPLE2 (SSpanned, TOK_ID expr), TLIST []) ->
+  fprintf fd "        %s: %sSpanned * %s%s;\n" memb ast ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TUPLE2 (SOption, TLIST [TUPLE3 (TLIST [], TOK_ID expr, TLIST [])]), TLIST []) ->
+  fprintf fd "        %s: %s%s option;\n" memb ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TUPLE2 (Svec, TUPLE2 (TOK_ID expr, TLIST [TUPLE2 (QUOTE, TOK_ID a)])), TLIST []) ->
+  fprintf fd "        %s: ('%s%s)%s%s array;\n" memb ast a ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TOK_ID expr, TLIST [TUPLE2 (QUOTE, TOK_ID a)]) ->
+  fprintf fd "        %s: ('%s%s)%s%s;\n" memb ast a ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TUPLE2 (SOption, TLIST [TUPLE3 (TLIST [], TUPLE2 (SSpanned, TOK_ID expr), TLIST [])]), TLIST []) ->
+  fprintf fd "        %s: %s%s option;\n" memb ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TOK_ID expr, TLIST []) ->
+  fprintf fd "        %s: %s%s;\n" memb ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TUPLE3 (SBox, TOK_ID expr, TLIST [TUPLE2 (QUOTE, TOK_ID a)]), TLIST []) ->
+  fprintf fd "        %s: ('%s%s)%s%s;\n" memb ast a ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TUPLE2 (SOption, TLIST [TUPLE3 (TLIST [], TOK_ID expr, TLIST [TUPLE2 (QUOTE, TOK_ID a)])]), TLIST []) ->
+  fprintf fd "        %s: ('%s%s)%s%s option;\n" memb ast a ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TUPLE2 (SOption, TLIST [TUPLE3 (TLIST [], TUPLE2 (SBox, TOK_ID expr), TLIST [])]), TLIST []) ->
+  fprintf fd "        %s: %s%s option;\n" memb ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TUPLE2 (SOption, TLIST []), TLIST []) ->
+  fprintf fd "        %s: unit option;\n" memb;
+        | TUPLE2 (TOK_ID memb, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a)) ->
+  fprintf fd "        %s: ('%s%s)%s%s;\n" memb ast a ast expr;
+        | TUPLE5 (COLON, TOK_ID memb, TLIST [], TUPLE2 (SOption, TLIST [TUPLE3 (TLIST [], TUPLE3 (SBox, TOK_ID expr, TLIST [TUPLE2 (QUOTE, TOK_ID a)]), TLIST [])]), TLIST []) ->
+  fprintf fd "        %s:  ('%s%s)%s%s option;\n" memb ast a ast expr;
         | oth -> unhand := Some oth; failwith "dump_itm_struct") lst;
   fprintf fd "    }\n"
 | TUPLE2 (TOK_ID expr, TUPLE2 (LPAREN, TLIST lst)) ->
   fprintf fd "    | SV_%s of (%s)\n" expr (map_star ast lst)
-| TUPLE2 (TOK_ID expr, TUPLE2 (SVec, TUPLE2 (TOK_ID arr, TOK_ID "a"))) ->
-  fprintf fd "    | SV_%s of %s%s array\n" expr ast arr
-| TUPLE2 (TOK_ID memb, TUPLE2 (TOK_ID expr, TOK_ID "a")) ->
-  fprintf fd "    | SV_%s of %s%s\n" memb ast expr
+| TUPLE2 (TOK_ID expr, TUPLE2 (SVec, TUPLE2 (TOK_ID arr, TOK_ID a))) ->
+  fprintf fd "    | SV_%s of ('%s%s)%s%s array\n" expr ast a ast arr
+| TUPLE2 (TOK_ID memb, TUPLE2 (TOK_ID expr, TOK_ID a)) ->
+  fprintf fd "    | SV_%s of ('%s%s)%s%s\n" memb ast a ast expr
 | TUPLE2 (TOK_ID memb, TUPLE2 (SVec, TLIST lst)) ->
   fprintf fd "    | SV_%s of (%s) array\n" memb (map_star ast lst)
 | TUPLE2 (TOK_ID memb, TUPLE2 (SSpanned, TOK_ID expr)) ->
@@ -73,6 +114,30 @@ let dump_itm fd ast typlst = function
   fprintf fd "    | SV_%s of %s%s * %s%s\n" memb ast cell ast dyn
 | TUPLE2 (TOK_ID memb, TUPLE2 (TOK_ID cell, TOK_ID usize)) ->
   fprintf fd "    | SV_%s of %s%s * %s%s\n" memb ast cell ast usize
+| TUPLE2 (TOK_ID memb, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a)) ->
+  fprintf fd "    | SV_%s of ('%s%s)%s%s\n" memb ast a ast expr;
+| TUPLE2 (TOK_ID memb, TUPLE2 (SVec, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a))) ->
+  fprintf fd "    | SV_%s of ('%s%s)%s%s array\n" memb ast a ast expr;
+| TUPLE2 (TOK_ID memb, TUPLE3 (TOK_ID cell, TOK_ID dyn, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a))) ->
+  fprintf fd "    | SV_%s of %s%s * %s%s\n" memb ast cell ast expr
+| TUPLE2 (TOK_ID memb, TUPLE2 (SBox, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a))) ->
+  fprintf fd "    | SV_%s of ('%s%s)%s%s\n" memb ast a ast expr
+| TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TLIST [TOK_ID expr; TOK_ID span])) ->
+  fprintf fd "    | SV_%s of %s%s option\n" memb ast expr;
+| TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TOK_ID expr)) ->
+  fprintf fd "    | SV_%s of %s%s option\n" memb ast expr;
+| TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a))) ->
+  fprintf fd "    | SV_%s of ('%s%s)%s%s option\n" memb ast a ast expr
+| TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TLIST [TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a); TUPLE2 (SVec, TUPLE3 (TOK_ID arr, QUOTE, TOK_ID a'))])) ->
+  fprintf fd "    | SV_%s of ('%s%s)%s%s option\n" memb ast a ast expr
+| TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TUPLE2 (SBox, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a)))) ->
+  fprintf fd "    | SV_%s of ('%s%s)%s%s option\n" memb ast a ast expr
+| TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TUPLE2 (SSpanned, TOK_ID expr))) ->
+  fprintf fd "    | SV_%s of %s%s option\n" memb ast expr
+| TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TUPLE5 (AMPERSAND, QUOTE, TOK_ID a, TOK_ID expr, TLIST [TUPLE2 (QUOTE, TOK_ID a')]))) ->
+  fprintf fd "    | SV_%s of ('%s%s) %s%s option\n" memb ast a ast expr
+| TUPLE2 (TOK_ID memb, TUPLE5 (TOK_ID cell, SOption, TLIST [TUPLE3 (AMPERSAND, QUOTE, TOK_ID a)], TOK_ID dyn, TUPLE3 (TOK_ID anynode, QUOTE, TOK_ID a'))) ->
+  fprintf fd "    | SV_%s of ('%s%s)%s%s option\n" memb ast a ast cell
 | oth -> unhand := Some oth; failwith "dump_itm"
 
 let dump_itm' fd arg typlst = function
@@ -98,6 +163,7 @@ let dump arg rtl =
   output_string fd ("type "^arg^"PropSpec = int\n");
   output_string fd ("type "^arg^"NodeId = int\n");
   output_string fd ("type "^arg^"Cell = int\n");
+  output_string fd ("type "^arg^"AnyNode = unit\n");
   List.iter (function
       | TOK_COMMENT s ->
         fprintf fd "(* %s *)\n" s
@@ -109,5 +175,5 @@ let dump arg rtl =
         dump_itm' fd arg !typlst itm;
         if lst = [] then output_string fd "unit\n";
       | oth -> unhand := Some oth; failwith "dump104"
-      ) (List.sort compare rtl);
+      ) (rtl);
   close_out fd
