@@ -128,6 +128,23 @@ Input.ml: Input.mly
 
 ############################################################################
 
+Struct_top: Struct.cmo Struct_lex.ml Struct_dump.ml Struct_main.ml
+	ocamlmktop -g -o $@ Struct.mli Struct.cmo Struct_lex.ml Struct_dump.ml Struct_main.ml
+
+Struct.cmo: Struct.ml Struct.mli
+	ocamlc.opt -g -c Struct.mli Struct.ml
+
+Struct.cmx: Struct.ml Struct.mli
+	ocamlopt.opt -g -c Struct.mli Struct.ml
+
+Struct_lex.ml: Struct_lex.mll
+	ocamllex $<
+
+Struct.ml: Struct.mly
+	menhir --trace $<
+
+############################################################################
+
 Pat_top: Pat.cmo Pat_types.cmo Pat_lex.ml Pat_rewrite.ml
 	ocamlmktop -g -o $@ Pat_types.cmo Pat.cmo Pat_lex.ml Pat_rewrite.ml
 

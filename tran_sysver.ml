@@ -57,39 +57,30 @@ let basechar = function
 
 let rec vexpr'' (typhash:(string,vtyp)Hashtbl.t) = function
 | Tilde expr -> UnaryExpr {op=BitNot; expr=vexpr typhash expr; postfix=false}
-| Pling expr -> UnaryExpr {op=LogNot; expr=vexpr typhash expr; postfix=false}
+| Pling expr -> UnaryExpr {op=LogicNot; expr=vexpr typhash expr; postfix=false}
+| TildeAnd expr -> UnaryExpr {op=BitNand; expr=vexpr typhash expr; postfix=false}
 | Id s -> IdentExpr (Spanned s)
 | Expression x -> vexpr typhash x
 | Number (b,w,n,s) -> LiteralExpr (BasedInteger (None,false,basechar b,s))
 | Intgr n -> LiteralExpr (Number(string_of_int n, None))
-| Pling expr -> " ! " ^ (vexpr typhash) expr
-| Concat lst -> "{"^String.concat ", " (List.map (vexpr typhash) lst)^"}"
-| Add ((Id s as lhs), (Intgr n as rhs)) -> (match Hashtbl.find_opt typhash s with
-    | Some (Unsigned_vector(hi', lo')) -> let hi = ceval typhash hi' and lo = ceval typhash lo' in vexpr' typhash lhs ^ " + " ^ vexpr' typhash (Number(2, hi-lo+1, n, string_of_int n))
-    | oth -> vexpr' typhash lhs ^ " + " ^ vexpr' typhash rhs)
-| Add (lhs, rhs) -> vexpr' typhash lhs ^ " + " ^ vexpr' typhash rhs
-| Sub ((Id s as lhs), (Intgr n as rhs)) -> (match Hashtbl.find_opt typhash s with
-    | Some (Unsigned_vector(hi', lo')) -> let hi = ceval typhash hi' and lo = ceval typhash lo' in vexpr' typhash lhs ^ " - " ^ vexpr' typhash (Number(2, hi-lo+1, n, string_of_int n))
-    | oth -> vexpr' typhash lhs ^ " - " ^ vexpr' typhash rhs)
-| Mult (lhs, rhs) -> vexpr' typhash lhs ^ " * " ^ vexpr' typhash rhs
-| StarStar (lhs, rhs) -> vexpr' typhash lhs ^ " ** " ^ vexpr' typhash rhs
-| Div (lhs, rhs) -> vexpr' typhash lhs ^ " * " ^ vexpr' typhash rhs
-| Sub (lhs, rhs) -> vexpr' typhash lhs ^ " - " ^ vexpr' typhash rhs
-| LtEq (lhs, rhs) -> vexpr' typhash lhs ^ " <= " ^ vexpr' typhash rhs
-| UMinus (rhs) -> " - " ^ vexpr' typhash rhs
-| Equals (ExprQuote1 (typ, lhs), rhs) -> vexpr' typhash lhs ^ " == " ^ vexpr' typhash rhs
-| Equals (lhs, rhs) -> vexpr' typhash lhs ^ " == " ^ vexpr' typhash rhs
-| NotEq (ExprQuote1 (typ, lhs), rhs) -> vexpr' typhash lhs ^ " != " ^ vexpr' typhash rhs
-| NotEq (lhs, rhs) -> vexpr' typhash lhs ^ " != " ^ vexpr' typhash rhs
-| GtEq (lhs, rhs) -> vexpr' typhash lhs ^ " >= " ^ vexpr' typhash rhs
-| Less (lhs, rhs) -> vexpr' typhash lhs ^ " < " ^ vexpr' typhash rhs
-| Greater (lhs, rhs) -> vexpr' typhash lhs ^ " > " ^ vexpr' typhash rhs
-| Or (lhs, rhs) -> (vexpr typhash) lhs ^ " | " ^ (vexpr typhash) rhs
-| Or2 (lhs, rhs) -> (vexpr typhash) lhs ^ " || " ^ (vexpr typhash) rhs
-| Xor (lhs, rhs) -> (vexpr typhash) lhs ^ " ^ " ^ (vexpr typhash) rhs
-| And (lhs, rhs) -> (vexpr typhash) lhs ^ " & " ^ (vexpr typhash) rhs
-| TildeAnd (rhs) -> " ~& " ^ (vexpr typhash) rhs
-| And2 (lhs, rhs) -> (vexpr typhash) lhs ^ " && " ^ (vexpr typhash) rhs
+| Concat lst -> ConcatExpr ({repeat=None; exprs=Array.of_list (List.map (vexpr typhash) lst)})
+| Add (lhs, rhs) -> BinaryExpr {op=Add; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| Sub (lhs, rhs) -> BinaryExpr {op=Sub; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| Mult (lhs, rhs) -> BinaryExpr {op=Mul; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| StarStar (lhs, rhs) -> BinaryExpr {op=Pow; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| Div (lhs, rhs) -> BinaryExpr {op=Div; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| UMinus (rhs) -> BinaryExpr {op=Sub; lhs=vexpr' typhash (Intgr 0); rhs=vexpr' typhash rhs}
+| LtEq (lhs, rhs) -> BinaryExpr {op=Leq; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| Equals (lhs, rhs) -> BinaryExpr {op=LogicEq; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| NotEq (lhs, rhs) -> BinaryExpr {op=LogicNeq; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| GtEq (lhs, rhs) -> BinaryExpr {op=Geq; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| Less (lhs, rhs) -> BinaryExpr {op=Lt; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| Greater (lhs, rhs) -> BinaryExpr {op=Gt; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| Or (lhs, rhs) -> BinaryExpr {op=BitOr; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| Or2 (lhs, rhs) -> BinaryExpr {op=LogicOr; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| Xor (lhs, rhs) -> BinaryExpr {op=BitXor; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| And (lhs, rhs) -> BinaryExpr {op=BitAnd; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
+| And2 (lhs, rhs) -> BinaryExpr {op=LogicAnd; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
 | Unsigned expr -> "$unsigned("^vexpr typhash expr^")"
 | Signed expr -> "$signed("^vexpr typhash expr^")"
 | Shiftl (lhs, rhs) -> "("^vexpr typhash lhs^" << "^vexpr typhash rhs^")"
