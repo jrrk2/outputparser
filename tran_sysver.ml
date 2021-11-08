@@ -3,7 +3,8 @@ open Source_text_lex
 open Source_text
 open Source_text_simplify
 open Printf
-open Sv_types
+open Token_types_old
+open Ast_types_old
 
 let dump_unhand = ref None
 let dump_unhand_lst = ref []
@@ -56,122 +57,71 @@ let basechar = function
 | n -> failwith ("basechar: "^string_of_int n^"not supported")
 
 let rec vexpr'' (typhash:(string,vtyp)Hashtbl.t) = function
-| Tilde expr -> UnaryExpr {op=BitNot; expr=vexpr typhash expr; postfix=false}
-| Pling expr -> UnaryExpr {op=LogicNot; expr=vexpr typhash expr; postfix=false}
-| TildeAnd expr -> UnaryExpr {op=BitNand; expr=vexpr typhash expr; postfix=false}
-| Id s -> IdentExpr (Spanned s)
+| Tilde expr -> SV_UnaryExpr {op=SV_BitNot; expr=vexpr typhash expr; postfix=false}
+| Pling expr -> SV_UnaryExpr {op=SV_LogicNot; expr=vexpr typhash expr; postfix=false}
+| TildeAnd expr -> SV_UnaryExpr {op=SV_BitNand; expr=vexpr typhash expr; postfix=false}
+| Id s -> SV_IdentExpr (s)
 | Expression x -> vexpr typhash x
-| Number (b,w,n,s) -> LiteralExpr (BasedInteger (None,false,basechar b,s))
-| Intgr n -> LiteralExpr (Number(string_of_int n, None))
-| Concat lst -> ConcatExpr ({repeat=None; exprs=Array.of_list (List.map (vexpr typhash) lst)})
-| Add (lhs, rhs) -> BinaryExpr {op=Add; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Sub (lhs, rhs) -> BinaryExpr {op=Sub; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Mult (lhs, rhs) -> BinaryExpr {op=Mul; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| StarStar (lhs, rhs) -> BinaryExpr {op=Pow; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Div (lhs, rhs) -> BinaryExpr {op=Div; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| UMinus (rhs) -> BinaryExpr {op=Sub; lhs=vexpr' typhash (Intgr 0); rhs=vexpr' typhash rhs}
-| LtEq (lhs, rhs) -> BinaryExpr {op=Leq; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Equals (lhs, rhs) -> BinaryExpr {op=LogicEq; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| NotEq (lhs, rhs) -> BinaryExpr {op=LogicNeq; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| GtEq (lhs, rhs) -> BinaryExpr {op=Geq; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Less (lhs, rhs) -> BinaryExpr {op=Lt; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Greater (lhs, rhs) -> BinaryExpr {op=Gt; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Or (lhs, rhs) -> BinaryExpr {op=BitOr; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Or2 (lhs, rhs) -> BinaryExpr {op=LogicOr; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Xor (lhs, rhs) -> BinaryExpr {op=BitXor; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| And (lhs, rhs) -> BinaryExpr {op=BitAnd; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| And2 (lhs, rhs) -> BinaryExpr {op=LogicAnd; lhs=vexpr' typhash lhs; rhs=vexpr' typhash rhs}
-| Unsigned expr -> "$unsigned("^vexpr typhash expr^")"
-| Signed expr -> "$signed("^vexpr typhash expr^")"
-| Shiftl (lhs, rhs) -> "("^vexpr typhash lhs^" << "^vexpr typhash rhs^")"
-| Shiftr (lhs, rhs) -> "("^vexpr typhash lhs^" >> "^vexpr typhash rhs^")"
-| Shiftr3 (lhs, rhs) -> "("^vexpr typhash lhs^" >>> "^vexpr typhash rhs^")"
-| CellPinItem2 (port, expr) -> "." ^ port ^ " ( " ^ vexpr typhash expr ^ " ) "
-| CellPinItemImplied (port) -> "." ^ port ^ " ( " ^ port ^ " ) "
-| CellPinItemNC (port) -> "." ^ port ^ " ( ) "
-| Query (Id cond', ctrue', cfalse') -> sprintf "%s ? %s : %s" cond' (vexpr typhash ctrue') (vexpr typhash cfalse')
-| Query (cond', ctrue', cfalse') -> sprintf "%s ? %s : %s" (vexpr typhash cond') (vexpr typhash ctrue') (vexpr typhash cfalse')
-| Deflt -> "()"
-| Dot1(Id lft, Id rght) -> vexpr typhash (dot_extract typhash lft rght)
-| Dot1 (Id lft, IdArrayed2 (Id rght, IdArrayedColon (Intgr ix, Intgr hi, Intgr 0))) when hi > clog2 (ix) ->
-   vexpr typhash (match dot_extract typhash lft rght with
-     | IdArrayed2 (Id lft', Intgr ix') ->
-       IdArrayed2 (Id lft', Intgr (ix'+ix))
-     | oth -> oth)
-| Dot1 (Id lft, IdArrayed2 (Id rght, Intgr ix)) ->
-   vexpr typhash (match dot_extract typhash lft rght with
-     | IdArrayed2 (Id lft', Intgr ix') ->
-       IdArrayed2 (Id lft', Intgr (ix'+ix))
-     | oth -> oth)
-| Dot1 (Id lft, IdArrayedColon (Id rght, Intgr hi, Intgr lo)) ->
-   vexpr typhash (match dot_extract typhash lft rght with
-     | IdArrayedColon (Id lft', Intgr hi', Intgr lo') ->
-       IdArrayedColon (Id lft', Intgr (lo'+hi), Intgr (lo'+lo))
-     | oth -> oth)
-| Dot1 (Dot1 (Id lft, Id field), Id subfield) -> vexpr typhash (dot_extract3 typhash lft field subfield)
-| Dot1 (IdArrayed2 (Id arr, ix), IdArrayedColon (Id slice, hi, lo)) -> "placeholder: " ^ arr ^ slice
-| Dot1 (Dot1 (IdArrayed2 (Id arr, ix), Id field), Id subfield) -> "placeholder: " ^ arr ^ "[" ^ vexpr typhash ix ^ "]" ^ field ^ "." ^ subfield
-| Dot1 (IdArrayed2 (Id arr, ix), Id field) -> "placeholder: " ^ arr ^ "[" ^ vexpr typhash ix ^ "]" ^ field
-| Dot1 (Dot1 (IdArrayed2 (Id arr, ix), Id field), (IdArrayedColon _ as x)) -> "placeholder: " ^ arr ^ "[" ^ vexpr typhash ix ^ "]" ^ field ^ "." ^ vexpr typhash x
-| Dot1 (IdArrayed2 (Id arr, ix), IdArrayed2 (Id field, ix')) -> "placeholder: " ^ arr ^ "[" ^ vexpr typhash ix ^ "] . " ^ field ^ "." ^ vexpr typhash ix'
-| Dot1 (Dot1 (Id id, Id field), IdArrayedColon (Id subfield, hi, lo)) -> "placeholder: " ^ id ^ "." ^ field ^ "." ^ subfield ^ "[" ^ vexpr typhash hi ^ ":" ^ vexpr typhash lo ^ "]"
-| Dot1 (Id lft, IdArrayed2 (Id rght, IdArrayedColon (Id arr, hi, lo))) -> "placeholder: " ^ lft ^ "." ^ rght ^ "[" ^ arr ^ "[" ^ vexpr typhash hi ^ ":" ^ vexpr typhash lo ^ "] ]"
-| Dot1 (Id lft, IdArrayed2 (Id rght, Id id)) -> "placeholder: " ^ lft ^ "." ^ rght ^ "[" ^ id ^ "]"
-| RedOr (lhs) -> " | (" ^ vexpr typhash lhs ^ ")"
-| RedAnd (lhs) -> " & (" ^ vexpr typhash lhs ^ ")"
-| RedXor (lhs) -> " ^ (" ^ vexpr typhash lhs ^ ")"
-| TildeOr (lhs) -> " ~| (" ^ vexpr typhash lhs ^ ")"
-| IdArrayed2 (InitPat lst, Intgr n) -> vexpr typhash (if n < List.length lst then List.nth lst n else Intgr 0)
-| IdArrayed2 (InitPat _, _) as x ->
-  dump_unhand := Some x;
-  failwith "InitPat'";
-| IdArrayed2 (IdArrayed2 (Id mem, ix), ix') ->
-  (match Hashtbl.find_opt typhash mem with
-      | Some (Unsigned_array [hi,lo; hi',lo']) -> vexpr typhash (IdArrayed2 (Id mem, Add (Sub (hi', lo'), Mult (Sub (ix, lo), Add (Sub (hi', lo'), Intgr 1)))))
-      | Some (Unsigned_vector (lft, rght)) -> vexpr typhash (IdArrayed2 (Id mem, ix)) (* placeholder *)
-      | Some (Unsigned_array dims) -> vexpr typhash (IdArrayed2 (Id mem, ix)) (* placeholder *)
-      | Some (MaybePort (_, Unsigned_array dims, _)) -> vexpr typhash (IdArrayed2 (Id mem, ix)) (* placeholder *)
-      | oth -> coth := oth; failwith "dims")
-| IdArrayed2 (id, ix) -> vexpr typhash id^"["^vexpr typhash ix^"]"
-| IdArrayed3 (PackageBody (pkg, []) :: [], arr) -> pkg^"::"^vexpr typhash arr
-| IdArrayedColon (Number(_,w,n,_), expr, expr') ->
-  let hi = ceval typhash expr and lo = ceval typhash expr' in
-  let mask = 1 lsl (hi-lo) in
-  sprintf "%d'h%x" (hi - lo + 1) ((land) (n lsr lo) (mask-1))
-| IdArrayedColon (id, expr, expr') -> vexpr typhash id^"["^vexpr typhash expr^" : "^vexpr typhash expr'^"]"
-| IdArrayedPlusColon (id, expr, expr') ->
-  let lo = ceval typhash expr and wid = ceval typhash expr' in
-  vexpr typhash id^"["^string_of_int (lo+wid-1)^" : "^string_of_int lo^"]"
-| IdArrayedHyphenColon (id, expr, expr') -> vexpr typhash id^"["^vexpr typhash expr^" : "^vexpr typhash expr'^"]"
-| FunRef (fn, arglst) -> fn^"("^String.concat ", " (List.map (vexpr typhash) arglst)^")"
-| FunRef2 (fn, _, arglst) -> fn^"("^String.concat ", " (List.map (vexpr typhash) arglst)^")"
-| AsgnPat [PatMemberDflt (Number _ as expr)] -> "{"^(vexpr typhash expr)^"}"
-| AsgnPat lst -> String.concat "; " (List.map (vexpr typhash) lst)
-| Repl (Intgr n, [expr]) -> if n >= 0 then " {" ^ String.concat ", " (List.init n (fun _ -> vexpr typhash expr)) ^ "} " else "{ ... }"
-| Repl (expr', [expr]) -> "{{"^(vexpr typhash expr')^"}{"^(vexpr typhash expr)^"}}"
-| InsideRange (first, last) -> "inside_range("^(vexpr typhash first)^", "^(vexpr typhash last)^")"
-| OpenRange lst -> "open_range("^String.concat ", " (List.map (vexpr typhash) lst)^")"
-| ExprOKL lst -> " {" ^ String.concat ", " (List.map (function
-      | ExprQuote1(typ, expr) -> vexpr typhash expr
-      | oth -> vexpr typhash oth) lst) ^ "} "
-| PackageBody (pkg, [Id id]) -> pkg^"::"^id
+| Number (b,w,n,s) -> SV_LiteralExpr (SV_BasedInteger (None,false,basechar b,s))
+| Intgr n -> SV_LiteralExpr (SV_Number(string_of_int n, None))
+| Concat lst -> SV_ConcatExpr ({repeat=None; exprs=Array.of_list (List.map (vexpr typhash) lst)})
+| Add (lhs, rhs) -> SV_BinaryExpr {op=SV_Add; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Sub (lhs, rhs) -> SV_BinaryExpr {op=SV_Sub; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Mult (lhs, rhs) -> SV_BinaryExpr {op=SV_Mul; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| StarStar (lhs, rhs) -> SV_BinaryExpr {op=SV_Pow; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Div (lhs, rhs) -> SV_BinaryExpr {op=SV_Div; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| UMinus (rhs) -> SV_BinaryExpr {op=SV_Sub; lhs=vexpr typhash (Intgr 0); rhs=vexpr typhash rhs}
+| LtEq (lhs, rhs) -> SV_BinaryExpr {op=SV_Leq; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Equals (lhs, rhs) -> SV_BinaryExpr {op=SV_LogicEq; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| NotEq (lhs, rhs) -> SV_BinaryExpr {op=SV_LogicNeq; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| GtEq (lhs, rhs) -> SV_BinaryExpr {op=SV_Geq; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Less (lhs, rhs) -> SV_BinaryExpr {op=SV_Lt; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Greater (lhs, rhs) -> SV_BinaryExpr {op=SV_Gt; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Or (lhs, rhs) -> SV_BinaryExpr {op=SV_BitOr; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Or2 (lhs, rhs) -> SV_BinaryExpr {op=SV_LogicOr; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Xor (lhs, rhs) -> SV_BinaryExpr {op=SV_BitXor; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| And (lhs, rhs) -> SV_BinaryExpr {op=SV_BitAnd; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| And2 (lhs, rhs) -> SV_BinaryExpr {op=SV_LogicAnd; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Unsigned expr -> SV_CallExpr (SV_SysIdentExpr "$unsigned", [|SV_expr(Some (vexpr typhash expr))|])
+| Signed expr -> SV_CallExpr (SV_SysIdentExpr "$signed", [|SV_expr(Some (vexpr typhash expr))|])
+| Shiftl (lhs, rhs) -> SV_BinaryExpr {op=SV_LogicShL; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Shiftr (lhs, rhs) -> SV_BinaryExpr {op=SV_LogicShR; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
+| Shiftr3 (lhs, rhs) -> SV_BinaryExpr {op=SV_ArithShR; lhs=vexpr typhash lhs; rhs=vexpr typhash rhs}
 (*
-| ExprQuote1(lhs, rhs) -> vexpr typhash lhs^"'("^vexpr typhash rhs^")"
-*)
-| Sys ("$unsigned", expr) -> vexpr typhash (Unsigned expr)
-| Sys ("$signed", expr) -> vexpr typhash (Signed expr)
-| Sys ("$clog2", StarStar (Intgr n, Intgr m)) -> vexpr typhash (Intgr (clog2 (n lsl m)))
-| Sys ("$clog2", expr) -> "$clog2 (" ^ vexpr typhash expr ^ ")"
-| Sys ("$high", expr) -> "$high (" ^ vexpr typhash expr ^ ")"
-| Sys ("$low", expr) -> "$low (" ^ vexpr typhash expr ^ ")"
-| Sys ("$bits", expr) -> string_of_int (typsiz' typhash expr)
-| Sys (sys_id, arglst) -> let args = (match arglst with
-        | Itmlst lst -> String.concat ", " (List.map (vexpr typhash) lst)
-	| oth -> vexpr typhash oth) in
-    String.sub sys_id 1 (String.length sys_id - 1) ^ "(" ^ args ^")"
-| Typ3 (id_t, [PackageBody (pkg, [])]) -> pkg^"::"^id_t
-| PackageBody (pkg, []) -> pkg^"::"
+| CellPinItem2 (port, expr) -> SV_Named(port, SV_Connected(vexpr typhash expr))
+| CellPinItemImplied (port) -> SV_Named(port, SV_Auto)
+| CellPinItemNC (port) -> SV_Named(port, SV_Unconnected)
+| Deflt -> "()"
 | Atom ".*" -> "" (* placeholder *)
+*)
+| Query (cond', ctrue', cfalse') -> SV_TernaryExpr {cond=vexpr typhash cond'; true_expr=vexpr typhash ctrue'; false_expr=vexpr typhash cfalse'}
+| RedOr expr -> SV_UnaryExpr {op=SV_BitOr; expr=vexpr typhash expr; postfix=false}
+| RedAnd expr -> SV_UnaryExpr {op=SV_BitAnd; expr=vexpr typhash expr; postfix=false}
+| RedXor expr -> SV_UnaryExpr {op=SV_BitXor; expr=vexpr typhash expr; postfix=false}
+| TildeOr expr -> SV_UnaryExpr {op=SV_BitNor; expr=vexpr typhash expr; postfix=false}
+| IdArrayed2 (id, ix) -> SV_IndexExpr {indexee=vexpr typhash id; index=vexpr typhash ix}
+| IdArrayed3 (PackageBody (pkg, []) :: [], arr) -> SV_ScopeExpr (vexpr typhash arr, pkg)
+| IdArrayedColon (id, expr, expr') -> SV_RangeExpr {mode=SV_Absolute; lhs=vexpr typhash expr; rhs=vexpr typhash expr'}
+| IdArrayedPlusColon (id, expr, expr') -> SV_DummyExpr
+| IdArrayedHyphenColon (id, expr, expr') -> SV_DummyExpr
+| FunRef (fn, arglst) -> SV_DummyExpr
+| FunRef2 (fn, _, arglst) -> SV_DummyExpr
+| AsgnPat lst -> SV_DummyExpr
+| Repl (expr', [expr]) -> SV_DummyExpr
+| InsideRange (first, last) -> SV_DummyExpr
+| OpenRange lst -> SV_DummyExpr
+| ExprOKL lst -> SV_DummyExpr
+| PackageBody (pkg, id :: []) -> SV_ScopeExpr (vexpr typhash id, pkg)
+| Sys (sys_id, expr) -> SV_CallExpr (SV_SysIdentExpr sys_id, [|SV_expr(Some (vexpr typhash expr))|])
+| Sys ("$bits", expr) -> SV_BitsExpr {name=(0, ""); arg=SV_Expr(vexpr typhash expr)}
+| Sys (sys_id, arglst) -> let args = Array.of_list(match arglst with
+        | Itmlst lst -> List.map (fun itm -> let rslt:('a)astCallArg = SV_expr (Some (vexpr typhash itm)) in rslt) lst
+	| oth -> SV_expr (Some (vexpr typhash oth)) :: []) in
+  SV_CallExpr (SV_SysIdentExpr sys_id, args)
+| Typ3 (id_t, [PackageBody (pkg, [])]) -> SV_ScopeExpr (SV_IdentExpr id_t, pkg)
+| PackageBody (pkg, []) -> SV_ScopeExpr (SV_DummyExpr, pkg)
+| Dot1(lft, Id rght) -> SV_MemberExpr {expr=vexpr typhash lft; name=(0, rght)}
+(*
 | Atom kind -> kind (* placeholder *)
 | Typ1 id_t -> id_t
 | PatMember1 (Id id, expr) -> id ^ " == " ^ vexpr typhash expr
@@ -182,24 +132,10 @@ let rec vexpr'' (typhash:(string,vtyp)Hashtbl.t) = function
 | PackageRef (pkg_id, id) -> pkg_id ^ "::" ^ id
 | Dot1 (FunRef2 _, _) -> "FunRef2.x" (* placeholder *)
 | Itmlst _ -> "Itmlst ..." (* placeholder *)
-| Dot1 (Id value, IdArrayed2 (Id mantissa, Sub (FunRef2 _, _))) -> "Dot1 ..." (* placeholder *)
-| Dot1 (IdArrayed2 (IdArrayed2 (Id arr, Id ix), ix'), Id field) -> "Dot1 ..." (* placeholder *)
-| Dot1 (IdArrayed2 (IdArrayed2 (Id arr, Id ix), ix'), IdArrayed2 (Id arr', ix'')) -> "Dot1 ..." (* placeholder *)
-| Dot1 (Id id, IdArrayedColon (Id arr, hi, lo)) -> "Dot1 ..." (* placeholder *)
-| Dot1 (Id id, IdArrayedPlusColon (Id arr, strt, wid)) -> "Dot1 ..." (* placeholder *)
-| Dot1 (Id id, IdArrayed2 (Id arr, ix)) -> "Dot1 ..." (* placeholder *)
 | DeclAsgn (Id id, (AnyRange _ :: _ as dims)) -> "DeclAsgn ("^id^", ...)"
 | InitPat _ -> failwith "InitPat";
+*)
 | oth -> dump_unhand := Some oth; failwith "vexpr dump_sysver.ml:180"
-
-and vexpr' typhash = function
-| (Intgr _ | Number _) as x -> "($unsigned(" ^ (vexpr typhash) x ^ ")) "
-| (Id s) as x -> (match Hashtbl.find_opt typhash s with
-    | Some (Vint _|Vtyp _|Venum _|Vsigtyp|Vpkg _|Vfun _|Vintf _|Vstr _|Vdot) -> vexpr typhash x
-    | Some Unsigned_vector _ -> "$unsigned(" ^ vexpr typhash x ^ ") "
-    | Some oth -> vexpr typhash x
-    | None -> print_endline ("not found: "^s); s)
-| x -> "$unsigned(" ^ vexpr typhash x ^ ") "
 
 and cexpr' typhash = function
     | Id s -> s
@@ -233,16 +169,6 @@ and cexpr' typhash = function
     | FunRef2 (fid, [PackageBody (pkg, [])], arglst) -> pkg^"::"^fid^"("^String.concat ", " (List.map (cexpr' typhash) arglst)^")"
     | ExprQuote1 (Atom typ, arg) -> "("^typ^")"^cexpr' typhash arg
     | oth -> dump_unhand := Some oth; failwith "cexpr"
-
-and funtyp typhash = function
-| Atom primtyp -> primtyp
-| Typ1 id_t -> id_t
-| Typ3 (id_t, [PackageBody (pkg, [])]) -> pkg^"::"^id_t
-| Typ5 (Atom primtyp, AnyRange (lft, rght) :: []) -> sprintf "%s [%s:%s]" primtyp (vexpr typhash lft) (vexpr typhash rght)
-| Typ6 (Atom primtyp) -> primtyp
-| Typ8 (Atom kind, Atom kind') -> kind' ^ kind
-| Typ8 (Atom kind, Deflt) -> kind
-| oth -> dump_unhand := Some oth; failwith "funtyp"
 
 and simplify = function
 | Add (Intgr lhs, Intgr rhs) -> Intgr (lhs + rhs)
@@ -283,11 +209,8 @@ and vexpr typhash x =
   let s = vexpr'' typhash x' in
   s
 
-let sel_expr typhash x = match simplify x with Intgr _ -> "0" | oth -> vexpr typhash oth
-
 let asgn fd typhash expr = function
-| Id lhs ->
-  fprintf fd "assign %s = %s; // 384\n" lhs (vexpr typhash expr)
+| Id lhs -> SV_ContAssign (lhs, (vexpr typhash expr))
 | Concat _ as lst -> fprintf fd "assign %s = %s; // 385\n" (vexpr typhash lst) (vexpr typhash expr)
 | Dot1 (lft, rght) as x -> fprintf fd "assign %s = %s; // 386\n" (vexpr typhash x) (vexpr typhash expr)
 | IdArrayed2 (Id id, ix) -> 
