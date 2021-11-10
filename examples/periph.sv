@@ -3145,9 +3145,8 @@ module SimJTAG #(
    wire [31:0]                   tickCounterNxt;
    assign tickCounterNxt = (tickCounterReg == 0) ? TICK_DELAY :  (tickCounterReg - 1);
    bit          r_reset;
-   wire [31:0]  random_bits = $random;
    wire         #0.1 __jtag_TDO = jtag_TDO_driven ?
-                jtag_TDO_data : random_bits[0];
+                jtag_TDO_data : 1'b0;
    bit          __jtag_TCK;
    bit          __jtag_TMS;
    bit          __jtag_TDI;

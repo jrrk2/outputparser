@@ -54,6 +54,8 @@ open Sexplib.Std
 open Ppx_sexp_conv_lib.Sexp
 open Sexplib0__.Sexp
 open Sexplib.Sexp
+open Tran_sysver
+open Ast_types_old
 ;;
 
 let v = "timer.v";;
@@ -157,16 +159,21 @@ let v = "../yosys/tests/svtypes/typedef_scopes.sv";;
 let v = "examples/typedef_struct.sv";;
 let v = "../yosys/tests/svtypes/struct_array.sv";;
 let v = "examples/ariane_preproc.sv";;
-let v = "examples/periph.sv";;
 let v = "examples/count8.sv";;
 let v = "examples/count0.v";;
+let v = "examples/arith.v";;
+let v = "examples/periph.sv";;
 
 let dbgx = ref None
 let dbgprt = ref []
 
 let t id = Hashtbl.find !dbgtyp id;;
 
+(*
 let (modlst,x,p,p',status) = rewrite_rtlil v;;
+*)
+
+let (modlst,x,p,p',status) = rewrite_tran v;;
 
 (*
 let x' = match !dbgsub with Some x -> print_source (sexp_of_rw x) | None -> "";;
@@ -179,7 +186,6 @@ let y = rw_of_sexp y';;
 dbgtyp := List.assoc "fpnew_pkg" !dbgtyplst;;
 dbgprt := List.assoc "fpnew_pkg" !dbgports;;
 let req = Hashtbl.find !dbgtyp "icache_dreq_o";;
-*)
 
 let x crnt = sub' (List.assoc crnt !Matchmly.modules);;
 let u = snd (List.hd modlst);;
@@ -191,7 +197,6 @@ let tlst = ref [];;
 Hashtbl.iter (fun k x -> tlst := (k,x) :: !tlst) !dbgtyp;;
 let tlst = !tlst;;
 
-(*
 let u' = List.filter (function DeclReg _ -> false| _ -> true) u;;
 
 Let _ = Hashtbl.iter (fun k x -> let fd = open_out (k^".dump") in dump fd x; close_out fd) modules;;

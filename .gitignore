@@ -133,3 +133,10 @@ Struct_lex.ml
 Struct_top
 ast_types_new.ml
 ast_types_old.ml
+Moore.conflicts
+Moore.ml
+Moore.mli
+Moore_lex.ml
+Moore_top
+p'.ml
+token_types_new.ml

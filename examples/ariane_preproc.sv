@@ -32620,13 +32620,13 @@ module axi_multicut #(
   initial begin
     assert(NUM_CUTS >= 0);
   end
-  if (NUM_CUTS == 0) begin : g_cuts
+  if (NUM_CUTS == 0) begin : g_cuts0
     axi_join i_join (
       .in  ( in  ),
       .out ( out )
     );
   end
-  else if (NUM_CUTS == 1) begin : g_cuts
+  else if (NUM_CUTS == 1) begin : g_cuts1
     axi_cut #(
       .ADDR_WIDTH ( ADDR_WIDTH ),
       .DATA_WIDTH ( DATA_WIDTH ),
@@ -33974,7 +33974,8 @@ module edge_detect (
         .f_edge_o ( fe_o   ),
         .serial_o (        )
     );
-endmodule
+endmodule // edge_detect
+(*
 module stream_arbiter #(
     parameter type      DATA_T = logic,    
     parameter integer   N_INP = -1,        
@@ -34063,7 +34064,8 @@ module stream_arbiter_flushable #(
   end else begin : gen_arb_error
     $fatal(1, "Invalid value for parameter 'ARBITER'!");
   end
-endmodule
+ endmodule // stream_arbiter_flushable
+*) 
 /*verilator lint_off DECLFILENAME*/ 
 module fifo #(
     parameter bit          FALL_THROUGH = 1'b0,  

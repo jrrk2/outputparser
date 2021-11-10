@@ -44,8 +44,8 @@ clean:
 
 ###############################################################################
 
-Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.ml classify.ml matchmly.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml Source_text_preproc.ml Source_text_rewrite.ml dump_rtlil.ml Input.cmo Input_types.cmo Input_rewrite_types.ml ord_input.ml Input_lex.ml Input_dump.ml Source_text_misc_types.mli Source_text_misc.ml ver_dump.ml Input_rewrite.ml dump_sysver.ml Source_text_main.ml convert.ml Source_text_split.ml Source_text_simplify.ml
-	ocamlfind ocamlmktop -package msat,sexplib,ppx_sexp_conv -linkpkg -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Input_rewrite_types.ml Source_text_rewrite_types.ml classify.ml matchmly.ml Source_text_rewrite.ml Source_text_preproc.ml Input_types.ml Input.ml Source_text_misc_types.mli ord_input.ml Input_lex.ml Input_rewrite.ml Source_text_misc.ml Source_text_split.ml Input_dump.ml convert.ml Source_text_simplify.ml dump_sysver.ml Source_text_main.ml
+Source_text_top: Source_text.cmo Source_text_types.cmo Source_text_lex.ml Source_text_rewrite_types.ml classify.ml matchmly.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml Source_text_preproc.ml Source_text_rewrite.ml dump_rtlil.ml Input.cmo Input_types.cmo Input_rewrite_types.ml ord_input.ml Input_lex.ml Input_dump.ml Source_text_misc_types.mli Source_text_misc.ml ver_dump.ml Input_rewrite.ml dump_sysver.ml Source_text_main.ml convert.ml Source_text_split.ml Source_text_simplify.ml token_types_old.ml ast_types_old.ml tran_sysver.ml
+	ocamlfind ocamlmktop -package msat,sexplib,ppx_sexp_conv -linkpkg -g -o $@ Source_text_types.cmo Source_text.cmo Source_text_lex.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Input_rewrite_types.ml Source_text_rewrite_types.ml classify.ml matchmly.ml Source_text_rewrite.ml Source_text_preproc.ml Input_types.ml Input.ml Source_text_misc_types.mli ord_input.ml Input_lex.ml Input_rewrite.ml Source_text_misc.ml Source_text_split.ml Input_dump.ml convert.ml Source_text_simplify.ml dump_sysver.ml token_types_old.ml ast_types_old.ml tran_sysver.ml Source_text_main.ml
 
 Source_text: Source_text.cmx Source_text_types.cmx Source_text_lex.ml Source_text_rewrite_types.ml dump_rtlil.ml Input.cmx Input_types.ml Input_rewrite_types.ml ord_input.ml Input_lex.ml classify.ml matchmly.ml Source_text_preproc.ml Source_text_rewrite.ml Input_dump.ml Source_text_misc_types.mli Source_text_misc.ml ver_dump.ml Source_text_main.ml String_lit.mli String_lit.ml Msat_sat_slit.mli Msat_sat_slit.ml Msat_tseitin.mli Msat_tseitin.ml dump_sysver.ml convert.ml Source_text_split.ml Source_text_simplify.ml
 	ocamlfind ocamlopt -package msat,sexplib,ppx_sexp_conv -linkpkg -g -o $@ Source_text_types.cmx Source_text.cmx Source_text_lex.ml String_lit.{mli,ml} Msat_sat_slit.{mli,ml} Msat_tseitin.{mli,ml} Input_rewrite_types.ml Source_text_rewrite_types.ml classify.ml matchmly.ml Source_text_rewrite.ml Source_text_preproc.ml Input_types.ml Input.ml Source_text_split.ml ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml Source_text_misc_types.mli Source_text_misc.ml convert.ml Source_text_simplify.ml dump_sysver.ml Source_text_main.ml
@@ -142,6 +142,23 @@ Struct_lex.ml: Struct_lex.mll
 
 Struct.ml: Struct.mly
 	menhir --trace $<
+
+############################################################################
+
+Moore_top: Moore.cmo Moore_lex.ml Moore_dump.ml Moore_main.ml
+	ocamlmktop -g -o $@ Moore.mli Moore.cmo Moore_lex.ml Moore_dump.ml Moore_main.ml
+
+Moore.cmo: Moore.ml Moore.mli
+	ocamlc.opt -g -c Moore.mli Moore.ml
+
+Moore.cmx: Moore.ml Moore.mli
+	ocamlopt.opt -g -c Moore.mli Moore.ml
+
+Moore_lex.ml: Moore_lex.mll
+	ocamllex $<
+
+Moore.ml: Moore.mly
+	menhir --trace --unused-tokens --explain $<
 
 ############################################################################
 

@@ -1,0 +1,6 @@
+
+open Moore_main
+open Moore_dump
+open Moore
+
+let _ = dmp "../moore/ariane_preproc.ast";;

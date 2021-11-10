@@ -28,6 +28,20 @@ let preproc_parse v =
 
 let find x = List.assoc x !(Matchmly.modules)
 
+let rewrite_tran v =
+  let status = ref true in
+  if verbose > 1 then print_endline ("Parsing: "^v);
+  let topmods, p, p' = preproc_parse v in
+  let optlst = List.mapi (fun ix (k, x) ->
+                dbgxlst := (k, x) :: !dbgxlst;
+                let sub = Tran_sysver.dump_template Matchmly.modules x in
+(*
+                print_endline (print_source (sexp_of_rw sub));
+*)
+                sub
+		) topmods in
+  optlst, topmods, p, p', !status
+
 let rewrite_rtlil v =
   let status = ref true in
   if verbose > 1 then print_endline ("Parsing: "^v);

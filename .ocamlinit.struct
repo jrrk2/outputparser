@@ -1,0 +1,9 @@
+
+open Struct_main
+open Struct_dump
+open Struct
+
+(*
+let _ = dmp "ast";;
+*)
+let _ = dmp "token";;
