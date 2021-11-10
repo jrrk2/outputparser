@@ -24,5 +24,7 @@ let parse fil =
 let dmp ast =
   let p = parse ast in
   p' := p;
-  dump ast p;
-  p
+  let d = dump p in
+  p,d 
+
+

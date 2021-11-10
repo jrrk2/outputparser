@@ -1,16 +1,20 @@
-type token = unit
-type tokenchar = char
-type tokenSpan = unit
-type tokenSpanned = int
-type tokenbool = bool
-type tokenName = string
-type tokenKw = string
-type tokenusize = int
-type tokendyn = int
-type tokenPropSpec = int
-type tokenNodeId = int
-type tokenCell = int
-type tokenAnyNode = unit
+open Sexplib
+open Sexplib.Std
+open Ppx_sexp_conv_lib.Sexp
+
+type token = unit [@@deriving sexp]
+type tokenchar = char [@@deriving sexp]
+type tokenSpan = unit [@@deriving sexp]
+type tokenSpanned = int [@@deriving sexp]
+type tokenbool = bool [@@deriving sexp]
+type tokenName = string [@@deriving sexp]
+type tokenKw = string [@@deriving sexp]
+type tokenusize = int [@@deriving sexp]
+type tokendyn = int [@@deriving sexp]
+type tokenPropSpec = int [@@deriving sexp]
+type tokenNodeId = int [@@deriving sexp]
+type tokenCell = int [@@deriving sexp]
+type tokenAnyNode = unit [@@deriving sexp]
 (* // Copyright (c) 2016-2021 Fabian Schuiki *)
 (* //! Defines all tokens that may result from performing lexical analysis on a *)
 (* //! SystemVerilog source file. This module is inspired heavily by the tokens *)
@@ -53,6 +57,7 @@ and tokenToken =
     | SV_Keyword of (tokenKw)
     (* // The end of the input file *)
     | SV_Eof
+ [@@deriving sexp]
 (* /// A delimiter token such as parentheses or brackets. *)
 
 and tokenDelimToken =
@@ -64,6 +69,7 @@ and tokenDelimToken =
     | SV_Brace
     (* /// A `begin` or `end` *)
     | SV_Bgend
+ [@@deriving sexp]
 (* /// Abstract literals such as strings. *)
 
 and tokenLit =
@@ -75,6 +81,7 @@ and tokenLit =
     | SV_Number of (tokenName * tokenName option)
     (* /// A time literal given as integer part, fractional part, and unit. *)
     | SV_Time of (tokenName * tokenName option * tokenTimeUnit)
+ [@@deriving sexp]
 (* /// The unit of a time literal. *)
 
 and tokenTimeUnit =
@@ -84,6 +91,7 @@ and tokenTimeUnit =
     | SV_NanoSecond
     | SV_PicoSecond
     | SV_FemtoSecond
+ [@@deriving sexp]
 (* /// Operator symbols. *)
 
 and tokenOp =
@@ -147,6 +155,7 @@ and tokenOp =
     | SV_SeqImplNol
     | SV_SeqFollowOl
     | SV_SeqFollowNol
+ [@@deriving sexp]
 (* /// Expression precedence. Note that a few kinds of expression are *)
 (* /// right-associative rather than the default left-associative. *)
 
@@ -176,3 +185,4 @@ and tokenPrecedence =
     | SV_Postfix
     | SV_Scope
     | SV_Max
+ [@@deriving sexp]

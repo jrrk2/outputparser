@@ -232,19 +232,19 @@ let typ_dump arg typlst = function
 
 let dump arg rtl =
   let fd = open_out (arg^"_types_new.ml") in
-  output_string fd ("type "^arg^" = unit\n");
-  output_string fd ("type "^arg^"Span = unit\n");
-  output_string fd ("type "^arg^"Spanned = int\n");
-  output_string fd ("type "^arg^"bool = bool\n");
-  output_string fd ("type "^arg^"Name = string\n");
-  output_string fd ("type "^arg^"Lit = string\n");
-  output_string fd ("type "^arg^"Op = int\n");
-  output_string fd ("type "^arg^"usize = int\n");
-  output_string fd ("type "^arg^"dyn = int\n");
-  output_string fd ("type "^arg^"PropSpec = int\n");
-  output_string fd ("type "^arg^"NodeId = int\n");
-  output_string fd ("type "^arg^"Cell = int\n");
-  output_string fd ("type "^arg^"AnyNode = unit\n");
+  output_string fd ("type "^arg^" = unit [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"char = char [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"Span = unit [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"Spanned = int [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"bool = bool [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"Name = string [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"Kw = string [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"usize = int [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"dyn = int [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"PropSpec = int [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"NodeId = int [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"Cell = int [@@deriving sexp]\n");
+  output_string fd ("type "^arg^"AnyNode = unit [@@deriving sexp]\n");
   List.iter (function
       | TOK_COMMENT s ->
         fprintf fd "(* %s *)\n" s
@@ -253,6 +253,7 @@ let dump arg rtl =
         fprintf fd "\n";
         fprintf fd "and %s%s%s =" (if typ_p <> [] then "("^String.concat ", " (List.map (typ_dump arg typlst) typ_p)^")" else "") arg k;
         dump_itm fd arg !typlst itm;
+        fprintf fd " [@@deriving sexp]\n";
       | oth -> unhand := Some oth; failwith "dump104"
       ) (rtl);
   close_out fd

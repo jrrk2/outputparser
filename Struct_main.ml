@@ -30,3 +30,7 @@ let dmp ast =
   p' := p;
   dump ast p;
   p
+
+let _ = dmp "ast"
+let _ = dmp "token"
+

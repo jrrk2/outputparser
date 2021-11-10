@@ -51,10 +51,12 @@ open String_lit
 open Convert
 open Sexplib
 open Sexplib.Std
+open Ppx_sexp_conv_lib
 open Ppx_sexp_conv_lib.Sexp
 open Sexplib0__.Sexp
 open Sexplib.Sexp
 open Tran_sysver
+open Token_types_old
 open Ast_types_old
 ;;
 
@@ -159,10 +161,10 @@ let v = "../yosys/tests/svtypes/typedef_scopes.sv";;
 let v = "examples/typedef_struct.sv";;
 let v = "../yosys/tests/svtypes/struct_array.sv";;
 let v = "examples/ariane_preproc.sv";;
+let v = "examples/periph.sv";;
+let v = "examples/arith.v";;
 let v = "examples/count8.sv";;
 let v = "examples/count0.v";;
-let v = "examples/arith.v";;
-let v = "examples/periph.sv";;
 
 let dbgx = ref None
 let dbgprt = ref []
@@ -174,6 +176,11 @@ let (modlst,x,p,p',status) = rewrite_rtlil v;;
 *)
 
 let (modlst,x,p,p',status) = rewrite_tran v;;
+let enc = sexp_of_astItem sexp_of_unit (List.hd modlst);;
+let encstr = print_source enc;;
+let _ = print_endline encstr;;
+let sread = match parse encstr with Done (x,_) -> x | Cont _ -> failwit "s-read incomplete";;
+let mod' = astItem_of_sexp unit_of_sexp sread;;
 
 (*
 let x' = match !dbgsub with Some x -> print_source (sexp_of_rw x) | None -> "";;
