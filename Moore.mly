@@ -91,9 +91,9 @@ paren_lst1: { [ ] }
 paren1: id COMMA { $1 }
   | int { $1 }
   | int paren0 { TUPLE2($1,$2) }
-  | hash id brace0 { TUPLE3($1,$2,$3) }
-  | id hash id brace0 { TUPLE4($1,$2,$3,$4) }
-  | id hash id paren0 { TUPLE4($1,$2,$3,$4) }
+  | hash id brace0 { TUPLE2($2,$3) }
+  | id hash id brace0 { TUPLE3($1,$3,$4) }
+  | id hash id paren0 { TUPLE3($1,$3,$4) }
   | id paren0 { TUPLE2($1,$2) }
   | id brace0 { TUPLE2($1,$2) }
   | oth COMMA { $1 }
@@ -104,21 +104,21 @@ brack_lst1: { [ ] }
   | brack_lst1 brack1 { $2 :: $1 }
 
 brack1: id COLON LBRACK brack_lst1 RBRACK { TUPLE2($1,TLIST (List.rev $4)) }
-  | id hash id paren0 { TUPLE4($1,$2,$3,$4) }
+  | id hash id paren0 { TUPLE3($1,$3,$4) }
   | id paren0 { TUPLE2($1,$2) }
-  | id hash id brace0 { TUPLE4($1,$2,$3,$4) }
+  | id hash id brace0 { TUPLE3($1,$3,$4) }
 
 brace0: LBRACE brace_lst1 RBRACE COMMA { TLIST (List.rev $2) }
 
 brace_lst1: { [ ] }
   | brace_lst1 brace2 { $2 :: $1 }
 
-brace2: id COLON id brace0 { TUPLE3($1,$3,$4) }
+brace2: id COLON id brace0 { TUPLE3($1,COLON,TUPLE2($3,$4)) }
   | id COLON id COMMA { TUPLE3($1,COLON,$3) }
   | id COLON brack0 { TUPLE3($1,COLON,$3) }
-  | id COLON id paren0 { TUPLE4($1,COLON,$3,$4) }
-  | id COLON id hash id brace0 { TUPLE6($1,COLON,$3,$4,$5,$6) }
-  | id COLON id hash id paren0 { TUPLE6($1,COLON,$3,$4,$5,$6) }
-  | id COLON id hash id COMMA { TUPLE4($1,COLON,$3,$4) }
-  | id COLON id LPAREN int RPAREN COMMA { TUPLE4($1,COLON,$3,$5) }
-  | id COLON id LPAREN int SEMICOLON str RPAREN COLON int HYPHEN int COMMA { TUPLE7($1,COLON,$3,$5,$7,$10,$12) }
+  | id COLON id paren0 { TUPLE3($1,COLON,TUPLE2($3,$4)) }
+  | id COLON id hash id brace0 { TUPLE3($1,COLON,TUPLE3($3,$5,$6)) }
+  | id COLON id hash id paren0 { TUPLE3($1,COLON,TUPLE3($3,$5,$6)) }
+  | id COLON id hash id COMMA { TUPLE3($1,COLON,TUPLE2($3,$5)) }
+  | id COLON id LPAREN int RPAREN COMMA { TUPLE3($1,COLON,TUPLE2($3,TLIST [$5])) }
+  | id COLON id LPAREN int SEMICOLON str RPAREN COLON int HYPHEN int COMMA { TUPLE3($1,COLON,TUPLE5($3,$5,$7,$10,$12)) }
