@@ -27,7 +27,7 @@
 %token <string> TOK_VALUE
 %token <string> TOK_ID
 %token <int> TOK_OTH
-%token <int> TOK_INT
+%token <string> TOK_INT
 %token  DEFAULT
 %token  DOLLAR
 %token  DOT
@@ -66,7 +66,8 @@
 %token <token*token*token*token*token*token*token*token*token> TUPLE9
 %token  UNDERSCORE
 %token  VBAR
-
+%token  Source
+%token <string> TOK_Str
 %type <token> ml_start id
 %start ml_start
 %%
@@ -98,6 +99,10 @@ paren1: id COMMA { $1 }
   | id brace0 { TUPLE2($1,$2) }
   | brack0 { $1 }
   | oth COMMA { $1 }
+  | TOK_Str RPAREN COMMA { TOK_STRING $1 }
+  | source { $1 }
+
+source: Source LPAREN int SEMICOLON str RPAREN COLON int HYPHEN int COMMA { TUPLE5(Source,$3,$5,$8,$10) }
 
 brack0: LBRACK brack_lst1 RBRACK COMMA { TLIST (List.rev $2) }
 
@@ -107,7 +112,9 @@ brack_lst1: { [ ] }
 brack1: id COLON LBRACK brack_lst1 RBRACK { TUPLE2($1,TLIST (List.rev $4)) }
   | id hash id paren0 { TUPLE3($1,$3,$4) }
   | id paren0 { TUPLE2($1,$2) }
+  | id brace0 { TUPLE2($1,$2) }
   | id hash id brace0 { TUPLE3($1,$3,$4) }
+  | paren0 { $1 }
 
 brace0: LBRACE brace_lst1 RBRACE COMMA { TLIST (List.rev $2) }
 
@@ -122,4 +129,4 @@ brace2: id COLON id brace0 { TUPLE3($1,COLON,TUPLE2($3,$4)) }
   | id COLON id hash id paren0 { TUPLE3($1,COLON,TUPLE3($3,$5,$6)) }
   | id COLON id hash id COMMA { TUPLE3($1,COLON,TUPLE2($3,$5)) }
   | id COLON id LPAREN int RPAREN COMMA { TUPLE3($1,COLON,TUPLE2($3,TLIST [$5])) }
-  | id COLON id LPAREN int SEMICOLON str RPAREN COLON int HYPHEN int COMMA { TUPLE3($1,COLON,TUPLE5($3,$5,$7,$10,$12)) }
+  | id COLON source { TUPLE3($1,COLON,$3) }

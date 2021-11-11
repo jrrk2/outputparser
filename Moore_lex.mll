@@ -28,8 +28,7 @@
     List.iter 
       (fun (k,s) -> Hashtbl.add h s k)
       [
-      ELIST [], "ELIST";
-
+      Source, "Source";
       ];
     fun s -> Hashtbl.find h s
 
@@ -39,8 +38,8 @@ let tok arg =
   arg
 }
 
-let ident = ['a'-'z' 'A'-'Z' '$' '_' '\\'] ['a'-'z' 'A'-'Z' '_' '0'-'9' ]*
-let number = ['0'-'9']['0'-'9']*
+let ident = ['a'-'z' 'A'-'Z' '$' '_' '\\'] ['a'-'z' 'A'-'Z' '_' '0'-'9' '$' ]*
+let number = ['0'-'9']['0'-'9' '_']*
 let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let qchar = "'"['(' ')' '[' ']' '{' '}' '#' ':' ';' '.' ',' '=' '+' '-' '*'
@@ -50,6 +49,7 @@ let qstring = '"'[^'"']*'"'
 let qstring2 = '\''[^'\'']'\''
 let comment = "//"[^'\n']*
 let hcomment = "\n#"[^'\n']*
+let literal = "Str(\n"[^'\n']*'\n'
 
 rule token = parse
 | '#' { tok ( HASH ) }
@@ -96,11 +96,13 @@ rule token = parse
   | newline
       { incr lincnt; token lexbuf }
   | number as n
-      { tok ( TOK_INT (int_of_string n) ) }
+      { tok ( TOK_INT n ) }
   | ident as s
       { tok ( try keyword s with Not_found -> TOK_ID s ) }
   | qstring as s
       { tok ( TOK_STRING (String.sub s 1 (String.length s - 2)) ) }
+  | literal as s
+      { tok ( TOK_Str (String.sub s 0 (String.length s)) ) }
   | qstring2 as s
       { tok ( TOK_OTH (Char.code s.[1]) ) }
   | eof
