@@ -146,7 +146,7 @@ Struct.ml: Struct.mly
 ############################################################################
 
 Moore_top: Moore.cmo Moore_lex.ml Moore_dump.ml Moore_main.ml
-	ocamlmktop -g -o $@ Moore.mli Moore.cmo Moore_lex.ml Moore_dump.ml Moore_main.ml
+	ocamlmktop -g -o $@ unix.cma Moore.mli Moore.cmo Moore_lex.ml Moore_dump.ml Moore_main.ml
 
 Moore.cmo: Moore.ml Moore.mli
 	ocamlc.opt -g -c Moore.mli Moore.ml

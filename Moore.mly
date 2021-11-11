@@ -96,6 +96,7 @@ paren1: id COMMA { $1 }
   | id hash id paren0 { TUPLE3($1,$3,$4) }
   | id paren0 { TUPLE2($1,$2) }
   | id brace0 { TUPLE2($1,$2) }
+  | brack0 { $1 }
   | oth COMMA { $1 }
 
 brack0: LBRACK brack_lst1 RBRACK COMMA { TLIST (List.rev $2) }
