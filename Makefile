@@ -145,20 +145,14 @@ Struct.ml: Struct.mly
 
 ############################################################################
 
-Moore_top: Moore.cmo Moore_lex.ml Moore_dump.ml Moore_main.ml
-	ocamlmktop -g -o $@ unix.cma Moore.mli Moore.cmo Moore_lex.ml Moore_dump.ml Moore_main.ml
-
-Moore.cmo: Moore.ml Moore.mli
-	ocamlc.opt -g -c Moore.mli Moore.ml
-
-Moore.cmx: Moore.ml Moore.mli
-	ocamlopt.opt -g -c Moore.mli Moore.ml
+Moore_top: token_types_old.ml ast_types_old.ml Moore.ml Moore_lex.ml Moore_dump.ml Moore_main.ml
+	ocamlfind ocamlmktop -package sexplib,ppx_sexp_conv -linkpkg -g -o $@ token_types_old.ml ast_types_old.ml Moore.mli Moore.ml Moore_lex.ml Moore_dump.ml Moore_main.ml
 
 Moore_lex.ml: Moore_lex.mll
 	ocamllex $<
 
 Moore.ml: Moore.mly
-	menhir --trace --unused-tokens --explain $<
+	menhir --unused-tokens --explain $<
 
 ############################################################################
 

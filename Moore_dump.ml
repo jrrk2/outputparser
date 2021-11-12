@@ -15,6 +15,15 @@ let unhand= ref None
 let unhand= ref None
 let unhandlst = ref []
 
+(* example conversions for Sexplib interface *)
+
+let print_source x' =
+   let buf = Buffer.create 10000 in
+   let formatter = Format.formatter_of_buffer buf in
+   Sexplib.Sexp.pp_hum formatter x';
+   Format.pp_print_flush formatter ();
+   Buffer.contents buf
+
 let cnv_range_mode = function
 | TOK_ID "Absolute" -> SV_Absolute
 | TOK_ID "RelativeUp" -> SV_RelativeUp
