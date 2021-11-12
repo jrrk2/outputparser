@@ -15,20 +15,22 @@ open Ppx_sexp_conv_lib
 open Ppx_sexp_conv_lib.Sexp
 open Sexplib0__.Sexp
 open Sexplib.Sexp
-open Tran_sysver
 open Token_types_old
 open Ast_types_old
 open Moore_dump
+open Ast_dump_old
 ;;
 
 let v = "examples/count0.v";;
 let v = "examples/picorv32_ref.v";;
 let p,d = Moore_main.dmp true v;;
+let _ = dumpRoot (List.hd (List.hd d));;
 
+(*
 let enc = sexp_of_astRoot sexp_of_unit (List.hd (List.flatten d));;
 let encstr = print_source enc;;
 let _ = let fd = open_out (v^".enc") in output_string fd encstr; close_out fd;;
 let sread = match parse encstr with Done (x,_) -> x | Cont _ -> failwith "s-read incomplete";;
 let mod' = astItem_of_sexp unit_of_sexp sread;;
-
 let enc = sexp_of_astItem sexp_of_unit (d);;
+*)

@@ -1,6 +1,6 @@
 open Struct
 open Struct_lex
-open Struct_dump
+open Struct_traverse
 
 let parse_output_ast_from_chan ch =
   let lb = Lexing.from_channel ch in

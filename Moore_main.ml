@@ -4,8 +4,10 @@ open Moore_dump
 open Token_types_old
 open Sexplib
 open Sexplib.Std
+(*
 open Ppx_sexp_conv_lib
 open Ppx_sexp_conv_lib.Sexp
+*)
 
 let parse_output_ast_from_chan ch =
   let lb = Lexing.from_channel ch in

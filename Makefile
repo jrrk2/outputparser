@@ -128,14 +128,8 @@ Input.ml: Input.mly
 
 ############################################################################
 
-Struct_top: Struct.cmo Struct_lex.ml Struct_dump.ml Struct_main.ml
-	ocamlmktop -g -o $@ Struct.mli Struct.cmo Struct_lex.ml Struct_dump.ml Struct_main.ml
-
-Struct.cmo: Struct.ml Struct.mli
-	ocamlc.opt -g -c Struct.mli Struct.ml
-
-Struct.cmx: Struct.ml Struct.mli
-	ocamlopt.opt -g -c Struct.mli Struct.ml
+Struct_top: Struct.ml Struct_lex.ml Struct_dump.ml Struct_traverse.ml Struct_main.ml
+	ocamlmktop -g -o $@ Struct.mli Struct.ml Struct_lex.ml Struct_dump.ml Struct_traverse.ml Struct_main.ml
 
 Struct_lex.ml: Struct_lex.mll
 	ocamllex $<
@@ -145,8 +139,11 @@ Struct.ml: Struct.mly
 
 ############################################################################
 
-Moore_top: token_types_old.ml ast_types_old.ml Moore.ml Moore_lex.ml Moore_dump.ml Moore_main.ml
-	ocamlfind ocamlmktop -package sexplib,ppx_sexp_conv -linkpkg -g -o $@ token_types_old.ml ast_types_old.ml Moore.mli Moore.ml Moore_lex.ml Moore_dump.ml Moore_main.ml
+MOORE_PKG= -package sexplib # ,ppx_sexp_conv
+
+Moore_top: token_types_old.ml ast_types_old.ml Moore.ml Moore_lex.ml Moore_dump.ml token_dump_old.ml ast_dump_old.ml Moore_main.ml
+	ocamlfind ocamlmktop $(MOORE_PKG) -linkpkg -g -o $@ \
+token_types_old.ml ast_types_old.ml Moore.mli Moore.ml Moore_lex.ml Moore_dump.ml token_dump_old.ml ast_dump_old.ml Moore_main.ml
 
 Moore_lex.ml: Moore_lex.mll
 	ocamllex $<
