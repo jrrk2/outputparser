@@ -18,13 +18,14 @@ open Sexplib.Sexp
 open Token_types_old
 open Ast_types_old
 open Moore_dump
+open Moore
 open Ast_dump_old
 ;;
 
-let v = "examples/count0.v";;
 let v = "examples/picorv32_ref.v";;
+let v = "examples/initpat.v";;
+let v = "examples/count8.sv";;
 let p,d = Moore_main.dmp true v;;
-let _ = dumpRoot (List.hd (List.hd d));;
 
 (*
 let enc = sexp_of_astRoot sexp_of_unit (List.hd (List.flatten d));;

@@ -2,6 +2,8 @@ open Struct
 open Printf
 
 let unhand = ref None
+let cnt' = ref 0
+let incrcnt () = incr cnt'; !cnt'
 
 let dump_map ast = function
         | TUPLE2 (SBox, TOK_ID memb) -> ast ^ memb
@@ -72,59 +74,59 @@ let dump_enum fd ast typlst = function
 | TOK_COMMENT s ->
   fprintf fd "    (* %s *)\n" s
 | TUPLE2 (TOK_ID expr, TOK_ID memb) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" expr ast memb
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" expr ast memb (incrcnt())
 | TUPLE2 (TOK_ID expr, TLIST []) ->
-  fprintf fd "    | SV_%s -> ()\n" expr
+  fprintf fd "    | SV_%s -> failwith \"dump%d\"\n" expr (incrcnt())
 | TUPLE2 (TOK_ID expr, TUPLE2(LPAREN, TLIST [TOK_ID memb])) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" expr ast memb
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" expr ast memb (incrcnt())
 | TUPLE2 (TOK_ID expr, TUPLE2 (LPAREN, TLIST [TUPLE2 (SSpanned, TOK_ID id)])) ->
-  fprintf fd "    | SV_%s (%sSpanned, %s%s) -> ()\n" expr ast ast id
+  fprintf fd "    | SV_%s (%sSpanned, %s%s) -> failwith \"dump%d\"\n" expr ast ast id (incrcnt())
 | TUPLE2 (TOK_ID expr, TLIST [TUPLE2 (SSpanned, TOK_ID id)]) ->
-  fprintf fd "    | SV_%s (%sSpanned, %s%s) -> ()\n" expr ast ast id
+  fprintf fd "    | SV_%s (%sSpanned, %s%s) -> failwith \"dump%d\"\n" expr ast ast id (incrcnt())
 | TUPLE2 (TOK_ID expr, TUPLE2 (LBRACE, TLIST lst)) ->
   fprintf fd "    | SV_%s {\n" expr;
   List.iter (dump_substruct fd ast) lst;
-  fprintf fd "    } -> ()\n"
+  fprintf fd "    } -> failwith \"dump%d\"\n" (incrcnt())
 | TUPLE2 (TOK_ID expr, TUPLE2 (LPAREN, TLIST lst)) ->
-  fprintf fd "    | SV_%s (%s) -> ()\n" expr (map_star ast lst)
+  fprintf fd "    | SV_%s (%s) -> failwith \"dump%d\"\n" expr (map_star ast lst) (incrcnt())
 | TUPLE2 (TOK_ID expr, TUPLE2 (SVec, TUPLE2 (TOK_ID arr, TOK_ID a))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" expr ast arr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" expr ast arr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (TOK_ID expr, TOK_ID a)) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SVec, TLIST lst)) ->
-  fprintf fd "    | SV_%s ((%s) -> ()\n" memb (map_star ast lst)
+  fprintf fd "    | SV_%s ((%s) -> failwith \"dump%d\"\n" memb (map_star ast lst) (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SSpanned, TOK_ID expr)) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SVec, TUPLE2 (SSpanned, TOK_ID expr))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SBox, TUPLE2 (TOK_ID expr, TOK_ID "a"))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE3 (TOK_ID cell, TOK_ID dyn, TUPLE2 (TOK_ID anyNode, TOK_ID "a"))) ->
-  fprintf fd "    | SV_%s (%s%s, %s%s) -> ()\n" memb ast cell ast dyn
+  fprintf fd "    | SV_%s (%s%s, %s%s) -> failwith \"dump%d\"\n" memb ast cell ast dyn (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a)) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr;
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SVec, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr;
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE3 (TOK_ID cell, TOK_ID dyn, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a))) ->
-  fprintf fd "    | SV_%s (%s%s, %s%s) -> ()\n" memb ast cell ast expr
+  fprintf fd "    | SV_%s (%s%s, %s%s) -> failwith \"dump%d\"\n" memb ast cell ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SBox, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TLIST [TOK_ID expr; TOK_ID span])) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr;
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TOK_ID expr)) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr;
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TLIST [TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a); TUPLE2 (SVec, TUPLE3 (TOK_ID arr, QUOTE, TOK_ID a'))])) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TUPLE2 (SBox, TUPLE3 (TOK_ID expr, QUOTE, TOK_ID a)))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TUPLE2 (SSpanned, TOK_ID expr))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE2 (SOption, TUPLE5 (AMPERSAND, QUOTE, TOK_ID a, TOK_ID expr, TLIST [TUPLE2 (QUOTE, TOK_ID a')]))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast expr
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast expr (incrcnt())
 | TUPLE2 (TOK_ID memb, TUPLE5 (TOK_ID cell, SOption, TLIST [TUPLE3 (AMPERSAND, QUOTE, TOK_ID a)], TOK_ID dyn, TUPLE3 (TOK_ID anynode, QUOTE, TOK_ID a'))) ->
-  fprintf fd "    | SV_%s (%s%s) -> ()\n" memb ast cell
+  fprintf fd "    | SV_%s (%s%s) -> failwith \"dump%d\"\n" memb ast cell (incrcnt())
 | oth -> unhand := Some oth; failwith "dump_enum"
 
 let dump_struct fd ast typlst = function
@@ -200,9 +202,9 @@ let dump_itm fd arg typlst = function
     end;
   List.iter (dump_struct fd arg typlst) lst';
   if lst <> [] then
-    fprintf fd "\n} -> ()\n\n"
+    fprintf fd "\n} -> failwith \"dump%d\"\n\n" (incrcnt())
   else
-    output_string fd " _ -> ()\n"
+    fprintf fd " _ -> failwith \"dump%d\"\n" (incrcnt())
 | oth -> unhand := Some oth; failwith "dump_itm"
 
 let typ_dump arg typlst = function
@@ -212,20 +214,20 @@ let typ_dump arg typlst = function
 
 let dump arg rtl =
   let fd = open_out (arg^"_dump_new.ml") in
-  output_string fd ("open Ast_types_old\n\n");
-  output_string fd ("let dump = function _ -> ()\n");
-  output_string fd ("let dumpchar = function _ -> ()\n");
-  output_string fd ("let dumpSpan = function _ -> ()\n");
-  output_string fd ("let dumpSpanned = function _ -> ()\n");
-  output_string fd ("let dumpbool = function _ -> ()\n");
-  output_string fd ("let dumpName = function _ -> ()\n");
-  output_string fd ("let dumpKw = function _ -> ()\n");
-  output_string fd ("let dumpusize = function _ -> ()\n");
-  output_string fd ("let dumpdyn = function _ -> ()\n");
-  output_string fd ("let dumpPropSpec = function _ -> ()\n");
-  output_string fd ("let dumpNodeId = function _ -> ()\n");
-  output_string fd ("let dumpCell = function _ -> ()\n");
-  output_string fd ("let dumpAnyNode = function _ -> ()\n");
+  fprintf fd "open Ast_types_old\n\n";
+  fprintf fd "let dump = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpchar = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpSpan = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpSpanned = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpbool = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpName = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpKw = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpusize = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpdyn = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpPropSpec = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpNodeId = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpCell = function _ -> failwith \"dump%d\"\n" (incrcnt());
+  fprintf fd "let dumpAnyNode = function _ -> failwith \"dump%d\"\n" (incrcnt());
   List.iter (function
       | TOK_COMMENT s ->
         fprintf fd "(* %s *)\n" s

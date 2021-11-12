@@ -1,18 +1,18 @@
 open Token_types_old
 
-let dump = function _ -> ()
-let dumpchar = function _ -> ()
-let dumpSpan = function _ -> ()
-let dumpSpanned = function _ -> ()
-let dumpbool = function _ -> ()
-let dumpName = function _ -> ()
-let dumpKw = function _ -> ()
-let dumpusize = function _ -> ()
-let dumpdyn = function _ -> ()
-let dumpPropSpec = function _ -> ()
-let dumpNodeId = function _ -> ()
-let dumpCell = function _ -> ()
-let dumpAnyNode = function _ -> ()
+let dump = function _ -> failwith "dump427"
+let dumpchar = function _ -> failwith "dump428"
+let dumpSpan = function _ -> failwith "dump429"
+let dumpSpanned = function _ -> failwith "dump430"
+let dumpbool = function _ -> failwith "dump431"
+let dumpName = function _ -> failwith "dump432"
+let dumpKw = function _ -> failwith "dump433"
+let dumpusize = function _ -> failwith "dump434"
+let dumpdyn = function _ -> failwith "dump435"
+let dumpPropSpec = function _ -> failwith "dump436"
+let dumpNodeId = function _ -> failwith "dump437"
+let dumpCell = function _ -> failwith "dump438"
+let dumpAnyNode = function _ -> failwith "dump439"
 (* // Copyright (c) 2016-2021 Fabian Schuiki *)
 (* //! Defines all tokens that may result from performing lexical analysis on a *)
 (* //! SystemVerilog source file. This module is inspired heavily by the tokens *)
@@ -21,52 +21,52 @@ let dumpAnyNode = function _ -> ()
 
 and (dumpToken:tokenToken -> unit) = function 
     (* // Symbols *)
-    | SV_Comma -> ()
-    | SV_Period -> ()
-    | SV_Colon -> ()
-    | SV_Semicolon -> ()
-    | SV_At -> ()
-    | SV_Hashtag -> ()
-    | SV_DoubleHashtag -> ()
-    | SV_Namespace -> ()
-    | SV_Ternary -> ()
-    | SV_AddColon -> ()
-    | SV_SubColon -> ()
-    | SV_Apostrophe -> ()
-    | SV_Dollar -> ()
-    | SV_Operator (tokenOp1) -> ()
+    | SV_Comma -> failwith "dump440"
+    | SV_Period -> failwith "dump441"
+    | SV_Colon -> failwith "dump442"
+    | SV_Semicolon -> failwith "dump443"
+    | SV_At -> failwith "dump444"
+    | SV_Hashtag -> failwith "dump445"
+    | SV_DoubleHashtag -> failwith "dump446"
+    | SV_Namespace -> failwith "dump447"
+    | SV_Ternary -> failwith "dump448"
+    | SV_AddColon -> failwith "dump449"
+    | SV_SubColon -> failwith "dump450"
+    | SV_Apostrophe -> failwith "dump451"
+    | SV_Dollar -> failwith "dump452"
+    | SV_Operator (tokenOp1) -> failwith "dump453"
     (* /// An opening delimiter *)
-    | SV_OpenDelim (tokenDelimToken1) -> ()
+    | SV_OpenDelim (tokenDelimToken1) -> failwith "dump454"
     (* /// A closing delimiter *)
-    | SV_CloseDelim (tokenDelimToken1) -> ()
+    | SV_CloseDelim (tokenDelimToken1) -> failwith "dump455"
     (* /// A literal *)
-    | SV_Literal (tokenLit1) -> ()
+    | SV_Literal (tokenLit1) -> failwith "dump456"
     (* /// A system task or function identifier, e.g. "$display" *)
-    | SV_SysIdent (tokenName1) -> ()
+    | SV_SysIdent (tokenName1) -> failwith "dump457"
     (* /// A compiler directive, e.g. "`timescale" *)
-    | SV_CompDir (tokenName1) -> ()
+    | SV_CompDir (tokenName1) -> failwith "dump458"
     (* /// An identifier *)
-    | SV_Ident (tokenName1) -> ()
+    | SV_Ident (tokenName1) -> failwith "dump459"
     (* /// An escaped identifier *)
-    | SV_EscIdent (tokenName1) -> ()
+    | SV_EscIdent (tokenName1) -> failwith "dump460"
     (* /// An unsigned number *)
     (* // UnsignedNumber(Name), *)
     (* /// A keyword *)
-    | SV_Keyword (tokenKw1) -> ()
+    | SV_Keyword (tokenKw1) -> failwith "dump461"
     (* // The end of the input file *)
-    | SV_Eof -> ()
+    | SV_Eof -> failwith "dump462"
 
 (* /// A delimiter token such as parentheses or brackets. *)
 
 and (dumpDelimToken:tokenDelimToken -> unit) = function 
     (* /// A round paranthesis `(` or `)` *)
-    | SV_Paren -> ()
+    | SV_Paren -> failwith "dump463"
     (* /// A square bracket `[` or `]` *)
-    | SV_Brack -> ()
+    | SV_Brack -> failwith "dump464"
     (* /// A curly brace `{` or `}` *)
-    | SV_Brace -> ()
+    | SV_Brace -> failwith "dump465"
     (* /// A `begin` or `end` *)
-    | SV_Bgend -> ()
+    | SV_Bgend -> failwith "dump466"
 
 (* /// Abstract literals such as strings. *)
 
@@ -83,30 +83,30 @@ and (dumpLit:tokenLit -> string) = function
 (* /// The unit of a time literal. *)
 
 and (dumpTimeUnit:tokenTimeUnit -> unit) = function 
-    | SV_Second -> ()
-    | SV_MilliSecond -> ()
-    | SV_MicroSecond -> ()
-    | SV_NanoSecond -> ()
-    | SV_PicoSecond -> ()
-    | SV_FemtoSecond -> ()
+    | SV_Second -> failwith "dump472"
+    | SV_MilliSecond -> failwith "dump473"
+    | SV_MicroSecond -> failwith "dump474"
+    | SV_NanoSecond -> failwith "dump475"
+    | SV_PicoSecond -> failwith "dump476"
+    | SV_FemtoSecond -> failwith "dump477"
 
 (* /// Operator symbols. *)
 
 and (dumpOp:tokenOp -> string) = function 
     (* // Assignment *)
-    | SV_Assign -> failwith "dumpOp1"
-    | SV_AssignAdd -> failwith "dumpOp2"
-    | SV_AssignSub -> failwith "dumpOp3"
-    | SV_AssignMul -> failwith "dumpOp4"
-    | SV_AssignDiv -> failwith "dumpOp5"
-    | SV_AssignMod -> failwith "dumpOp6"
-    | SV_AssignBitAnd -> failwith "dumpOp7"
-    | SV_AssignBitOr -> failwith "dumpOp8"
-    | SV_AssignBitXor -> failwith "dumpOp9"
-    | SV_AssignLogicShL -> failwith "dumpOp10"
-    | SV_AssignLogicShR -> failwith "dumpOp11"
-    | SV_AssignArithShL -> failwith "dumpOp12"
-    | SV_AssignArithShR -> failwith "dumpOp13"
+    | SV_Assign -> failwith "dump478"
+    | SV_AssignAdd -> failwith "dump479"
+    | SV_AssignSub -> failwith "dump480"
+    | SV_AssignMul -> failwith "dump481"
+    | SV_AssignDiv -> failwith "dump482"
+    | SV_AssignMod -> failwith "dump483"
+    | SV_AssignBitAnd -> failwith "dump484"
+    | SV_AssignBitOr -> failwith "dump485"
+    | SV_AssignBitXor -> failwith "dump486"
+    | SV_AssignLogicShL -> failwith "dump487"
+    | SV_AssignLogicShR -> failwith "dump488"
+    | SV_AssignArithShL -> failwith "dump489"
+    | SV_AssignArithShR -> failwith "dump490"
     (* // Arithmetic *)
     | SV_Add -> "+"
     | SV_Sub -> "-"
@@ -158,29 +158,29 @@ and (dumpOp:tokenOp -> string) = function
 (* /// right-associative rather than the default left-associative. *)
 
 and (dumpPrecedence:tokenPrecedence -> unit) = function 
-    | SV_Min -> ()
-    | SV_MinTypMax -> ()
-    | SV_Concatenation -> ()
+    | SV_Min -> failwith "dump530"
+    | SV_MinTypMax -> failwith "dump531"
+    | SV_Concatenation -> failwith "dump532"
     (* // no associativity *)
-    | SV_Assignment -> ()
+    | SV_Assignment -> failwith "dump533"
     (* // no associativity *)
-    | SV_Implication -> ()
+    | SV_Implication -> failwith "dump534"
     (* // right-associative *)
-    | SV_Ternary -> ()
+    | SV_Ternary -> failwith "dump535"
     (* // right-associative *)
-    | SV_LogicOr -> ()
-    | SV_LogicAnd -> ()
-    | SV_BitOr -> ()
-    | SV_BitXor -> ()
-    | SV_BitAnd -> ()
-    | SV_Equality -> ()
-    | SV_Relational -> ()
-    | SV_Shift -> ()
-    | SV_Add -> ()
-    | SV_Mul -> ()
-    | SV_Pow -> ()
-    | SV_Unary -> ()
-    | SV_Postfix -> ()
-    | SV_Scope -> ()
-    | SV_Max -> ()
+    | SV_LogicOr -> failwith "dump536"
+    | SV_LogicAnd -> failwith "dump537"
+    | SV_BitOr -> failwith "dump538"
+    | SV_BitXor -> failwith "dump539"
+    | SV_BitAnd -> failwith "dump540"
+    | SV_Equality -> failwith "dump541"
+    | SV_Relational -> failwith "dump542"
+    | SV_Shift -> failwith "dump543"
+    | SV_Add -> failwith "dump544"
+    | SV_Mul -> failwith "dump545"
+    | SV_Pow -> failwith "dump546"
+    | SV_Unary -> failwith "dump547"
+    | SV_Postfix -> failwith "dump548"
+    | SV_Scope -> failwith "dump549"
+    | SV_Max -> failwith "dump550"
 

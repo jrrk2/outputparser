@@ -15,6 +15,9 @@ let unhand= ref None
 let unhand= ref None
 let unhandlst = ref []
 
+let dummy_stmt = { label=None; kind=SV_NullStmt }
+let (stmt'':(unit)astStmt ref) = ref dummy_stmt
+
 (* example conversions for Sexplib interface *)
 
 let print_source x' =
@@ -93,7 +96,13 @@ let cnv_span = function
 | TUPLE5 (Source, TOK_INT n, TOK_STRING pth, TOK_INT strt, TOK_INT stop) -> ()
 | oth -> unhand := Some oth; failwith "cnv_span"
 
+let cnv_nam = function
+| TUPLE2 (TOK_ID nam, TLIST [TOK_INT _]) -> nam
+| oth -> unhand := Some oth; failwith "cnv_nam"
+
 let rec cnv_expr = function
+| TUPLE3 (TOK_ID "Expr", TOK_ID "ScopeExpr", TLIST [expr; nam]) ->
+  SV_ScopeExpr (cnv_expr expr, cnv_nam nam)
 | TUPLE3 (TOK_ID "Expr", TOK_ID "UnaryExpr", TLIST
        [TUPLE3 (TOK_ID "op", COLON, op);
         TUPLE3 (TOK_ID "expr", COLON, expr);
@@ -173,6 +182,7 @@ and cnv_call_arg = function
              TUPLE3 (TOK_ID "name", COLON, name);
              TUPLE3 (TOK_ID "expr", COLON, expr)]) -> 
 { span=cnv_span span; name_span=cnv_span name_span; name=cnv_call_name_opt name; expr=cnv_expr_opt expr }
+| oth -> unhand := Some oth; failwith "cnv_call_arg"
 
 and cnv_expr_opt = function
 | TUPLE2 (TOK_ID "Some", TLIST [expr]) -> Some (cnv_expr expr)
@@ -190,6 +200,12 @@ let cnv_sign = function
 | TOK_ID "None" -> SV_None
 | oth -> unhand := Some oth; failwith "cnv_sign"
 
+let cnv_tkind = function
+| TUPLE2 (TOK_ID "TypeKind", TOK_ID "ImplicitType") -> SV_ImplicitType
+| TUPLE2 (TOK_ID "TypeKind", TOK_ID "RegType") -> SV_RegType
+| TUPLE3 (TOK_ID "TypeKind", TOK_ID "NamedType", TLIST [TUPLE2 (TOK_ID nam, TLIST [TOK_INT _])]) -> SV_NamedType nam
+| oth -> unhand := Some oth; failwith "cnv_tkind"
+
 let dump_port = function
 | TUPLE3
      (TOK_ID "Port", TOK_ID "Named", TLIST
@@ -197,13 +213,13 @@ let dump_port = function
         TUPLE3 (TOK_ID "kind", COLON, TOK_ID "None");
         TUPLE3  (TOK_ID "ty", COLON, TUPLE3 (TOK_ID "Type", TOK_ID "TypeData",
           TLIST
-           [TUPLE3 (TOK_ID "kind", COLON, TUPLE2 (TOK_ID "TypeKind", TOK_ID ("RegType"|"ImplicitType")));
+           [TUPLE3 (TOK_ID "kind", COLON, tkind);
             TUPLE3 (TOK_ID "sign", COLON, sign);
             TUPLE3 (TOK_ID "dims", COLON, TLIST dims)]));
         TUPLE3 (TOK_ID "name", COLON, TUPLE2(TOK_ID nam, TLIST [TOK_INT _]));
         TUPLE3 (TOK_ID "dims", COLON, TLIST dims');
         TUPLE3 (TOK_ID "expr", COLON, TOK_ID "None")]) ->
-  let ty:('a)astType = {kind = SV_LogicType; sign = cnv_sign sign; dims = cnv_dims dims} in
+  let ty:('a)astType = {kind = cnv_tkind tkind; sign = cnv_sign sign; dims = cnv_dims dims} in
   let rslt:('a)astPort = SV_Named {dir = cnv_dir_opt dir; kind = None; ty = ty; name = (0,nam); dims = cnv_dims dims'; expr = None} in
   rslt
 | oth -> unhand := Some oth; failwith "dump_port"
@@ -213,30 +229,61 @@ let dump_imp = function
   let rslt:('a)astImportDecl = {items=[||]} in rslt
 | oth -> unhand := Some oth; failwith "dump_imp"
 
-let dump_parm = function
-| oth ->
-  let rslt:('a)astParamDecl = {local=false; kind=SV_Value [||]} in rslt
+let rec dump_one_parm = function
+| TUPLE3 (TOK_ID "ParamValueDecl", TOK_ID "ParamValueDeclData", TLIST
+       [TUPLE3 (TOK_ID "ty", COLON, ty);
+        TUPLE3 (TOK_ID "name", COLON, name);
+        TUPLE3 (TOK_ID "dims", COLON, TLIST dims);
+        TUPLE3 (TOK_ID "expr", COLON, expr)]) -> 
+let parm:('asta)astParamValueDecl = {
+        ty=cnv_ty ty;
+        name=cnv_nam name;
+        dims=cnv_dims dims;
+        expr=cnv_expr_opt expr; } in
+parm
+| oth -> unhand := Some oth; failwith "dump_one_parm"
+
+and dump_one_type_parm = function
+| TUPLE3 (TOK_ID "ParamTypeDecl", TOK_ID "ParamTypeDeclData", TLIST
+       [TUPLE3 (TOK_ID "name", COLON, name);
+        TUPLE3 (TOK_ID "ty", COLON, ty)]) ->
+let parm:('asta)astParamTypeDecl = {
+        name=cnv_nam name;
+        ty=cnv_ty_opt ty; } in
+parm
+| oth -> unhand := Some oth; failwith "dump_one_type_parm"
+
+and dump_parm_kind = function
+| TUPLE2 (TOK_ID "Value", TLIST [TLIST lst]) ->
+  let rslt:('a)astParamKind = SV_Value (Array.of_list (List.map dump_one_parm lst)) in rslt
+| TUPLE2 (TOK_ID "Type", TLIST [TLIST lst]) ->
+  let rslt:('a)astParamKind = SV_Type (Array.of_list (List.map dump_one_type_parm lst)) in rslt
+| oth -> unhand := Some oth; failwith "dump_parm_kind"
+
+and dump_parm = function
+| TUPLE3 (TOK_ID "ParamDecl", TOK_ID "ParamDeclData", TLIST
+       [TUPLE3 (TOK_ID "local", COLON, TOK_ID "false");
+        TUPLE3 (TOK_ID "kind", COLON, kind)]) ->
+  let rslt:('a)astParamDecl = {local=false; kind=dump_parm_kind kind} in rslt
 | oth -> unhand := Some oth; failwith "dump_parm"
 
-let rec dump_expr = function
+and dump_expr = function
 | TUPLE3 (TOK_ID "span", COLON, TUPLE5 (TOK_ID "Source", TOK_INT n, TOK_STRING src, TOK_INT n', TOK_INT n'')) -> ()
 | oth -> unhand := Some oth; failwith "dump_expr"
 
-let cnv_op = function
+and cnv_op = function
 | TOK_ID "Identity" -> SV_Identity
+| oth -> unhand := Some oth; failwith "cnv_op"
 
-let cnv_delay = function
+and cnv_delay = function
 | TOK_ID "None" -> None
 | oth -> unhand := Some oth; failwith "cnv_delay"
 
-let cnv_event = function
+and cnv_event = function
 | TOK_ID "None" -> None
 | oth -> unhand := Some oth; failwith "cnv_event"
 
-let dummy_stmt = { label=None; kind=SV_NullStmt }
-let (stmt'':(unit)astStmt ref) = ref dummy_stmt
-
-let rec dump_stmt_kind = function
+and dump_stmt_kind = function
 | TUPLE3 (TOK_ID "Stmt", TOK_ID "StmtData", TLIST
            [TUPLE3 (TOK_ID "label", COLON, TOK_ID "None");
             TUPLE3 (TOK_ID "kind", COLON, stmt)]) -> { label=None; kind=dump_stmt stmt }
@@ -307,7 +354,7 @@ and dump_stmt = function
              cond=cnv_expr cond;
              main_stmt=dump_stmt_kind main_stmt;
              else_stmt=opt_stmt else_stmt; }
-| TUPLE2 (TOK_ID "TimedStmt", TLIST [lft;rght]) as oth ->
+| TUPLE2 (TOK_ID "TimedStmt", TLIST [lft;rght]) ->
   SV_TimedStmt (dump_ev lft, dump_stmt_kind rght )
 | TUPLE2 (TOK_ID "SequentialBlock", TLIST [TLIST lst]) -> SV_SequentialBlock (Array.of_list (List.map (dump_stmt_kind) lst))
 | TOK_ID "NullStmt" -> SV_NullStmt
@@ -340,12 +387,12 @@ and dump_ev_expr = function
     TUPLE3 (TOK_ID "value", COLON, expr')]) -> SV_Edge { span=(); edge=cnv_edge edg; value=cnv_expr expr' }
 | oth -> unhand := Some oth; failwith "dump_ev_expr"
 
-let cnv_proc_kind = function
+and cnv_proc_kind = function
 | TOK_ID "Always" -> SV_Always
 | TOK_ID "Initial" -> SV_Initial
 | oth -> unhand := Some oth; failwith "cnv_proc_kind"
 
-let dump_proc = function
+and dump_proc = function
 | TUPLE3 (TOK_ID "Procedure", TOK_ID "ProcedureData", TLIST [
       TUPLE3 (TOK_ID "kind", COLON, kind);
       TUPLE3 (TOK_ID "stmt", COLON, stmt)]) ->
@@ -354,23 +401,29 @@ let dump_proc = function
        stmt = dump_stmt_kind stmt}
 | oth -> unhand := Some oth; failwith "dump_proc"
 
-let cnv_sign = function
+and cnv_sign = function
 | TOK_ID "None" -> let rslt:astTypeSign = SV_None in rslt
 | oth -> unhand := Some oth; failwith "cnv_sign"
 
-let cnv_type_kind = function
+and cnv_type_kind = function
 | TUPLE3 (TOK_ID "TypeKind", TOK_ID "EnumType", TLIST [
       TUPLE3 (TOK_ID "Enum", TOK_ID "EnumData", TLIST 
                 [TUPLE3 (TOK_ID "base_type", COLON, base_type);
                  TUPLE3 (TOK_ID "variants", COLON, TLIST vlst)])]) ->
       SV_EnumType {base_type=None;
        variants=[||]}
+| TUPLE3 (TOK_ID "TypeKind", TOK_ID "ScopedType", TLIST
+            [TUPLE3 (TOK_ID "ty", COLON, ty);
+             TUPLE3 (TOK_ID "member", COLON, TOK_ID member);
+             TUPLE3 (TOK_ID "name", COLON, name)]) ->
+  SV_ScopedType {ty=cnv_ty ty; member=bool_of_string member; name=(0, cnv_nam name); }
 | TUPLE2 (TOK_ID "TypeKind", TOK_ID "ImplicitType") -> SV_ImplicitType
 | TUPLE2 (TOK_ID "TypeKind", TOK_ID "RegType") -> SV_RegType
 | TUPLE2 (TOK_ID "TypeKind", TOK_ID "IntegerType") -> SV_IntegerType
+| TUPLE3 (TOK_ID "TypeKind", TOK_ID "NamedType", TLIST [nam]) -> SV_NamedType (cnv_nam nam)
 | oth -> unhand := Some oth; failwith "cnv_type_kind"
 
-let cnv_ty = function
+and cnv_ty = function
 | TUPLE3 (TOK_ID "Type", TOK_ID "TypeData", TLIST
               [TUPLE3 (TOK_ID "kind", COLON, kind);
                TUPLE3 (TOK_ID "sign", COLON, sign);
@@ -380,6 +433,11 @@ let cnv_ty = function
     dims=cnv_dims dims; }
 
 | oth -> unhand := Some oth; failwith "cnv_ty"
+
+and cnv_ty_opt = function
+| TUPLE2(TOK_ID "Some", TLIST [ty]) -> Some (cnv_ty ty)
+| TOK_ID "None" -> None
+| oth -> unhand := Some oth; failwith "cnv_ty_opt"
 
 let cnv_init = function
 | TOK_ID "None" -> None
@@ -446,10 +504,12 @@ SV_ContAssign { strength=None; delay=None; delay_control=None; assignments=Array
 
 let cnv_retty = function
 | TOK_ID "None" -> None
+| oth -> unhand := Some oth; failwith "cnv_retty"
 
 let cnv_subr_kind = function
 | TOK_ID "Task" -> SV_Task
 | TOK_ID "Func" -> SV_Func
+| oth -> unhand := Some oth; failwith "cnv_subr_kind"
 
 let cnv_subr_port = function
 | oth -> unhand := Some oth; failwith "cnv_subr_port"
@@ -556,6 +616,7 @@ let cnv_id = function
 
 let cnv_id_opt = function
 | TUPLE2 (TOK_ID "Some", TLIST [id]) -> Some (cnv_id id)
+| oth -> unhand := Some oth; failwith "cnv_id_opt"
 
 let cnv_typ_or_expr = function
 | TUPLE2 (TOK_ID "Expr", TLIST [expr]) ->
@@ -598,6 +659,7 @@ let dump_inst = function
 | oth -> unhand := Some oth; failwith "dump_inst"
 
 let rec dump_item = function
+| TUPLE3 (TOK_ID "Item", TOK_ID "ModuleDecl", TLIST [itm]) -> dump_mod itm
 | TUPLE3 (TOK_ID "Item", TOK_ID "Procedure", TLIST [proc]) -> dump_proc proc
 | TUPLE3 (TOK_ID "Item", TOK_ID "VarDecl", TLIST [decl]) -> dump_decl decl
 | TUPLE3 (TOK_ID "Item", TOK_ID "PortDecl", TLIST [port]) -> dump_portdecl port
@@ -608,6 +670,7 @@ let rec dump_item = function
 | TUPLE3 (TOK_ID "Item", TOK_ID "GenerateRegion", TLIST itms) -> gen_itms itms
 | TUPLE3 (TOK_ID "Item", TOK_ID "GenerateIf", TLIST [itm]) -> dump_gen_if itm
 | TUPLE3 (TOK_ID "Item", TOK_ID "Inst", TLIST [itm]) -> dump_inst itm
+| TUPLE3 (TOK_ID "Item", TOK_ID "PackageDecl", TLIST [pkg]) -> dump_pkg pkg
 | oth -> unhand := Some oth; failwith "dump_item"
 
 and gen_itms = function
@@ -636,7 +699,25 @@ and dump_gen_if = function
  SV_GenerateIf { cond=cnv_expr cond; main_block=cnv_gen_blk main_block; else_block=cnv_gen_blk_opt else_block }
 | oth -> unhand := Some oth; failwith "dump_gen_if"
 
-let dump_mod = function
+and cnv_pkg_items = function
+| TUPLE3 (TOK_ID "Item", TOK_ID "ParamDecl", TLIST params) :: TUPLE3 (TOK_ID "Item", TOK_ID "Typedef", TLIST types) :: [] -> []
+| oth -> unhandlst := oth; failwith "cnv_pkg_itms"
+
+and dump_pkg = function
+| TUPLE3 (TOK_ID "Package", TOK_ID "PackageData", TLIST
+            [TUPLE3 (TOK_ID "lifetime", COLON, life);
+             TUPLE3 (TOK_ID "name", COLON, name);
+             TUPLE3 (TOK_ID "items", COLON, TLIST items)]) -> 
+  print_endline "dump_pkg";
+  let itms = cnv_pkg_items items in
+  let pkg:('ast)astPackage = {
+        lifetime=cnv_life life;
+        name=cnv_nam name;
+        items=Array.of_list (List.map dump_item itms); } in
+  SV_PackageDecl pkg
+| oth -> unhand := Some oth; failwith "dump_pkg"
+
+and dump_mod = function
 | TUPLE3 (TOK_ID "Module", TOK_ID "ModuleData", TLIST (
       TUPLE3 (TOK_ID "lifetime", COLON, life) ::
       TUPLE3 (TOK_ID "name", COLON, TUPLE2(TOK_ID nam, TLIST [TOK_INT _])) ::
@@ -652,10 +733,6 @@ let dump_mod = function
   items = Array.of_list (List.map dump_item itmlst)}
 | oth -> unhand := Some oth; failwith "dump_mod"
 
-let dump_itm = function
-| TUPLE3 (TOK_ID "Item", TOK_ID "ModuleDecl", TLIST [itm]) -> dump_mod itm
-| oth -> unhand := Some oth; failwith "dump_itm"
-
 let dump_tim = function
 | TUPLE3 (TOK_ID "timeunits", COLON, TUPLE2(TOK_ID "Timeunit", TLIST [TUPLE3 (TOK_ID "unit", COLON, TOK_ID "None"); TUPLE3 (TOK_ID "prec", COLON, TOK_ID "None")])) ->
   let rslt:astTimeunit = { unit=None; prec=None; } in rslt
@@ -663,7 +740,7 @@ let dump_tim = function
 
 let rec dump_src = function
 | TUPLE3 (TOK_ID "SourceFile", TOK_ID "SourceFileData", TLIST (unitlst :: TUPLE3 (TOK_ID "items", COLON, TLIST itmlst) :: [])) ->
-   { files = [| { timeunits=dump_tim unitlst; items=Array.of_list (List.map (dump_itm) itmlst); } |] }
+   { files = [| { timeunits=dump_tim unitlst; items=Array.of_list (List.map (dump_item) itmlst); } |] }
 | oth -> unhand := Some oth; failwith "dump_src"
 
 and dump_life = function

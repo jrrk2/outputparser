@@ -32,6 +32,10 @@ let dmp pipe ast =
   let p = parse pipe ast in
   p' := p;
   let d = dump p in
+  let vstr = List.map Ast_dump_old.dumpRoot (List.flatten d) in
+  let fd = open_out (ast^".enc") in
+  List.iter (output_string fd) vstr;
+  close_out fd;
 (*
   let enc = sexp_of_astRoot sexp_of_unit (List.hd (List.flatten d)) in
 *)
