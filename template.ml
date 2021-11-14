@@ -16,6 +16,7 @@ let reserved = function
   | "else" -> "else_rule"
   | "initializer" -> "initializer_rule"
   | "module" -> "module_rule"
+  | "assert" -> "assert_rule"
   | oth -> oth
 
 let typ' str = try Sys.getenv str with _ -> "unit"
@@ -152,7 +153,7 @@ let template toklst gramlst =
     "LESS";
     "GREATER";
     ];
-    let stem = primary gramlst in
+    let stem = try Sys.getenv "OUTPUT_PARSER_STEM" with e -> primary gramlst in
     let mlyfile = open_out (capitalise stem^".mly") in
     let typfile = open_out (capitalise stem^"_types.ml") in
 (*
@@ -230,6 +231,7 @@ let template toklst gramlst =
               fprintf mlyfile "\t|\t";
               items mlyfile oldlhs txt rulst ix
         | GRAMITM (DOLLAR_AT n, [EMPTY]) -> ()
+        | GRAMITM (DOLLAR_AT n, [EOF_TOKEN; EOF_TOKEN]) -> ()
         | oth -> othlst := oth :: !othlst; failwith (Ord.getstr oth)) gramlst;
     fprintf mlyfile "\n\n";
     close_out mlyfile

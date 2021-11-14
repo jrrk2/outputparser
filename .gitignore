@@ -139,4 +139,17 @@ Moore.mli
 Moore_lex.ml
 Moore_top
 p'.ml
+examples/*.enc
 token_types_new.ml
+*.conflicts
+Yosys_helper.ml
+Yosys_helper.mli
+Yosys_helper.mly
+Yosys_helper_lex.ml
+Yosys_helper_main.ml
+Yosys_helper_patched.*
+Yosys_helper_top
+Yosys_helper_types.ml
+yosys_helper.output
+yosys_helper.tab.c
+yosys_helper.tab.h

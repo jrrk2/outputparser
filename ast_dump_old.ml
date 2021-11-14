@@ -91,7 +91,7 @@ and (dumpItem:('asta)astItem -> string) = function
     | SV_Dummy -> ""
     | SV_ModuleDecl (astModule1) -> dumpModule (astModule1)
     | SV_InterfaceDecl (astInterface1) -> failwith "dumpItem1"
-    | SV_PackageDecl (astPackage1) -> failwith "dumpItem2"
+    | SV_PackageDecl (astPackage1) -> dumpPackage astPackage1
     | SV_ClassDecl (astClassDecl1) -> failwith "dumpItem3"
     | SV_ProgramDecl -> failwith "dumpItem4"
     | SV_ImportDecl (astImportDecl1) -> failwith "dumpItem5"
@@ -142,12 +142,12 @@ and (dumpInterface:('asta)astInterface -> unit) = function  {
 
 (* /// A package. *)
 
-and (dumpPackage:('asta)astPackage -> unit) = function  {
+and (dumpPackage:('asta)astPackage -> string) = function  {
         lifetime;
         name;
         items;
 
-} -> failwith "dump44"
+} -> ""
 
 (* /// Lifetime specifier for variables, tasks, and functions. Defaults to static. *)
 

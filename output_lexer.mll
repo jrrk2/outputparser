@@ -31,6 +31,7 @@
     TERMINALS, "Terminals";
     NONTERMINALS, "Nonterminals";
     GRAMMAR, "Grammar";
+    STATE, "State";
     STATE, "state";
       ];
     fun s -> Hashtbl.find h s

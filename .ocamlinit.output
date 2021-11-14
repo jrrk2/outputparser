@@ -3,7 +3,10 @@ open Output_parser
 open Output
 open Template
 
-let ch = open_in "c-parse.output";;
+let ch = open_in "yosys_helper.output";;
 let (u,g,t,n,s) = parse_output_ast_from_chan ch;;
 close_in ch;;
+tg' := (t,g) :: [];;
+Template.template t g;;
+
 

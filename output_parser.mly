@@ -169,7 +169,11 @@ conflst:
     | conflst confitm { $2 :: $1 }
 
 confitm:
-    |   STATE NUMBER ID COLON NUMBER ID SLASH ID { STATEITM(NUMBER $2,[]) }
+    |   STATE NUMBER ID COLON NUMBER ID SLASH ID opt_confitm { STATEITM(NUMBER $2,[]) }
+
+opt_confitm:
+       /*empty*/ { [ ] }
+    | COMMA NUMBER ID SLASH ID { [ ] }
 
 nontermlst:
 	nontermitm { [ $1 ] }
@@ -203,6 +207,7 @@ quotitm:
 	QUOTE BACKSLASH ID QUOTE
 	      { match $3 with "n" -> LINEFEED | _ -> CHAR ($3.[0]) }
     |   QUOTE punct QUOTE { $2 }
+    |   QUOTE BACKSLASH QUOTE QUOTE { QUOTE }
 
 dquotitm:
 	DOUBLEQUOTE dqlst DOUBLEQUOTE
@@ -247,6 +252,8 @@ ru:
     | dolat { $1 }
     | quotitm { $1 }
     | SLASH STAR ID STAR SLASH { match $3 with "empty" -> EMPTY | oth -> ID oth }
+    | CHAR { EOF_TOKEN }
+    | QUOTE BACKSLASH QUOTE QUOTE { QUOTE }
     ;
 
 dqlst:

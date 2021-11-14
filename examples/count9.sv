@@ -7,8 +7,8 @@ package types;
 endpackage // types
 
 module count8 
-import types::wid;
- # (parameter type sz = types::sz) (input clk, input rst, input en, output sz q);
+import types::*;
+ # (parameter type sz = sz) (input clk, input rst, input en, output sz q);
 
    always @(posedge clk or posedge rst)
      if (rst)

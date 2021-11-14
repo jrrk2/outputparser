@@ -153,6 +153,31 @@ Moore.ml: Moore.mly
 
 ############################################################################
 
+YOSYS_Y = ../yosys/frontends/verilog/verilog_parser.y
+#YOSYS_Y = ../yosys/sv2v/src/Language/SystemVerilog/Parser/Parse.y
+
+Yosys_helper_top: Yosys_helper_types.ml Yosys_helper.ml Yosys_helper_lex.ml Yosys_helper_dump.ml token_dump_old.ml ast_dump_old.ml Yosys_helper_main.ml
+	ocamlfind ocamlmktop $(MOORE_PKG) -linkpkg -g -o $@ \
+Yosys_helper.mli Yosys_helper_types.ml Yosys_helper.ml Yosys_helper_lex.ml Yosys_helper_dump.ml token_dump_old.ml ast_dump_old.ml Yosys_helper_main.ml
+
+Yosys_helper_lex.ml: Yosys_helper_lex.mll
+	ocamllex $<
+
+Yosys_helper.ml: Yosys_helper_patched.mly
+	menhir --trace --unused-tokens --explain $<
+
+yosys_helper.output: $(YOSYS_Y)
+	bison -v -y -d -b yosys_helper $<
+
+Yosys_helper_patched.mly: Yosys_helper.mly
+	cp -f $< $@
+	patch $@ < Yosys_helper.patch
+
+Yosys_helper.mly: yosys_helper.output output_parser
+	env OCAMLRUNPARAM=b OUTPUT_PARSER_STEM=yosys_helper TOK_STRING=string TOK_ID=string TOK_CONSTVAL=string TOK_USER_TYPE=string ./output_parser $<
+
+############################################################################
+
 Pat_top: Pat.cmo Pat_types.cmo Pat_lex.ml Pat_rewrite.ml
 	ocamlmktop -g -o $@ Pat_types.cmo Pat.cmo Pat_lex.ml Pat_rewrite.ml
 

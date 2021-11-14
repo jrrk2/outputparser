@@ -1,0 +1,389 @@
+--- Yosys_helper.mly	2021-11-14 07:10:24.000000000 +0000
++++ Yosys_helper_patched.mly	2021-11-14 07:07:59.000000000 +0000
+@@ -241,17 +241,17 @@
+ 	|	package design { TUPLE3(STRING("design9"),$1,$2) }
+ 	|	interface design { TUPLE3(STRING("design10"),$1,$2) }
+ 	|	bind_directive design { TUPLE3(STRING("design11"),$1,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("design12"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("design12")) }
+ 
+-attr: /* 2 */ attr_opt { ($1) }
++attr: { TLIST [] } | attr_opt { ($1) }
+ 
+ attr_opt: attr_opt ATTR_BEGIN opt_attr_list ATTR_END { TUPLE5(STRING("attr_opt15"),$1,ATTR_BEGIN,$3,ATTR_END) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("attr_opt16"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("attr_opt16")) }
+ 
+ defattr: DEFATTR_BEGIN /* 3 */ opt_attr_list /* 4 */ DEFATTR_END { TUPLE4(STRING("defattr19"),DEFATTR_BEGIN,$2,DEFATTR_END) }
+ 
+ opt_attr_list: attr_list { ($1) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_attr_list21"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_attr_list21")) }
+ 
+ attr_list: attr_assign { ($1) }
+ 	|	attr_list COMMA attr_assign { TUPLE4(STRING("attr_list23"),$1,COMMA,$3) }
+@@ -270,28 +270,28 @@
+ module_rule: attr TOK_MODULE /* 5 */ TOK_ID /* 6 */ module_para_opt module_args_opt SEMICOLON module_body TOK_ENDMODULE opt_label { TUPLE10(STRING("module34"),$1,TOK_MODULE,TOK_ID $3,$4,$5,SEMICOLON,$7,TOK_ENDMODULE,$9) }
+ 
+ module_para_opt: HASH LPAREN /* 7 */ module_para_list /* 8 */ RPAREN { TUPLE5(STRING("module_para_opt37"),HASH,LPAREN,$3,RPAREN) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("module_para_opt38"),EOF_TOKEN,EOF_TOKEN) }
++	|	{ (STRING("module_para_opt38")) }
+ 
+ module_para_list: single_module_para { ($1) }
+ 	|	module_para_list COMMA single_module_para { TUPLE4(STRING("module_para_list40"),$1,COMMA,$3) }
+ 
+-single_module_para: EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("single_module_para41"),EOF_TOKEN,EOF_TOKEN) }
++single_module_para: EOF_TOKEN EOF_TOKEN { (STRING("single_module_para41")) }
+ 	|	attr TOK_PARAMETER /* 9 */ param_type single_param_decl { TUPLE5(STRING("single_module_para43"),$1,TOK_PARAMETER,$3,$4) }
+ 	|	attr TOK_LOCALPARAM /* 10 */ param_type single_param_decl { TUPLE5(STRING("single_module_para45"),$1,TOK_LOCALPARAM,$3,$4) }
+ 	|	single_param_decl { ($1) }
+ 
+ module_args_opt: LPAREN RPAREN { TUPLE3(STRING("module_args_opt47"),LPAREN,RPAREN) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("module_args_opt48"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("module_args_opt48")) }
+ 	|	LPAREN module_args optional_comma RPAREN { TUPLE5(STRING("module_args_opt49"),LPAREN,$2,$3,RPAREN) }
+ 
+ module_args: module_arg { ($1) }
+ 	|	module_args COMMA module_arg { TUPLE4(STRING("module_args51"),$1,COMMA,$3) }
+ 
+ optional_comma: COMMA { (COMMA) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("optional_comma53"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("optional_comma53")) }
+ 
+ module_arg_opt_assignment: EQUALS expr { TUPLE3(STRING("module_arg_opt_assignment54"),EQUALS,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("module_arg_opt_assignment55"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("module_arg_opt_assignment55")) }
+ 
+ module_arg: TOK_ID /* 11 */ module_arg_opt_assignment { TUPLE3(STRING("module_arg57"),TOK_ID $1,$2) }
+ 	|	TOK_ID /* 12 */ TOK_ID /* 13 */ module_arg_opt_assignment { TUPLE4(STRING("module_arg60"),TOK_ID $1,TOK_ID $2,$3) }
+@@ -301,7 +301,7 @@
+ package: attr TOK_PACKAGE /* 15 */ TOK_ID /* 16 */ SEMICOLON package_body TOK_ENDPACKAGE opt_label { TUPLE8(STRING("package66"),$1,TOK_PACKAGE,TOK_ID $3,SEMICOLON,$5,TOK_ENDPACKAGE,$7) }
+ 
+ package_body: package_body package_body_stmt { TUPLE3(STRING("package_body67"),$1,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("package_body68"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("package_body68")) }
+ 
+ package_body_stmt: typedef_decl { ($1) }
+ 	|	localparam_decl { ($1) }
+@@ -311,7 +311,7 @@
+ interface: TOK_INTERFACE /* 17 */ TOK_ID /* 18 */ module_para_opt module_args_opt SEMICOLON interface_body TOK_ENDINTERFACE { TUPLE8(STRING("interface75"),TOK_INTERFACE,TOK_ID $2,$3,$4,SEMICOLON,$6,TOK_ENDINTERFACE) }
+ 
+ interface_body: interface_body interface_body_stmt { TUPLE3(STRING("interface_body76"),$1,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("interface_body77"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("interface_body77")) }
+ 
+ interface_body_stmt: param_decl { ($1) }
+ 	|	localparam_decl { ($1) }
+@@ -328,7 +328,7 @@
+ bind_target: bind_target_instance opt_bind_target_instance_list { TUPLE3(STRING("bind_target91"),$1,$2) }
+ 
+ opt_bind_target_instance_list: COLON bind_target_instance_list { TUPLE3(STRING("opt_bind_target_instance_list92"),COLON,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_bind_target_instance_list93"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_bind_target_instance_list93")) }
+ 
+ bind_target_instance_list: bind_target_instance { ($1) }
+ 	|	bind_target_instance_list COMMA bind_target_instance { TUPLE4(STRING("bind_target_instance_list95"),$1,COMMA,$3) }
+@@ -346,7 +346,7 @@
+ 	|	HASH LPAREN mintypmax_expr COMMA mintypmax_expr COMMA mintypmax_expr RPAREN { TUPLE9(STRING("non_opt_delay104"),HASH,LPAREN,$3,COMMA,$5,COMMA,$7,RPAREN) }
+ 
+ delay: non_opt_delay { ($1) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("delay106"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("delay106")) }
+ 
+ io_wire_type: /* 22 */ wire_type_token_io wire_type_const_rand opt_wire_type_token wire_type_signedness { TUPLE5(STRING("io_wire_type108"),$1,$2,$3,$4) }
+ 
+@@ -361,15 +361,15 @@
+ 
+ wire_type_signedness: TOK_SIGNED { (TOK_SIGNED) }
+ 	|	TOK_UNSIGNED { (TOK_UNSIGNED) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("wire_type_signedness118"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("wire_type_signedness118")) }
+ 
+ wire_type_const_rand: TOK_RAND TOK_CONST { TUPLE3(STRING("wire_type_const_rand119"),TOK_RAND,TOK_CONST) }
+ 	|	TOK_CONST { (TOK_CONST) }
+ 	|	TOK_RAND { (TOK_RAND) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("wire_type_const_rand122"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("wire_type_const_rand122")) }
+ 
+ opt_wire_type_token: wire_type_token { ($1) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_wire_type_token124"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_wire_type_token124")) }
+ 
+ wire_type_token: hierarchical_type_id { ($1) }
+ 	|	TOK_WOR { (TOK_WOR) }
+@@ -401,7 +401,7 @@
+ 	|	non_opt_multirange non_opt_range { TUPLE3(STRING("non_opt_multirange148"),$1,$2) }
+ 
+ range: non_opt_range { ($1) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("range150"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("range150")) }
+ 
+ range_or_multirange: range { ($1) }
+ 	|	non_opt_multirange { ($1) }
+@@ -410,7 +410,7 @@
+ 	|	module_body gen_stmt { TUPLE3(STRING("module_body154"),$1,$2) }
+ 	|	module_body gen_block { TUPLE3(STRING("module_body155"),$1,$2) }
+ 	|	module_body SEMICOLON { TUPLE3(STRING("module_body156"),$1,SEMICOLON) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("module_body157"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("module_body157")) }
+ 
+ module_body_stmt: task_func_decl { ($1) }
+ 	|	specify_block { ($1) }
+@@ -445,15 +445,15 @@
+ 	|	opt_type_vec opt_signedness_default_unsigned non_opt_range { TUPLE4(STRING("func_return_type191"),$1,$2,$3) }
+ 	|	integer_atom_type opt_signedness_default_signed { TUPLE3(STRING("func_return_type192"),$1,$2) }
+ 
+-opt_type_vec: EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_type_vec193"),EOF_TOKEN,EOF_TOKEN) }
++opt_type_vec: EOF_TOKEN EOF_TOKEN { (STRING("opt_type_vec193")) }
+ 	|	TOK_REG { (TOK_REG) }
+ 	|	TOK_LOGIC { (TOK_LOGIC) }
+ 
+-opt_signedness_default_signed: EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_signedness_default_signed196"),EOF_TOKEN,EOF_TOKEN) }
++opt_signedness_default_signed: EOF_TOKEN EOF_TOKEN { (STRING("opt_signedness_default_signed196")) }
+ 	|	TOK_SIGNED { (TOK_SIGNED) }
+ 	|	TOK_UNSIGNED { (TOK_UNSIGNED) }
+ 
+-opt_signedness_default_unsigned: EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_signedness_default_unsigned199"),EOF_TOKEN,EOF_TOKEN) }
++opt_signedness_default_unsigned: EOF_TOKEN EOF_TOKEN { (STRING("opt_signedness_default_unsigned199")) }
+ 	|	TOK_SIGNED { (TOK_SIGNED) }
+ 	|	TOK_UNSIGNED { (TOK_UNSIGNED) }
+ 
+@@ -461,18 +461,18 @@
+ 	|	TOK_ID { (TOK_ID $1) }
+ 
+ opt_dpi_function_args: LPAREN dpi_function_args RPAREN { TUPLE4(STRING("opt_dpi_function_args204"),LPAREN,$2,RPAREN) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_dpi_function_args205"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_dpi_function_args205")) }
+ 
+ dpi_function_args: dpi_function_args COMMA dpi_function_arg { TUPLE4(STRING("dpi_function_args206"),$1,COMMA,$3) }
+ 	|	dpi_function_args COMMA { TUPLE3(STRING("dpi_function_args207"),$1,COMMA) }
+ 	|	dpi_function_arg { ($1) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("dpi_function_args209"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("dpi_function_args209")) }
+ 
+ opt_automatic: TOK_AUTOMATIC { (TOK_AUTOMATIC) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_automatic211"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_automatic211")) }
+ 
+ task_func_args_opt: LPAREN RPAREN { TUPLE3(STRING("task_func_args_opt212"),LPAREN,RPAREN) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("task_func_args_opt213"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("task_func_args_opt213")) }
+ 	|	LPAREN /* 30 */ task_func_args optional_comma /* 31 */ RPAREN { TUPLE5(STRING("task_func_args_opt216"),LPAREN,$2,$3,RPAREN) }
+ 
+ task_func_args: task_func_port { ($1) }
+@@ -482,24 +482,24 @@
+ 	|	/* 33 */ wire_name { ($1) }
+ 
+ task_func_body: task_func_body behavioral_stmt { TUPLE3(STRING("task_func_body223"),$1,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("task_func_body224"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("task_func_body224")) }
+ 
+ specify_block: TOK_SPECIFY specify_item_list TOK_ENDSPECIFY { TUPLE4(STRING("specify_block225"),TOK_SPECIFY,$2,TOK_ENDSPECIFY) }
+ 
+ specify_item_list: specify_item specify_item_list { TUPLE3(STRING("specify_item_list226"),$1,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("specify_item_list227"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("specify_item_list227")) }
+ 
+ specify_item: specify_if LPAREN specify_edge expr TOK_SPECIFY_OPER specify_target RPAREN EQUALS specify_rise_fall SEMICOLON { TUPLE11(STRING("specify_item228"),$1,LPAREN,$3,$4,TOK_SPECIFY_OPER,$6,RPAREN,EQUALS,$9,SEMICOLON) }
+ 	|	TOK_ID LPAREN specify_edge expr specify_condition COMMA specify_edge expr specify_condition COMMA specify_triple specify_opt_triple RPAREN SEMICOLON { TUPLE15(STRING("specify_item229"),TOK_ID $1,LPAREN,$3,$4,$5,COMMA,$7,$8,$9,COMMA,$11,$12,RPAREN,SEMICOLON) }
+ 
+ specify_opt_triple: COMMA specify_triple { TUPLE3(STRING("specify_opt_triple230"),COMMA,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("specify_opt_triple231"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("specify_opt_triple231")) }
+ 
+ specify_if: TOK_IF LPAREN expr RPAREN { TUPLE5(STRING("specify_if232"),TOK_IF,LPAREN,$3,RPAREN) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("specify_if233"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("specify_if233")) }
+ 
+ specify_condition: TOK_SPECIFY_AND expr { TUPLE3(STRING("specify_condition234"),TOK_SPECIFY_AND,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("specify_condition235"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("specify_condition235")) }
+ 
+ specify_target: expr { ($1) }
+ 	|	LPAREN expr COLON expr RPAREN { TUPLE6(STRING("specify_target237"),LPAREN,$2,COLON,$4,RPAREN) }
+@@ -508,7 +508,7 @@
+ 
+ specify_edge: TOK_POSEDGE { (TOK_POSEDGE) }
+ 	|	TOK_NEGEDGE { (TOK_NEGEDGE) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("specify_edge242"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("specify_edge242")) }
+ 
+ specify_rise_fall: specify_triple { ($1) }
+ 	|	LPAREN specify_triple COMMA specify_triple RPAREN { TUPLE6(STRING("specify_rise_fall244"),LPAREN,$2,COMMA,$4,RPAREN) }
+@@ -540,7 +540,7 @@
+ specparam_assignment: ignspec_id EQUALS ignspec_expr { TUPLE4(STRING("specparam_assignment262"),$1,EQUALS,$3) }
+ 
+ ignspec_opt_cond: TOK_IF LPAREN ignspec_expr RPAREN { TUPLE5(STRING("ignspec_opt_cond263"),TOK_IF,LPAREN,$3,RPAREN) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("ignspec_opt_cond264"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("ignspec_opt_cond264")) }
+ 
+ path_declaration: simple_path_declaration SEMICOLON { TUPLE3(STRING("path_declaration265"),$1,SEMICOLON) }
+ 
+@@ -576,7 +576,7 @@
+ 
+ opt_polarity_operator: PLUS { (PLUS) }
+ 	|	HYPHEN { (HYPHEN) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_polarity_operator289"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_polarity_operator289")) }
+ 
+ specify_input_terminal_descriptor: ignspec_id { ($1) }
+ 
+@@ -601,7 +601,7 @@
+ 
+ param_signed: TOK_SIGNED { (TOK_SIGNED) }
+ 	|	TOK_UNSIGNED { (TOK_UNSIGNED) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("param_signed306"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("param_signed306")) }
+ 
+ param_integer: type_atom { ($1) }
+ 
+@@ -645,7 +645,7 @@
+ 
+ enum_base_type: type_atom type_signing { TUPLE3(STRING("enum_base_type334"),$1,$2) }
+ 	|	type_vec type_signing range { TUPLE4(STRING("enum_base_type335"),$1,$2,$3) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("enum_base_type336"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("enum_base_type336")) }
+ 
+ type_atom: integer_atom_type { ($1) }
+ 
+@@ -654,7 +654,7 @@
+ 
+ type_signing: TOK_SIGNED { (TOK_SIGNED) }
+ 	|	TOK_UNSIGNED { (TOK_UNSIGNED) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("type_signing342"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("type_signing342")) }
+ 
+ enum_name_list: enum_name_decl { ($1) }
+ 	|	enum_name_list COMMA enum_name_decl { TUPLE4(STRING("enum_name_list344"),$1,COMMA,$3) }
+@@ -662,7 +662,7 @@
+ enum_name_decl: TOK_ID opt_enum_init { TUPLE3(STRING("enum_name_decl345"),TOK_ID $1,$2) }
+ 
+ opt_enum_init: EQUALS basic_expr { TUPLE3(STRING("opt_enum_init346"),EQUALS,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_enum_init347"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_enum_init347")) }
+ 
+ enum_var_list: enum_var { ($1) }
+ 	|	enum_var_list COMMA enum_var { TUPLE4(STRING("enum_var_list349"),$1,COMMA,$3) }
+@@ -681,11 +681,11 @@
+ struct_body: opt_packed LBRACE struct_member_list RBRACE { TUPLE5(STRING("struct_body357"),$1,LBRACE,$3,RBRACE) }
+ 
+ opt_packed: TOK_PACKED opt_signed_struct { TUPLE3(STRING("opt_packed358"),TOK_PACKED,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_packed359"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_packed359")) }
+ 
+ opt_signed_struct: TOK_SIGNED { (TOK_SIGNED) }
+ 	|	TOK_UNSIGNED { (TOK_UNSIGNED) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_signed_struct362"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_signed_struct362")) }
+ 
+ struct_member_list: struct_member { ($1) }
+ 	|	struct_member_list struct_member { TUPLE3(STRING("struct_member_list364"),$1,$2) }
+@@ -715,7 +715,7 @@
+ 	|	attr TOK_SUPPLY0 TOK_ID /* 45 */ opt_supply_wires SEMICOLON { TUPLE6(STRING("wire_decl386"),$1,TOK_SUPPLY0,TOK_ID $3,$4,SEMICOLON) }
+ 	|	attr TOK_SUPPLY1 TOK_ID /* 46 */ opt_supply_wires SEMICOLON { TUPLE6(STRING("wire_decl388"),$1,TOK_SUPPLY1,TOK_ID $3,$4,SEMICOLON) }
+ 
+-opt_supply_wires: EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_supply_wires389"),EOF_TOKEN,EOF_TOKEN) }
++opt_supply_wires: EOF_TOKEN EOF_TOKEN { (STRING("opt_supply_wires389")) }
+ 	|	opt_supply_wires COMMA TOK_ID { TUPLE4(STRING("opt_supply_wires390"),$1,COMMA,TOK_ID $3) }
+ 
+ wire_name_list: wire_name_and_opt_assign { ($1) }
+@@ -768,12 +768,12 @@
+ 	|	/* 51 */ LPAREN cell_port_list RPAREN { TUPLE4(STRING("single_prim426"),LPAREN,$2,RPAREN) }
+ 
+ cell_parameter_list_opt: HASH LPAREN cell_parameter_list RPAREN { TUPLE5(STRING("cell_parameter_list_opt427"),HASH,LPAREN,$3,RPAREN) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("cell_parameter_list_opt428"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("cell_parameter_list_opt428")) }
+ 
+ cell_parameter_list: cell_parameter { ($1) }
+ 	|	cell_parameter_list COMMA cell_parameter { TUPLE4(STRING("cell_parameter_list430"),$1,COMMA,$3) }
+ 
+-cell_parameter: EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("cell_parameter431"),EOF_TOKEN,EOF_TOKEN) }
++cell_parameter: EOF_TOKEN EOF_TOKEN { (STRING("cell_parameter431")) }
+ 	|	expr { ($1) }
+ 	|	DOT TOK_ID LPAREN RPAREN { TUPLE5(STRING("cell_parameter433"),DOT,TOK_ID $2,LPAREN,RPAREN) }
+ 	|	DOT TOK_ID LPAREN expr RPAREN { TUPLE6(STRING("cell_parameter434"),DOT,TOK_ID $2,LPAREN,$4,RPAREN) }
+@@ -805,7 +805,7 @@
+ 	|	AT ATTR_BEGIN RPAREN { TUPLE4(STRING("always_cond457"),AT,ATTR_BEGIN,RPAREN) }
+ 	|	AT LPAREN ATTR_END { TUPLE4(STRING("always_cond458"),AT,LPAREN,ATTR_END) }
+ 	|	AT STAR { TUPLE3(STRING("always_cond459"),AT,STAR) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("always_cond460"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("always_cond460")) }
+ 
+ always_events: always_event { ($1) }
+ 	|	always_events TOK_OR always_event { TUPLE4(STRING("always_events462"),$1,TOK_OR,$3) }
+@@ -816,14 +816,14 @@
+ 	|	expr { ($1) }
+ 
+ opt_label: COLON TOK_ID { TUPLE3(STRING("opt_label467"),COLON,TOK_ID $2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_label468"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_label468")) }
+ 
+ opt_sva_label: TOK_SVA_LABEL COLON { TUPLE3(STRING("opt_sva_label469"),TOK_SVA_LABEL,COLON) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_sva_label470"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_sva_label470")) }
+ 
+ opt_property: TOK_PROPERTY { (TOK_PROPERTY) }
+ 	|	TOK_FINAL { (TOK_FINAL) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_property473"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_property473")) }
+ 
+ modport_stmt: TOK_MODPORT TOK_ID /* 56 */ modport_args_opt /* 57 */ SEMICOLON { TUPLE5(STRING("modport_stmt476"),TOK_MODPORT,TOK_ID $2,$3,SEMICOLON) }
+ 
+@@ -907,21 +907,21 @@
+ 
+ opt_synopsys_attr: opt_synopsys_attr TOK_SYNOPSYS_FULL_CASE { TUPLE3(STRING("opt_synopsys_attr555"),$1,TOK_SYNOPSYS_FULL_CASE) }
+ 	|	opt_synopsys_attr TOK_SYNOPSYS_PARALLEL_CASE { TUPLE3(STRING("opt_synopsys_attr556"),$1,TOK_SYNOPSYS_PARALLEL_CASE) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_synopsys_attr557"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_synopsys_attr557")) }
+ 
+ behavioral_stmt_list: behavioral_stmt_list behavioral_stmt { TUPLE3(STRING("behavioral_stmt_list558"),$1,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("behavioral_stmt_list559"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("behavioral_stmt_list559")) }
+ 
+ optional_else: TOK_ELSE /* 70 */ behavioral_stmt { TUPLE3(STRING("optional_else561"),TOK_ELSE,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("optional_else562"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("optional_else562")) }
+ 
+ case_body: case_body case_item { TUPLE3(STRING("case_body563"),$1,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("case_body564"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("case_body564")) }
+ 
+ case_item: /* 71 */ case_select /* 72 */ behavioral_stmt { TUPLE3(STRING("case_item567"),$1,$2) }
+ 
+ gen_case_body: gen_case_body gen_case_item { TUPLE3(STRING("gen_case_body568"),$1,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("gen_case_body569"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("gen_case_body569")) }
+ 
+ gen_case_item: /* 73 */ case_select /* 74 */ gen_stmt_block { TUPLE3(STRING("gen_case_item572"),$1,$2) }
+ 
+@@ -944,10 +944,10 @@
+ 	|	expr COMMA lvalue_concat_list { TUPLE4(STRING("lvalue_concat_list585"),$1,COMMA,$3) }
+ 
+ opt_arg_list: LPAREN arg_list optional_comma RPAREN { TUPLE5(STRING("opt_arg_list586"),LPAREN,$2,$3,RPAREN) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_arg_list587"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_arg_list587")) }
+ 
+ arg_list: arg_list2 { ($1) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("arg_list589"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("arg_list589")) }
+ 
+ arg_list2: single_arg { ($1) }
+ 	|	arg_list COMMA single_arg { TUPLE4(STRING("arg_list2591"),$1,COMMA,$3) }
+@@ -956,7 +956,7 @@
+ 
+ module_gen_body: module_gen_body gen_stmt_or_module_body_stmt { TUPLE3(STRING("module_gen_body593"),$1,$2) }
+ 	|	module_gen_body gen_block { TUPLE3(STRING("module_gen_body594"),$1,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("module_gen_body595"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("module_gen_body595")) }
+ 
+ gen_stmt_or_module_body_stmt: gen_stmt { ($1) }
+ 	|	module_body_stmt { ($1) }
+@@ -973,7 +973,7 @@
+ 	|	gen_block { ($1) }
+ 
+ opt_gen_else: TOK_ELSE gen_stmt_block { TUPLE3(STRING("opt_gen_else614"),TOK_ELSE,$2) }
+-	|	EOF_TOKEN EOF_TOKEN { TUPLE3(STRING("opt_gen_else615"),EOF_TOKEN,EOF_TOKEN) }
++	|	 { (STRING("opt_gen_else615")) }
+ 
+ expr: basic_expr { ($1) }
+ 	|	basic_expr QUERY attr expr COLON expr { TUPLE7(STRING("expr617"),$1,QUERY,$3,$4,COLON,$6) }

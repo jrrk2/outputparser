@@ -224,9 +224,25 @@ let dump_port = function
   rslt
 | oth -> unhand := Some oth; failwith "dump_port"
 
+let cnv_nam_opt = function
+| TUPLE2 (TOK_ID "Some", TLIST [nam]) -> Some (cnv_nam nam)
+| TOK_ID "None" -> None
+| oth -> unhand := Some oth; failwith "cnv_nam_opt"
+
+let dump_imp_itm = function
+| TUPLE3 (TOK_ID "ImportItem", TOK_ID "ImportItemData", TLIST
+            [TUPLE3 (TOK_ID "pkg", COLON, pkg);
+             TUPLE3 (TOK_ID "name", COLON, name)]) ->
+let itm:('a)astImportItem = {
+        pkg=cnv_nam pkg;
+        name=cnv_nam_opt name;     (* // None means `import pkg::*` *)
+      } in itm
+| oth -> unhand := Some oth; failwith "dump_imp_itm"
+
 let dump_imp = function
-| oth ->
-  let rslt:('a)astImportDecl = {items=[||]} in rslt
+| TUPLE3 (TOK_ID "ImportDecl", TOK_ID "ImportDeclData", TLIST
+            [TUPLE3 (TOK_ID "items", COLON, TLIST items)]) ->
+  let rslt:('a)astImportDecl = {items=Array.of_list (List.map dump_imp_itm items)} in rslt
 | oth -> unhand := Some oth; failwith "dump_imp"
 
 let rec dump_one_parm = function
