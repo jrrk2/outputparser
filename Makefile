@@ -157,6 +157,20 @@ Moore.ml: Moore.mly
 
 ############################################################################
 
+MOORE_PKG= -package sexplib # ,ppx_sexp_conv
+
+sv2v_top: sv2v.ml sv2v_ord.ml sv2v_lex.ml sv2v_dump.ml sv2v_main.ml
+	ocamlfind ocamlmktop $(MOORE_PKG) -linkpkg -g -o $@ \
+token_types_old.ml ast_types_old.ml sv2v.mli sv2v.ml sv2v_ord.ml sv2v_lex.ml sv2v_dump.ml sv2v_main.ml
+
+sv2v_lex.ml: sv2v_lex.mll
+	ocamllex $<
+
+sv2v.ml: sv2v.mly
+	menhir --trace --unused-tokens --explain $<
+
+############################################################################
+
 YOSYS_Y = ../yosys/frontends/verilog/verilog_parser.y
 #YOSYS_Y = ../yosys/sv2v/src/Language/SystemVerilog/Parser/Parse.y
 

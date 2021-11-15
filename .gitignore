@@ -155,3 +155,8 @@ Yosys_helper_types.ml
 yosys_helper.output
 yosys_helper.tab.c
 yosys_helper.tab.h
+sv2v.ml
+sv2v.mli
+sv2v_lex.ml
+sv2v_ord.ml
+sv2v_top

@@ -1,0 +1,4 @@
+open Sv2v
+open Sv2v_main
+
+let p = parse "examples/count0.v";;
