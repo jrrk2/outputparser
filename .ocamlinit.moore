@@ -25,6 +25,7 @@ open Ast_dump_old
 let v = "examples/picorv32_ref.v";;
 let v = "examples/count8.sv";;
 let v = "examples/initpat.sv";;
+let v = "examples/ariane_preproc.sv";;
 let p,d = Moore_main.dmp true v;;
 
 (*

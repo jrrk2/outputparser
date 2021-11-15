@@ -90,25 +90,25 @@ and (dumpSourceFile:('asta)astSourceFile -> string) = function  {
 and (dumpItem:('asta)astItem -> string) = function 
     | SV_Dummy -> ""
     | SV_ModuleDecl (astModule1) -> dumpModule (astModule1)
-    | SV_InterfaceDecl (astInterface1) -> failwith "dumpItem1"
+    | SV_InterfaceDecl (astInterface1) -> dumpInterface astInterface1
     | SV_PackageDecl (astPackage1) -> dumpPackage astPackage1
     | SV_ClassDecl (astClassDecl1) -> failwith "dumpItem3"
     | SV_ProgramDecl -> failwith "dumpItem4"
-    | SV_ImportDecl (astImportDecl1) -> failwith "dumpItem5"
+    | SV_ImportDecl (astImportDecl1) -> "import"
     | SV_DpiDecl (astDpiDecl1) -> failwith "dumpItem6"
     | SV_ParamDecl (astParamDecl1) -> (dumpParamDecl(astParamDecl1))
     | SV_ModportDecl (astModport1) -> failwith "dumpItem8"
-    | SV_Typedef (astTypedef1) -> failwith "dumpItem9"
+    | SV_Typedef (astTypedef1) -> dumpTypedef astTypedef1
     | SV_PortDecl (astPortDecl1) -> failwith "dumpItem10"
     | SV_Procedure (astProcedure1) -> dumpProcedure (astProcedure1)
     | SV_SubroutineDecl (astSubroutineDecl1) -> dumpSubroutineDecl (astSubroutineDecl1)
     | SV_ContAssign (astContAssign1) -> (dumpContAssign (astContAssign1))
-    | SV_GenvarDecl (astGenvarDecl1) -> failwith "dumpItem14"
+    | SV_GenvarDecl (astGenvarDecl1) -> dump_array dumpGenvarDecl ";\n" astGenvarDecl1
     | SV_GenerateRegion (astSpan1, astItem2) -> dump_array dumpItem ";\n" (astItem2)
     | SV_GenerateFor (astGenerateFor1) -> dumpGenerateFor astGenerateFor1
     | SV_GenerateIf (astGenerateIf1) -> dumpGenerateIf (astGenerateIf1)
     | SV_GenerateCase (astGenerateCase1) -> failwith "dumpItem18"
-    | SV_Assertion (astAssertion1) -> failwith "dumpItem19"
+    | SV_Assertion (astAssertion1) -> dumpAssertion astAssertion1
     | SV_NetDecl (astNetDecl1) -> dumpNetDecl astNetDecl1
     | SV_VarDecl (astVarDecl1) -> dumpVarDecl astVarDecl1
     | SV_Inst (astInst1) -> dumpInst astInst1
@@ -130,7 +130,7 @@ and (dumpModule:('asta)astModule -> string) = function  {
 
 (* /// An interface. *)
 
-and (dumpInterface:('asta)astInterface -> unit) = function  {
+and (dumpInterface:('asta)astInterface -> string) = function  {
         lifetime;
     (* // default static *)
         name;
@@ -138,7 +138,7 @@ and (dumpInterface:('asta)astInterface -> unit) = function  {
         ports;
         items;
 
-} -> failwith "dump43"
+} -> name
 
 (* /// A package. *)
 
@@ -170,58 +170,64 @@ and (dumpTimeunit:astTimeunit -> unit) = function  {
 
 (* /// A type. *)
 
-and (dumpType:('asta)astType -> unit) = function  {
+and (dumpType:('asta)astType -> string) = function  {
         kind;
         sign;
         dims;
 
-} -> failwith "dump48"
+} -> dumpTypeKind kind
 
 (* /// A type without sign and packed dimensions. *)
 
-and (dumpTypeKind:('asta)astTypeKind -> unit) = function 
-    | SV_ImplicitType -> failwith "dump49"
-    | SV_VoidType -> failwith "dump50"
-    | SV_NamedType (astName1) -> failwith "dump51"
-    | SV_StringType -> failwith "dump52"
-    | SV_ChandleType -> failwith "dump53"
-    | SV_VirtIntfType (astName1) -> failwith "dump54"
-    | SV_EventType -> failwith "dump55"
-    | SV_MailboxType -> failwith "dump56"
-    | SV_ImplicitSignedType -> failwith "dump57"
-    | SV_ImplicitUnsignedType -> failwith "dump58"
+and (dumpTypeKind:('asta)astTypeKind -> string) = function 
+    | SV_ImplicitType -> "ImplicitType"
+    | SV_VoidType -> "VoidType"
+    | SV_NamedType (astName1) -> "NamedType (astName1)"
+    | SV_StringType -> "StringType"
+    | SV_ChandleType -> "ChandleType"
+    | SV_VirtIntfType (astName1) -> "VirtIntfType (astName1)"
+    | SV_EventType -> "EventType"
+    | SV_MailboxType -> "MailboxType"
+    | SV_ImplicitSignedType -> "ImplicitSignedType"
+    | SV_ImplicitUnsignedType -> "ImplicitUnsignedType"
     (* // Scoping *)
     | SV_ScopedType {
         ty;
         member;
         name;
-    } -> failwith "dump59"
+    } -> "ScopedType {
+        ty;
+        member;
+        name;
+    }"
     (* // Forward declarations *)
     | SV_ForwardType {
         kind;
-    } -> failwith "dump60"
+    } -> "ForwardType {
+        kind;
+    }"
     (* // Integer Vector Types *)
-    | SV_BitType -> failwith "dump61"
-    | SV_LogicType -> failwith "dump62"
-    | SV_RegType -> failwith "dump63"
+    | SV_BitType -> "BitType"
+    | SV_LogicType -> "LogicType"
+    | SV_RegType -> "RegType"
     (* // Integer Atom Types *)
-    | SV_ByteType -> failwith "dump64"
-    | SV_ShortIntType -> failwith "dump65"
-    | SV_IntType -> failwith "dump66"
-    | SV_IntegerType -> failwith "dump67"
-    | SV_LongIntType -> failwith "dump68"
-    | SV_TimeType -> failwith "dump69"
+    | SV_ByteType -> "ByteType"
+    | SV_ShortIntType -> "ShortIntType"
+    | SV_IntType -> "IntType"
+    | SV_IntegerType -> "IntegerType"
+    | SV_LongIntType -> "LongIntType"
+    | SV_TimeType -> "TimeType"
     (* // Non-integer Types *)
-    | SV_ShortRealType -> failwith "dump70"
-    | SV_RealType -> failwith "dump71"
-    | SV_RealtimeType -> failwith "dump72"
+    | SV_ShortRealType -> "ShortRealType"
+    | SV_RealType -> "RealType"
+    | SV_RealtimeType -> "RealtimeType"
     (* // Enumerations *)
-    | SV_EnumType (astEnum1) -> failwith "dump73"
-    | SV_StructType (astStruct1) -> failwith "dump74"
+    | SV_EnumType (astEnum1) -> "EnumType (astEnum1)"
+    | SV_StructType (astStruct1) -> "StructType (astStruct1)"
     (* // Specialization *)
-    | SV_SpecializedType (astType1, astParamAssignment2) -> failwith "dump75"
+    | SV_SpecializedType (astType1, astParamAssignment2) -> "SpecializedType (astType1, astParamAssignment2)"
     (* /// Type reference, such as `type(x)` or `type(int)`. *)
-    | SV_TypeRef (astTypeOrExpr1) -> failwith "dump76"
+    | SV_TypeRef (astTypeOrExpr1) -> "TypeRef (astTypeOrExpr1)"
 
 
 and (dumpTypeSign:astTypeSign -> unit) = function 
@@ -423,11 +429,11 @@ and (dumpStmtKind:('asta)astStmtKind -> string) = function
     | SV_ForStmt (astStmt1, astExpr2, astExpr3, astStmt4) -> failwith "dumpStmtKind13"
     | SV_ForeachStmt (astExpr1, astForeachIndex2, astStmt3) -> failwith "dumpStmtKind14"
     | SV_ExprStmt (astExpr1) -> dumpExpr astExpr1
-    | SV_VarDeclStmt (astVarDecl1) -> failwith "dumpStmtKind16"
+    | SV_VarDeclStmt (astVarDecl1) -> dumpVarDecl astVarDecl1
     | SV_GenvarDeclStmt (astGenvarDecl1) -> dump_array dumpGenvarDecl ";\n" astGenvarDecl1
     | SV_ContinueStmt -> failwith "dumpStmtKind18"
     | SV_BreakStmt -> failwith "dumpStmtKind19"
-    | SV_ReturnStmt (astExpr1) -> failwith "dumpStmtKind20"
+    | SV_ReturnStmt (astExpr1) -> "return"
     | SV_ImportStmt (astImportDecl1) -> failwith "dumpStmtKind21"
     | SV_AssertionStmt (astAssertion1) -> failwith "dumpStmtKind22"
     | SV_WaitExprStmt (astExpr1, astStmt2) -> failwith "dumpStmtKind23"
@@ -617,16 +623,16 @@ and (dumpExpr:('asta)astExpr -> string) = function
         expr;
         name=(span,nam);
     } -> dumpExpr expr ^ "." ^ nam
-    | SV_PatternExpr (astPatternField1) -> failwith "dumpExpr25"
-    | SV_InsideExpr (astExpr1, astValueRange2) -> failwith "dumpExpr26"
-    | SV_CastExpr (astType1, astExpr2) -> failwith "dumpExpr27"
-    | SV_CastSizeExpr (astExpr1, astExpr2) -> failwith "dumpExpr28"
-    | SV_CastSignExpr (astTypeSign1, astExpr2) -> failwith "dumpExpr29"
+    | SV_PatternExpr (astPatternField1) -> "pattern"
+    | SV_InsideExpr (astExpr1, astValueRange2) -> "inside"
+    | SV_CastExpr (astType1, astExpr2) -> dumpExpr astExpr2
+    | SV_CastSizeExpr (astExpr1, astExpr2) -> dumpExpr astExpr2
+    | SV_CastSignExpr (astTypeSign1, astExpr2) -> dumpExpr astExpr2
     (* /// A `$bits` call. *)
     | SV_BitsExpr {
         name;
         arg;
-    } -> failwith "dumpExpr30"
+    } -> "$bits(...)"
 
 (* /// An ambiguous node that can either be a type or and expression. *)
 (* /// *)
@@ -759,12 +765,12 @@ and (dumpRandomQualifier:astRandomQualifier -> unit) = function
 (* /// *)
 (* /// For example `typedef int my_type_t`. *)
 
-and (dumpTypedef:('asta)astTypedef -> unit) = function  {
+and (dumpTypedef:('asta)astTypedef -> string) = function  {
         name;
         ty;
         dims;
 
-} -> failwith "dump258"
+} -> name
 
 
 and (dumpConstraint:('asta)astConstraint -> unit) = function  {
@@ -938,12 +944,12 @@ and (dumpImportItem:('asta)astImportItem -> unit) = function  {
 } -> failwith "dump307"
 
 
-and (dumpAssertion:('asta)astAssertion -> unit) = function  {
+and (dumpAssertion:('asta)astAssertion -> string) = function  {
         span;
         label;
         data;
 
-} -> failwith "dump308"
+} -> "assertion"
 
 
 and (dumpAssertionData:('asta)astAssertionData -> unit) = function 

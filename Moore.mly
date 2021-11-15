@@ -131,3 +131,4 @@ brace2: id COLON id brace0 { TUPLE3($1,COLON,TUPLE2($3,$4)) }
   | id COLON id hash id COMMA { TUPLE3($1,COLON,TUPLE2($3,$5)) }
   | id COLON id LPAREN int RPAREN COMMA { TUPLE3($1,COLON,TUPLE2($3,TLIST [$5])) }
   | id COLON source { TUPLE3($1,COLON,$3) }
+  | id COLON int COMMA { TUPLE3($1,COLON,$3) }
