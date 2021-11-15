@@ -114,6 +114,7 @@ brack1: id COLON LBRACK brack_lst1 RBRACK { TUPLE2($1,TLIST (List.rev $4)) }
   | id paren0 { TUPLE2($1,$2) }
   | id brace0 { TUPLE2($1,$2) }
   | id hash id brace0 { TUPLE3($1,$3,$4) }
+  | id hash id COMMA { TUPLE2($1,$3) }
   | paren0 { $1 }
 
 brace0: LBRACE brace_lst1 RBRACE COMMA { TLIST (List.rev $2) }

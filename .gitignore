@@ -138,8 +138,10 @@ Moore.ml
 Moore.mli
 Moore_lex.ml
 Moore_top
+Moore
 p'.ml
 examples/*.enc
+examples/*.ast
 token_types_new.ml
 *.conflicts
 Yosys_helper.ml

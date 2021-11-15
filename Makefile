@@ -145,6 +145,10 @@ Moore_top: token_types_old.ml ast_types_old.ml Moore.ml Moore_lex.ml Moore_dump.
 	ocamlfind ocamlmktop $(MOORE_PKG) -linkpkg -g -o $@ \
 token_types_old.ml ast_types_old.ml Moore.mli Moore.ml Moore_lex.ml Moore_dump.ml token_dump_old.ml ast_dump_old.ml Moore_main.ml
 
+Moore: token_types_old.ml ast_types_old.ml Moore.ml Moore_lex.ml Moore_dump.ml token_dump_old.ml ast_dump_old.ml Moore_main.ml Moore_args.ml
+	ocamlfind ocamlopt $(MOORE_PKG) -linkpkg -g -o $@ \
+token_types_old.ml ast_types_old.ml Moore.mli Moore.ml Moore_lex.ml Moore_dump.ml token_dump_old.ml ast_dump_old.ml Moore_main.ml Moore_args.ml
+
 Moore_lex.ml: Moore_lex.mll
 	ocamllex $<
 

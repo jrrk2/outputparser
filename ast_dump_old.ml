@@ -105,7 +105,7 @@ and (dumpItem:('asta)astItem -> string) = function
     | SV_ContAssign (astContAssign1) -> (dumpContAssign (astContAssign1))
     | SV_GenvarDecl (astGenvarDecl1) -> failwith "dumpItem14"
     | SV_GenerateRegion (astSpan1, astItem2) -> dump_array dumpItem ";\n" (astItem2)
-    | SV_GenerateFor (astGenerateFor1) -> failwith "dumpItem16"
+    | SV_GenerateFor (astGenerateFor1) -> dumpGenerateFor astGenerateFor1
     | SV_GenerateIf (astGenerateIf1) -> dumpGenerateIf (astGenerateIf1)
     | SV_GenerateCase (astGenerateCase1) -> failwith "dumpItem18"
     | SV_Assertion (astAssertion1) -> failwith "dumpItem19"
@@ -424,7 +424,7 @@ and (dumpStmtKind:('asta)astStmtKind -> string) = function
     | SV_ForeachStmt (astExpr1, astForeachIndex2, astStmt3) -> failwith "dumpStmtKind14"
     | SV_ExprStmt (astExpr1) -> dumpExpr astExpr1
     | SV_VarDeclStmt (astVarDecl1) -> failwith "dumpStmtKind16"
-    | SV_GenvarDeclStmt (astGenvarDecl1) -> failwith "dumpStmtKind17"
+    | SV_GenvarDeclStmt (astGenvarDecl1) -> dump_array dumpGenvarDecl ";\n" astGenvarDecl1
     | SV_ContinueStmt -> failwith "dumpStmtKind18"
     | SV_BreakStmt -> failwith "dumpStmtKind19"
     | SV_ReturnStmt (astExpr1) -> failwith "dumpStmtKind20"
@@ -534,11 +534,11 @@ and (dumpVarDeclName:('asta)astVarDeclName -> string) = function  {
 
 (* /// A generate variable declaration. *)
 
-and (dumpGenvarDecl:('asta)astGenvarDecl -> unit) = function  {
+and (dumpGenvarDecl:('asta)astGenvarDecl -> string) = function  {
         name;
         init;
 
-} -> failwith "dump186"
+} -> "genvar "^name
 
 (* /// A foreach-loop index variable. *)
 
@@ -562,7 +562,7 @@ and (dumpExpr:('asta)astExpr -> string) = function
     | SV_ThisExpr -> failwith "dumpExpr5"
     | SV_DollarExpr -> failwith "dumpExpr6"
     | SV_NullExpr -> failwith "dumpExpr7"
-    | SV_ScopeExpr (astExpr1, astName2) -> failwith "dumpExpr8"
+    | SV_ScopeExpr (astExpr1, astName2) -> dumpExpr astExpr1 ^ astName2
     | SV_IndexExpr {
         indexee;
         index;
@@ -615,8 +615,8 @@ and (dumpExpr:('asta)astExpr -> string) = function
     (* /// A member expression, like `a.b`. *)
     | SV_MemberExpr {
         expr;
-        name;
-    } -> failwith "dumpExpr24"
+        name=(span,nam);
+    } -> dumpExpr expr ^ "." ^ nam
     | SV_PatternExpr (astPatternField1) -> failwith "dumpExpr25"
     | SV_InsideExpr (astExpr1, astValueRange2) -> failwith "dumpExpr26"
     | SV_CastExpr (astType1, astExpr2) -> failwith "dumpExpr27"
@@ -1192,13 +1192,13 @@ and (dumpContAssign:('asta)astContAssign -> string) = function  {
 
 (* /// A `for` generate statement. *)
 
-and (dumpGenerateFor:('asta)astGenerateFor -> unit) = function  {
+and (dumpGenerateFor:('asta)astGenerateFor -> string) = function  {
         init;
         cond;
         step;
         block;
 
-} -> failwith "dump377"
+} -> sprintf "for (%s;%s;%s) begin %s end" (dumpStmt init) (dumpExpr cond) (dumpExpr step) (dumpGenerateBlock block)
 
 (* /// An `if` generate statement. *)
 

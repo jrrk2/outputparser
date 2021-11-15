@@ -137,11 +137,11 @@ and (dumpOp:tokenOp -> string) = function
     (* // Bitwise *)
     | SV_BitNot -> "~"
     | SV_BitAnd -> "&"
-    | SV_BitNand -> failwith "dumpOp27"
+    | SV_BitNand -> "~&"
     | SV_BitOr -> "|"
-    | SV_BitNor -> failwith "dumpOp29"
+    | SV_BitNor -> "~|"
     | SV_BitXor -> "^"
-    | SV_BitXnor -> failwith "dumpOp31"
+    | SV_BitXnor -> "~^"
     | SV_BitNxor -> failwith "dumpOp32"
     (* // Shift *)
     | SV_LogicShL -> "<<"
