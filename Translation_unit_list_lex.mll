@@ -76,7 +76,7 @@ let tok lexbuf arg =
   let tran = function
   | CONSTANT s -> "Constant: "^s
   | IDENTIFIER s -> "Ident: "^s
-  | arg -> Translation_unit_list_types.getstr arg in
+  | arg -> "Other" in
 if !verbose then print_endline (string_of_int (lexeme_start lexbuf)^": "^tran arg);
 toklst := arg :: !toklst;
 semicolon_seen := arg = SEMICOLON; 
@@ -91,7 +91,7 @@ rslt
 }
 
 let D	=		['0'-'9']
-let L	=		['a'-'z' 'A'-'Z' '_']
+let L	=		['a'-'z' 'A'-'Z' '_' '$']
 let H	=		['a'-'f' 'A'-'F' '0'-'9']
 let E	=		(['E' 'e']['+' '-']?D+)
 let P   =              (['P' 'p']['+' '-']?D+)

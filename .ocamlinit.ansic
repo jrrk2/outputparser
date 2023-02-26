@@ -3,18 +3,28 @@ open Translation_unit_list_types
 open Translation_unit_list_main
 open Translation_unit_list_filt
 open Translation_unit_list_transform
+open Sample
 
 let main = try Sys.getenv "TRANS_MAIN" with _ -> "main";;
 let chan = open_out ("mykernel_"^main^".c");;
-let args = [| ""; "main.i"; "Orbital.i"; "position.i"; "support.i"; "System.i"; "Walker.i"; "walkthewalk.i"; "Wavefunction.i"; "dSFMT.i" |];;
+let args = [| ""; "tweetnacl.light.i" |];;
 (*
 let args = [| ""; "main.i" |];;
 *)
 let tab, printed, rslts = dump parse chan main args;;
 close_out chan;;
-let (fnlst,extlst,enumlst,struclst,ulst,ftyplst,typlst,errlst,redeflst) = List.hd rslts;;
+let (fnlst,extlst,enumlst,struclst,ulst,ftyplst,typlst,redeflst) = List.hd rslts;;
 (*
 let chan = open_out "mykernel.c";;
 Translation_unit_list_foreign.dump parse chan needed;;
 close_out chan;;
+*)
+
+Sample.dumpfunc "crypto_sign_ed25519_tweet";;
+
+(*
+Sample.dumpfunc "car25519";;
+Sample.dumpfunc "pack25519";;
+Sample.dumpfunc "inv25519";;
+Sample.dumpfunc "pack";;
 *)

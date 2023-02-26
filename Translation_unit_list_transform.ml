@@ -13,7 +13,8 @@ type citm =
   | S of token list
   | T of token
   | U of token list
-	   
+  | O of token
+
 let verbose = ref true
 let verbose2 = ref false
 
@@ -71,6 +72,7 @@ let inlines = Hashtbl.create 257
 let globals = Hashtbl.create 257
 let inits = Hashtbl.create 257
 let fbody = Hashtbl.create 257
+let others = Hashtbl.create 257
 
 let redeflst = ref []
 
@@ -171,6 +173,9 @@ let _unions key ulst =
     end
   else hashadd unions key (U ulst)
 
+let _others key oth =
+  hashadd others key (O oth)
+
 let _inlines key (typ,params,body) =
   if hashmem inlines key then
     begin
@@ -186,15 +191,150 @@ let _inits key (typ,num) =
   hashadd inits key (I (typ,num))
 
 let nxtlst = ref []
-let errlst = ref []
+let dbgtree = ref EOF_TOKEN
+let otht = ref EOF_TOKEN
+
+let rec truncate = function
+| TUPLE3(STRING ("translation_unit_list232"|"block_item_list212"|"specifier_qualifier_list120"),lft,rght) -> (match truncate lft with TLIST arg -> TLIST (truncate rght :: arg) | oth -> TLIST (truncate rght :: oth :: []))
+| TUPLE3(STRING "ml_start0", a, b) -> TUPLE2(truncate a, truncate b)
+| TUPLE3(STRING ("parameter_declaration167"|"parameter_declaration168"|"declaration_specifiers80"|"declaration_specifiers82"|"declarator142"|"expression_statement216"|"unary_expression20"|"jump_statement228"|"type_name173") as t, a, b) -> TUPLE3(t, truncate a, truncate b)
+| TUPLE3(STRING oth, a, b) as t -> otht := t; failwith oth
+| TUPLE3((VOID|INT|TUPLE3 _) as t, a, b) -> TUPLE3(truncate t, truncate a, truncate b)
+| TUPLE4(STRING ("initializer_list193"|"parameter_list166"|"argument_expression_list16"),lft,COMMA,rght) -> (match truncate lft with TLIST arg -> TLIST (truncate rght :: arg) | oth -> TLIST (truncate rght :: oth :: []))
+| TUPLE4(STRING ("parameter_type_list164"|"direct_abstract_declarator177"|"init_declarator90"|"function_definition236"|"compound_statement210"|"jump_statement230"|"inclusive_or_expression54"|"shift_expression40"|"additive_expression37"|"primary_expression4"|"and_expression50"|"shift_expression39"|"assignment_expression62"|"additive_expression36"|"relational_expression42"|"relational_expression43"|"relational_expression44"|"relational_expression45"|"equality_expression47"|"equality_expression48"|"exclusive_or_expression52"|"multiplicative_expression32"|"multiplicative_expression34"|"direct_declarator145"|"multiplicative_expression33"|"direct_abstract_declarator179") as s, a, b, c) -> TUPLE4(s, truncate a, truncate b, truncate c)
+| TUPLE5(STRING ("direct_declarator154"|"direct_abstract_declarator181"|"direct_declarator148"|"initializer190"|"postfix_expression8"|"cast_expression30"|"unary_expression22") as s, a, b, c, d) -> TUPLE5(s, truncate a, truncate b, truncate c, truncate d)
+| TUPLE6(STRING ("selection_statement217"|"iteration_statement220") as s, a, b, c, d, e) -> TUPLE6(s, truncate a, truncate b, truncate c, truncate d, truncate e)
+| TUPLE8(STRING ("iteration_statement223"|"selection_statement218") as s, a,b,c,d,e,f,g) -> TUPLE8 (s, truncate a, truncate b, truncate c, truncate d, truncate e, truncate f, truncate g)
+(*
+| TUPLE4(_, a, b, c) -> TUPLE3(truncate a, truncate b, truncate c)
+| TUPLE5(_, a, b, c, d) -> TUPLE4(truncate a, truncate b, truncate c, truncate d)
+| TUPLE6(_, a, b, c, d, e) -> TUPLE5(truncate a, truncate b, truncate c, truncate d, truncate e)
+| TUPLE7(_, a,b,c,d,e,f) -> TUPLE6 (truncate a, truncate b, truncate c, truncate d, truncate e, truncate f)
+*)
+| TLIST lst -> TLIST (List.map truncate lst)
+| ELIST lst -> ELIST (List.map truncate lst)
+(*
+| IDENTIFIER _ -> IDENTIFIER ""
+| CONSTANT _ -> CONSTANT "1"
+*)
+  | XOR_ASSIGN
+  | WHILE
+  | VOLATILE
+  | VOID
+  | VBAR
+  | UNSIGNED
+  | UNION
+  | UNDERSCORE
+  | TYPEDEF
+  | TILDE
+  | SWITCH
+  | SUB_ASSIGN
+  | STRUCT
+  | STRING_LITERAL _
+  | STRING _
+  | STATIC
+  | STAR
+  | SLIST _
+  | SLASH
+  | SIZEOF
+  | SIGNED
+  | SHORT
+  | SEMICOLON
+  | RPAREN
+  | RIGHT_OP
+  | RIGHT_ASSIGN
+  | RETURN
+  | RESTRICT
+  | REGISTER
+  | RBRACK
+  | RBRACE
+  | QUOTE
+  | QUERY
+  | PTR_OP
+  | PLUS
+  | PLING
+  | PERCENT
+  | OR_OP
+  | OR_ASSIGN
+  | NE_OP
+  | MUL_ASSIGN
+  | MOD_ASSIGN
+  | LPAREN
+  | LONG
+  | LINEFEED
+  | LE_OP
+  | LESS
+  | LEFT_OP
+  | LEFT_ASSIGN
+  | LBRACK
+  | LBRACE
+  | INT
+  | INLINE
+  | INC_OP
+  | IMAGINARY
+  | IF
+  | HYPHEN
+  | HASH
+  | GREATER
+  | GOTO
+  | GE_OP
+  | FOR
+  | FLOAT
+  | EXTERN
+  | ERROR_TOKEN
+  | ERROR
+  | EQ_OP
+  | EQUALS
+  | EOF_TOKEN
+  | ENUM
+  | END
+  | EMPTY_TOKEN
+  | ELSE
+  | ELLIPSIS
+  | DOUBLEQUOTE
+  | DOUBLE
+  | DOT
+  | DOLLAR
+  | DO
+  | DIV_ASSIGN
+  | DEFAULT
+  | DEC_OP
+  | CONTINUE
+  | CONST
+  | CONS4 _
+  | CONS3 _
+  | CONS2 _
+  | CONS1 _
+  | COMPLEX
+  | COMMA
+  | COLON
+  | CHAR
+  | CASE
+  | CARET
+  | BREAK
+  | BOOL
+  | BACKSLASH
+  | BACKQUOTE
+  | AUTO
+  | AT
+  | AND_OP
+  | AND_ASSIGN
+  | AMPERSAND
+  | ADD_ASSIGN
+  | ACCEPT
+| TYPE_NAME _
+| IDENTIFIER _
+| CONSTANT _ as tok -> tok
+| oth -> otht := oth; failwith "truncate"
 
 let getrslt parse arg =
    Printf.fprintf stderr "%s: " arg; flush stderr;
-   match parse arg with
+   dbgtree := (parse arg);
+   match truncate !dbgtree with
     | TUPLE2(tran,_) -> 
         List.iter (fun itm ->
             nxtlst := itm :: !nxtlst;
-            Translation_unit_list_filt.filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs _typedefs _unions itm) (match tolst tran with TLIST lst -> lst | oth -> []);
+            Translation_unit_list_filt.filt _enums _externs _fbody _ftypes _globals _inits _inlines _structs _typedefs _unions _others itm) (match tolst tran with TLIST lst -> lst | oth -> []);
 	let fnlst = ref [] in
 	Hashtbl.iter (fun k _ -> fnlst := k :: !fnlst) fbody;
 	let extlst = ref [] in
@@ -218,10 +358,9 @@ let getrslt parse arg =
 (List.length !structlst)
 (List.length !unionlst)
 (List.length !ftyplst)
-(List.length !errlst)
 (List.length !redeflst);
 flush stderr;
-(!fnlst, !extlst, !enumlst, !structlst, !unionlst, !ftyplst, !typlst, !errlst, !redeflst)
+(!fnlst, !extlst, !enumlst, !structlst, !unionlst, !ftyplst, !typlst, !redeflst)
     | oth -> othlst := oth :: !othlst; Translation_unit_list_filt.failtree oth
 									   
 let emark' refs key k = function

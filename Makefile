@@ -19,7 +19,7 @@
 .PHONY: everything convert
 
 PARSER=ocamlyacc
-MENHIRFLAGS= --trace #
+MENHIRFLAGS= --trace --infer #
 PARSER=menhir $(MENHIRFLAGS)
 
 all: output_parser output_parser.top Source_text_top Source_text
@@ -179,7 +179,7 @@ lex.yy.c: ansic.l
 
 ansitest: Translation_unit_list.mly
 
-Translation_unit_list.mly: ansic output_parser Translation_unit_list_78
+Translation_unit_list.mly: y.tab.c output_parser Translation_unit_list_78
 	env OCAMLRUNPARAM=b STRING_LITERAL=string IDENTIFIER=string CONSTANT=string TYPE_NAME=string ./output_parser y.output
 
 %.i: $(SIMPLEDMC)/src/%.c
@@ -188,8 +188,8 @@ Translation_unit_list.mly: ansic output_parser Translation_unit_list_78
 Translation_unit_list: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_main.cmo
 	 ocamlc.opt -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_main.cmo
 
-Translation_unit_list.top: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo  Translation_unit_list_main.cmo
-	 ocamlmktop -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_main.cmo
+Translation_unit_list.top: Translation_unit_list.cmi Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo sample.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo  Translation_unit_list_main.cmo
+	 ocamlmktop -g -o $@ Translation_unit_list_types.cmo Translation_unit_list.cmo Translation_unit_list_lex.cmo Translation_unit_list_filt.cmo Translation_unit_list_transform.cmo Translation_unit_list_main.cmo sample.cmo
 
 Translation_unit_list_lex.ml: Translation_unit_list_lex.mll
 	ocamllex Translation_unit_list_lex.mll

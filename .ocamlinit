@@ -1,9 +1,9 @@
 #print_length 10000000;;
 #print_depth 10000000;;
-
+(*
 #print_length 1000;;
 #print_depth 200;;
-
+*)
 (**************************************************************************)
 (*                                                                        *)
 (* OCaml template Copyright (C) 2004-2010                                 *)
@@ -62,17 +62,17 @@
 #use ".ocamlinit.program"
 *)
 
-(*
+(* *)
 #use ".ocamlinit.ansic"
-*)
+(* *)
 
 (*
 #use ".ocamlinit.liberty"
 *)
 
-(* *)
+(*
 #use ".ocamlinit.sysver"
-(* *)
+*)
 
 (*
 #use ".ocamlinit.msat"

@@ -17,17 +17,19 @@ let rec dumptree = function
 | IDENTIFIER str -> "IDENTIFIER \""^str^"\""
 | CONSTANT num -> "CONSTANT \""^num^"\""
 | TLIST lst -> "TLIST ["^String.concat "; " (List.map dumptree lst)^"]"
-| oth -> getstr oth
+| oth -> "other"
 
 let failtree oth = print_endline "failtree:"; failwith (dumptree oth)
 
 let loc = ref 0
+let othext = ref []
+
 let pcnv = function
 | TLIST p -> p
 | VOID -> []
 | oth -> [oth]
 
-let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs _typedefs _unions = function
+let filt _enums _externs _fbody _ftypes _globals _inits _inlines _structs _typedefs _unions _others = function
 | TUPLE2
   (TUPLE5 (UNION, IDENTIFIER uid, LBRACE, TLIST ulst, RBRACE), SEMICOLON) -> loc := 20; _unions uid ulst
 | TUPLE3
@@ -62,13 +64,12 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
          params,
          RPAREN)),
      TUPLE3 (LBRACE, body, RBRACE)) -> loc := 2; _fbody fn (TUPLE2(typ,STAR),pcnv params,pcnv body)
-| TUPLE3
-  (typ,
-   TUPLE4
-    (IDENTIFIER fn, LPAREN,
+| TUPLE4 (STRING "function_definition236", typ,
+   TUPLE5 (STRING "direct_declarator154", IDENTIFIER fn, LPAREN,
      params,
      RPAREN),
-   SEMICOLON) -> loc := 3; _ftypes fn (typ, pcnv params)
+   TUPLE4(STRING "compound_statement210", LBRACE,
+       stmts, RBRACE)) -> loc := 3; _fbody fn (typ, pcnv params, pcnv stmts)
 | TUPLE3
   (TUPLE2 (EXTERN, typ),
     TUPLE2(STAR, 
@@ -144,7 +145,7 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
     | TUPLE2(STAR, IDENTIFIER id) -> loc := 19; _externs id (TUPLE2(typ,STAR))
     | IDENTIFIER id -> loc := 38; _externs id typ
     | TUPLE4 (IDENTIFIER id, LBRACK, IDENTIFIER id', RBRACK) -> loc := 39; _externs id (TUPLE2(typ,IDENTIFIER id'))
-    | oth -> failtree oth) tlst
+    | oth -> othext := oth :: !othext) tlst
 | TUPLE3
   (typ,
    TUPLE4
@@ -174,6 +175,34 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
        LPAREN, INT, RPAREN),
      SEMICOLON) -> loc := 23; _ftypes fn (TUPLE2(typ,STAR), pcnv params)
 | TUPLE3 (TYPE_NAME id_t as t, IDENTIFIER data, SEMICOLON) -> loc := 25; _globals data t
+| TUPLE3 (typ,
+     TUPLE4
+      (STRING "init_declarator90",
+       TUPLE5 (STRING "direct_declarator148", IDENTIFIER data, LBRACK, CONSTANT siz, RBRACK),
+       EQUALS,
+       TUPLE5
+        (STRING "initializer190", LBRACE,
+         (CONSTANT _ |TLIST _ as contents),
+         COMMA, RBRACE)),
+     SEMICOLON) -> _inits data (typ,contents)
+| TUPLE3 (typ,
+     TUPLE4
+      (STRING "init_declarator90",
+       TUPLE5 (STRING "direct_declarator148", IDENTIFIER data, LBRACK, CONSTANT siz, RBRACK),
+       EQUALS,
+       (STRING_LITERAL _ as contents)),
+     SEMICOLON) -> _inits data (typ,contents)
+| TUPLE3 (typ,
+   TUPLE5 (STRING "direct_declarator154", IDENTIFIER data, LPAREN, siz, RPAREN),
+   SEMICOLON) -> _globals data siz
+| TUPLE3
+  (TUPLE3 (STRING "declaration_specifiers80", EXTERN, VOID),
+   TUPLE3 (STRING "declarator142", STAR,
+     TUPLE5 (STRING "direct_declarator154", IDENTIFIER data, LPAREN, TLIST lst, RPAREN)),
+   SEMICOLON) -> _externs data (TLIST lst)
+| TUPLE3 (typ,
+   TUPLE5 (STRING "direct_declarator148", IDENTIFIER array, LBRACK, (CONSTANT _ as siz), RBRACK), SEMICOLON) ->
+   _globals array (TUPLE2(typ,  TUPLE4 (IDENTIFIER array, LBRACK, siz, RBRACK)))
 | TUPLE3 (TUPLE2 (STATIC, TUPLE2 (CONST, typ)), TUPLE3 (IDENTIFIER data, EQUALS, (CONSTANT _ as num)), SEMICOLON) ->
     loc := 26; _inits data (typ,num)
 | TUPLE3 (typ, TUPLE3 (IDENTIFIER data, EQUALS, TUPLE3(LBRACE, (TLIST _ as contents), RBRACE)), SEMICOLON) ->
@@ -216,4 +245,4 @@ let filt errlst _enums _externs _fbody _ftypes _globals _inits _inlines _structs
    loc := 47; _globals id (TUPLE2 (typ, IDENTIFIER id))
 | TUPLE3 (typ, (TUPLE4 (IDENTIFIER array, LBRACK, len, RBRACK) as shape), SEMICOLON) ->
    loc := 48; _globals array (TUPLE2 (typ, shape))
-| oth -> errlst := oth :: !errlst
+| oth -> _others "" oth
