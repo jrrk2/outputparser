@@ -308,7 +308,7 @@ let (i: Int64.t ref) = ref 0L in
 let (u: Int64.t ref) = ref 0L in
 u := Int64.of_int (0);
 i := Int64.of_int (0);
-while !i < (Int64.of_int (8)) do u := Int64.logor (Int64.shift_left !u (8)) (Int64.of_int (int_of_char (Bytes.get x (Int64.to_int !i))));
+while !i < (Int64.of_int (8)) do u := Int64.logor (Int64.shift_left !u (8)) (Int64.of_int (int_of_char (Bytes.get x (x' + (Int64.to_int !i)))));
 i := (Int64.add (*5*) (!i) (Int64.of_int (1))); done;
 let rslt = !u in rslt
 
@@ -373,7 +373,7 @@ let (_'184: Int64.t ref) = ref 0L in
 let (_'183: Int64.t ref) = ref 0L in
 let (_'182: Int64.t ref) = ref 0L in
 i := 0;
-while !i < 8 do _'182 := ( dl64  ((x, (*6*) 8 * !i)) (*Bytes.t*) ) ;
+while !i < 8 do _'182 := ( dl64  ((x, x' + (*6*) 8 * !i)) (*Bytes.t*) ) ;
 _'183 := (!_'182);
 a.((!i)) <- !(_'183);
 z.((!i)) <- !(_'183);
@@ -409,7 +409,7 @@ i := !i + (*2*) 1; done;
 m' := (!m' + 128);
 n := Int64.sub !n (Int64.of_int (128)); done;
 i := 0;
-while !i < 8 do ts64 (x, (*6*) 8 * !i) z.((!i));
+while !i < 8 do ts64 (x, x' + (*6*) 8 * !i) z.((!i));
 i := !i + (*2*) 1; done;
 let rslt = !n in Int64.to_int rslt
 
@@ -424,6 +424,7 @@ print_endline (string_of_int x');
 dump "ts64: " (x,x') 8
 
 and crypto_hash_sha512_tweet ((out: Bytes.t), (out' : int)) ((m: Bytes.t), (m' : int)) (n: Int64.t) : int =
+let m' = ref m' in
 let n = ref n in
 let (h: Bytes.t) = Bytes.make 64 ' 'in
 let (x: Bytes.t) = Bytes.make 256 ' ' in
@@ -433,15 +434,15 @@ b := !n;
 i := Int64.of_int (0);
 while !i < (Int64.of_int (64)) do Bytes.set h ((Int64.to_int !i)) (char_trunc iv.((Int64.to_int !i)));
 i := (Int64.add (*5*) (!i) (Int64.of_int (1))); done;
-ignore(crypto_hashblocks_sha512_tweet (h,0) (m,0) !n);
-(* m' := byte_offset m n; *)
+ignore(crypto_hashblocks_sha512_tweet (h,0) (m,!m') !n);
+m' := Int64.to_int (Int64.add (Int64.of_int !m') !n);
 n := Int64.logand (!n) (Int64.of_int (127));
-(* m' := Int64.sub m !n; *)
+m' := Int64.to_int (Int64.sub (Int64.of_int !m') !n);
 i := Int64.of_int (0);
 while !i < (Int64.of_int (256)) do Bytes.set x ((Int64.to_int !i)) (char_trunc 0);
 i := (Int64.add (*5*) (!i) (Int64.of_int (1))); done;
 i := Int64.of_int (0);
-while !i < !n do Bytes.set x ((Int64.to_int !i)) (Bytes.get m (Int64.to_int !i));
+while !i < !n do Bytes.set x ((Int64.to_int !i)) (Bytes.get m (!m'+(Int64.to_int !i)));
 i := (Int64.add (*5*) (!i) (Int64.of_int (1))); done;
 Bytes.set x ((Int64.to_int !n)) (char_trunc 128);
 n := Int64.of_int (256-128 * (if !n < 112L then 1 else 0));
