@@ -1,0 +1,3 @@
+open Test_main_template
+
+let _ = test_main();;

@@ -5,26 +5,16 @@ open Translation_unit_list_filt
 open Translation_unit_list_transform
 open Sample
 
-let main = try Sys.getenv "TRANS_MAIN" with _ -> "main";;
-let chan = open_out ("mykernel_"^main^".c");;
-let args = [| ""; "tweetnacl.light.i" |];;
-(*
-let args = [| ""; "main.i" |];;
-*)
-let tab, printed, rslts = dump parse chan main args;;
-close_out chan;;
-let (fnlst,extlst,enumlst,struclst,ulst,ftyplst,typlst,redeflst) = List.hd rslts;;
-(*
-let chan = open_out "mykernel.c";;
-Translation_unit_list_foreign.dump parse chan needed;;
-close_out chan;;
-*)
+let arg = "tweetnacl.light.i"
+let tree = parse arg;;
 
-Sample.dumpfunc "crypto_sign_ed25519_tweet";;
+Sample.dumpfunc tree "test_main";;
 
 (*
+Sample.dumpfunc tree "crypto_sign_ed25519_tweet";;
 Sample.dumpfunc "car25519";;
 Sample.dumpfunc "pack25519";;
 Sample.dumpfunc "inv25519";;
 Sample.dumpfunc "pack";;
+Sample.dumpfunc tree "dl64";;
 *)

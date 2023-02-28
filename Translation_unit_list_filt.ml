@@ -23,6 +23,7 @@ let failtree oth = print_endline "failtree:"; failwith (dumptree oth)
 
 let loc = ref 0
 let othext = ref []
+let unhandled = ref EOF_TOKEN
 
 let pcnv = function
 | TLIST p -> p
@@ -30,6 +31,13 @@ let pcnv = function
 | oth -> [oth]
 
 let filt _enums _externs _fbody _ftypes _globals _inits _inlines _structs _typedefs _unions _others = function
+| TUPLE3 (typ, TUPLE4 (STRING "init_declarator90",
+          (TUPLE5
+           (STRING "direct_declarator148", IDENTIFIER array, LBRACK,
+            CONSTANT len, RBRACK) as shape),
+          EQUALS,
+          TUPLE5 (STRING "initializer190", LBRACE, init, COMMA, RBRACE)),
+        SEMICOLON) -> _globals array (TUPLE3 (typ, shape, init))
 | TUPLE2
   (TUPLE5 (UNION, IDENTIFIER uid, LBRACE, TLIST ulst, RBRACE), SEMICOLON) -> loc := 20; _unions uid ulst
 | TUPLE3
@@ -245,4 +253,4 @@ let filt _enums _externs _fbody _ftypes _globals _inits _inlines _structs _typed
    loc := 47; _globals id (TUPLE2 (typ, IDENTIFIER id))
 | TUPLE3 (typ, (TUPLE4 (IDENTIFIER array, LBRACK, len, RBRACK) as shape), SEMICOLON) ->
    loc := 48; _globals array (TUPLE2 (typ, shape))
-| oth -> _others "" oth
+| oth -> unhandled := oth; failwith "filt"

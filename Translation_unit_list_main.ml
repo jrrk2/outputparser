@@ -1,9 +1,11 @@
 open Translation_unit_list
 open Translation_unit_list_types
 open Translation_unit_list_lex
+(*
 open Translation_unit_list_transform
+*)
 
-let verbose = ref false
+let verbose = ref true
 
 let parse_output_ast_from_chan ch =
   let lb = Lexing.from_channel ch in
@@ -27,8 +29,8 @@ let parse arg =
 let _ = if Array.length Sys.argv > 1 then
     begin
       let main = try Sys.getenv "TRANS_MAIN" with _ -> "main" in 
-      let needed = dump parse stdout main Sys.argv in
 (*
+      let needed = dump parse stdout main Sys.argv in
       let chan = open_out "mykernel.c" in
       Translation_unit_list_foreign.dump parse chan needed;
       close_out chan;

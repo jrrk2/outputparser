@@ -329,8 +329,8 @@ let rec truncate = function
 
 let getrslt parse arg =
    Printf.fprintf stderr "%s: " arg; flush stderr;
-   dbgtree := (parse arg);
-   match truncate !dbgtree with
+   dbgtree := truncate (parse arg);
+   match !dbgtree with
     | TUPLE2(tran,_) -> 
         List.iter (fun itm ->
             nxtlst := itm :: !nxtlst;

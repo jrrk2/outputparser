@@ -35,10 +35,6 @@
 *)
 
 (*
-#use ".ocamlinit.ansic"
-*)
-
-(*
 #use ".ocamlinit.liberty"
 *)
 
@@ -62,9 +58,9 @@
 #use ".ocamlinit.program"
 *)
 
-(* *)
+(*
 #use ".ocamlinit.ansic"
-(* *)
+*)
 
 (*
 #use ".ocamlinit.liberty"
@@ -97,4 +93,8 @@ let x = classify' v;;
 (*
 #use ".ocamlinit.convert"
 *)
+
+(* *)
+#use ".ocamlinit.crypto"
+(* *)
 
