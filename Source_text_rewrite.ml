@@ -396,7 +396,7 @@ let rec rw = function
 | HYPHEN_EQ
 | FLOATING_HYPHEN_POINT_NUMBER _
 | EOF_TOKEN) as oth) -> oth
-| oth -> failwith ("rw fail: "^Source_text_types.getstr oth)
+| oth -> failwith ("rw fail: "^Source_text_tokens.getstr oth)
 
 and flatten lst = List.flatten (List.map (function ELIST lst -> List.map rw lst | oth -> [rw oth]) lst)
  

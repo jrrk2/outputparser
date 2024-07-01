@@ -100,6 +100,7 @@ let rec scan_itms' = function
 | ContAsgn (Asgn1 (y, expr) :: []) -> Assign(scan_itms y, scan_itms expr) :: []
 | AlwaysLegacy (At (EventOr ((Pos _ | Neg _) :: _ as edg)), stmts) -> Edge (List.flatten (List.map (scan_itms) edg), scan_itms stmts) :: []
 | AlwaysLegacy (AtStar, stmt) -> Edge([], scan_itms stmt) :: []
+| AlwaysLegacy (At (EventOr (Id _::_)), stmt) -> Edge([], scan_itms stmt) :: []
 | oth -> othx := Some oth; failwith "scan_itms"
 
 and opt = function
@@ -230,4 +231,4 @@ let rewrite_sat v fil =
   close_out fd;
   modlst, x, p, p', Buffer.contents buf
 
-let modlst,x,p,p',status = rewrite_sat Sys.argv.(1) Sys.argv.(2)
+let modlst,x,p,p',status = if Array.length Sys.argv >= 3 then rewrite_sat Sys.argv.(1) Sys.argv.(2) else ([],Deflt,Default,Default,"")

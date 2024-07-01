@@ -91,6 +91,7 @@ Source_text_top
 Source_text_types.ml
 Source_text.mly.edited
 Source_text_convert
+Source_text_convert_top
 Source_text_preproc
 Source_text_preproc_lexer.ml
 Source_text_preproc_grammar.ml
@@ -108,3 +109,5 @@ examples/*.verilog
 junk.v
 .DS_Store
 logfile.txt
+Input_tokens.ml
+Source_text_tokens.ml

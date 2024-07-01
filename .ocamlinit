@@ -94,7 +94,12 @@ let x = classify' v;;
 #use ".ocamlinit.convert"
 *)
 
-(* *)
+(*
 #use ".ocamlinit.crypto"
-(* *)
+*)
 
+(*
+open Source_text_convert
+open Source_text_rewrite_types
+let modlst,x,p,p',status = rewrite_sat "../yosys/share/simcells.v" "convert.ml"
+*)

@@ -86,7 +86,7 @@ let rec classify chash = function
 | HYPHEN_COLON
 | HYPHEN_EQ
 | EOF_TOKEN) as oth) -> oth
-| oth -> failwith ("classify fail: "^Source_text_types.getstr oth)
+| oth -> failwith ("classify fail: "^Source_text_tokens.getstr oth)
 
 let chash = Hashtbl.create 255;;
 

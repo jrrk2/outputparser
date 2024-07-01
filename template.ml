@@ -154,7 +154,7 @@ let template toklst gramlst =
     ];
     let stem = primary gramlst in
     let mlyfile = open_out (capitalise stem^".mly") in
-    let typfile = open_out (capitalise stem^"_types.ml") in
+    let typfile = open_out (capitalise stem^"_tokens.ml") in
 (*
     let auxh = open_out (capitalise stem^"_aux.mli") in
     let auxf = open_out (capitalise stem^"_aux.ml") in

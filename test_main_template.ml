@@ -1,10 +1,5 @@
 open Crypto_sign_ed25519_tweet_template_edited
 
-(*
-let dump v =
-  Bytes.iter (fun itm -> Printf.printf "%.2x " (int_of_char itm)) v
-*)
-
 let test_main ((): unit) : unit =
 let (mlen: Int64.t ref) = ref 0L in
 let (smlen: Int64.t array) = Array.make 1 0L in
@@ -272,5 +267,21 @@ Bytes.set signed_text (124) (char_of_int 95);
 Bytes.set signed_text (125) (char_of_int 163);
 Bytes.set signed_text (126) (char_of_int 79);
 Bytes.set signed_text (127) (char_of_int 251);
+dump64 "D2:\n" (_D2,0) (Array.length _D2);
+dump64 "K:\n" (_K,0) (Array.length _K);
+dump64 "L:\n" (_L,0) (Array.length _L);
+dump64 "X:\n" (_X,0) (Array.length _X);
+dump64 "Y:\n" (_Y,0) (Array.length _Y);
+dump64 "gf0:\n" (gf0,0) (Array.length gf0);
+dump64 "gf1:\n" (gf1,0) (Array.length gf1);
+dump "iv:\n" (iv,0) (Bytes.length iv);
+dump "plain:\n" (plain_text,0) (Bytes.length plain_text);
+dump "secret_key:\n" (secret_key,0) (Bytes.length secret_key);
+dump "signed_text:\n" (signed_text,0) (Bytes.length signed_text);
 ignore(crypto_sign_ed25519_tweet (actual,0) smlen (plain_text,0) 64L (secret_key,0));
-dump "actual: " (actual,0) 128
+dump "actual:\n" (actual,0) (Int64.to_int smlen.(0));
+let cmp = compare signed_text actual in
+if cmp = 0 then print_endline("\nPASS") else print_endline("\nFAIL")
+
+
+let _ = test_main();;
