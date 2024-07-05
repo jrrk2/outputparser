@@ -3,12 +3,14 @@ open Output_parser
 open Printf
 
 let othlst = ref []
+let othprim = ref (ID "")
 
 let capitalise start = String.uppercase_ascii (String.sub start 0 1) ^ String.sub start 1 (String.length start - 1)
 
 let primary gramlst = match List.hd gramlst with
   | GRAMITM (ACCEPT, [ID start; END]) -> start
-  | oth -> failwith (Ord.getstr oth)
+  | GRAMITM (ACCEPT, [ID start; STRING_LITERAL "end;of;file"]) -> start
+  | oth -> othprim := oth; failwith ("primary: "^Ord.getstr oth)
 
 let reserved = function
   | "if" -> "if_rule"
@@ -16,6 +18,8 @@ let reserved = function
   | "else" -> "else_rule"
   | "initializer" -> "initializer_rule"
   | "module" -> "module_rule"
+  | "begin" -> "begin_rule"
+  | "end" -> "end_rule"
   | oth -> oth
 
 let typ' str = try Sys.getenv str with _ -> "unit"
@@ -58,7 +62,8 @@ let items mlyfile oldlhs txt rulst ix =
 	      let len = String.length !oldlhs in
 	      let islist1 = len > 8 && String.sub !oldlhs 0 8 = "list_of_" in
 	      let islist2 = len > 4 && String.sub !oldlhs (len-4) 4 = "List" in
-	      let cons = islist1 || islist2 in
+	      let islist3 = len > 5 && String.sub !oldlhs (len-5) 5 = "_list" in
+	      let cons = islist1 || islist2 || islist3 in
 	      let tuple = if cons then "CONS" else "TUPLE" in
               List.iter (function 
                   | EMPTY -> fprintf mlyfile "/* empty */ { EMPTY_TOKEN }\n"
@@ -114,9 +119,9 @@ let items mlyfile oldlhs txt rulst ix =
 
 let tokens = List.map (function
     | TERMITM(STRING_LITERAL nam, _) -> munge nam
-    | TERMITM(ID nam, _) -> nam
+    | TERMITM(ID nam, _) -> munge nam
     | TERMITM(oth, _) -> Ord.getstr oth
-    | err -> failwith (Ord.getstr err))
+    | err -> failwith ("tokens: "^Ord.getstr err))
 
 let template toklst gramlst =
     let toklst' = ref (tokens toklst) in
@@ -176,12 +181,12 @@ let template toklst gramlst =
     fprintf typfile "let getstr = function\n";
     let maxlen = ref 0 in List.iter (function
         | GRAMITM (_, rulst) -> let len = List.length rulst in if !maxlen < len then maxlen := len
-        | oth -> failwith (Ord.getstr oth)) gramlst;
+        | oth -> failwith ("maxlen: "^Ord.getstr oth)) gramlst;
     List.iter (fun (str,min,max) -> for i = min to max do
       let itm = str^string_of_int i in
       Hashtbl.add termhash itm (true, (String.concat "*" (Array.to_list (Array.make i "token"))));
-      toklst' := itm :: !toklst'
-    done) ["TUPLE",2,1 + !maxlen;"CONS",1,4];
+      if not (List.mem itm !toklst') then toklst' := itm :: !toklst'
+    done) ["TUPLE",2,1 + !maxlen;"CONS",1,5];
     List.iter (fun (typ,itm) -> Hashtbl.add termhash itm (true, typ);
                if not (List.mem itm !toklst') then toklst' := itm :: !toklst')
       [
@@ -189,7 +194,7 @@ let template toklst gramlst =
       "token list", "ELIST";
       "string list", "SLIST";
       "token list", "TLIST"];
-    let toklst' = List.sort compare !toklst' in
+    let toklst' = List.sort_uniq compare !toklst' in
     List.iter (fun itm ->
 		   let typ' = match snd (typ true itm) with "unit" -> "" | oth -> " _" in
                    fprintf typfile "| %s %s -> \"%s\"\n" itm typ' itm) toklst';
@@ -205,8 +210,8 @@ let template toklst gramlst =
     fprintf mlyfile "%%start ml_start\n";
     fprintf mlyfile "%%%%\n";
     fprintf mlyfile "\n";
-    let oldlhs = ref "" in List.iteri (fun ix ->
-      let searchf = capitalise stem^"_"^string_of_int ix in
+    let oldlhs = ref "" and ix = ref 1 in List.iteri (fun _ ->
+      let searchf = capitalise stem^"_"^string_of_int !ix in
       if false then print_endline searchf;
       let txt = if Sys.file_exists searchf then 
         begin
@@ -220,16 +225,19 @@ let template toklst gramlst =
         end
       else "" in function
         | GRAMITM (ACCEPT, rulst) -> fprintf mlyfile "\nml_start: ";
+              ix := 1;
               oldlhs := "ml_start";
-	      items mlyfile oldlhs txt rulst ix
+	      items mlyfile oldlhs txt rulst !ix
         | GRAMITM (ID lhs, rulst) ->
+              ix := 1;
               if lhs <> !oldlhs then fprintf mlyfile "\n%s: " (reserved lhs) else fprintf mlyfile "\t|\t";
               oldlhs := lhs;
-              items mlyfile oldlhs txt rulst ix
+              items mlyfile oldlhs txt rulst !ix
         | GRAMITM (VBAR, rulst) -> 
+              incr ix;
               fprintf mlyfile "\t|\t";
-              items mlyfile oldlhs txt rulst ix
+              items mlyfile oldlhs txt rulst !ix
         | GRAMITM (DOLLAR_AT n, [EMPTY]) -> ()
-        | oth -> othlst := oth :: !othlst; failwith (Ord.getstr oth)) gramlst;
+        | oth -> othlst := oth :: !othlst; failwith ("gramlst: "^Ord.getstr oth)) gramlst;
     fprintf mlyfile "\n\n";
     close_out mlyfile

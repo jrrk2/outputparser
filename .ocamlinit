@@ -1,3 +1,4 @@
+#directory "../vpiparse";;
 #print_length 10000000;;
 #print_depth 10000000;;
 (*
@@ -103,3 +104,64 @@ open Source_text_convert
 open Source_text_rewrite_types
 let modlst,x,p,p',status = rewrite_sat "../yosys/share/simcells.v" "convert.ml"
 *)
+
+(*
+open Source_text
+open Source_text_rewrite
+open Source_reduced_main
+open Source_text_rewrite_types
+open Dump_xml
+open Input_types
+open Dump_types
+open Input_rewrite_types
+open Source_text_rewrite_types
+
+let (modlst,x,p,p',status) = rewrite_rtlil "examples/andvec.v";;
+
+let rtl = match !othrtl with Some (Itmlst (hd::[])) -> hd;;
+let rslt = [("count", Dump_rtlil.template (ref []) rtl)];;
+let (nam, rslt') = List.hd rslt in
+let fd = open_out "junk.rtlil" in
+let _ = List.iter (fun itm -> output_string fd (Rtlil_dump.dump_ilang "" itm)) rslt' in
+close_out fd;;
+let _, arg = Input_rewrite.parse "synth";;
+let tmplst = cnv_sat_tree arg;;
+let hardlst = cnv_sat_tree rslt;;
+
+
+
+open Template
+open Output_parser
+let _ = Output.parse "verible.output"
+let lst = ref [];;
+Hashtbl.iter (fun k x -> lst := (k,x) :: !lst) termhash;;
+let termlst' = List.sort compare (List.filter (fun (_, (t, _)) -> t) !lst);;
+let found = List.assoc "TK_XZDigits" !lst;;
+*)
+
+open Source_text_verible_rewrite_types
+open Source_text_verible_lex
+open Source_text_verible
+
+let v = "examples/ariane_preproc.sv";;
+let v = "examples/picorv32_ref.v";;
+let p = parse_output_ast_from_file v;;
+let p' = Source_text_verible_rewrite.rw p;;
+(* *)
+open Classify_verible
+let _ = classify'' p';;
+let clst = ref [];;
+Hashtbl.iter (fun k x -> clst := k :: !clst) chash;;
+let clst,symlst = List.partition (function TUPLE2 _ | TUPLE3 _ | TUPLE4 _ | TUPLE5 _ | TUPLE6 _ | TUPLE7 _ | TUPLE8 _ | TUPLE9 _ | TUPLE10 _ | TUPLE11 _ | TUPLE12 _ -> true| _ -> false) (List.sort compare !clst);;
+(* *)
+open Verible_pat
+(*
+open Clst
+let failed, passed = List.partition (fun itm -> try verible_pat itm; false with _ -> true) clst;;
+let _ = verible_pat p';;
+*)
+open Classify_verible
+let _ = classify'' (TLIST (!othpatlst));;
+let clst = ref [];;
+Hashtbl.iter (fun k x -> clst := k :: !clst) chash;;
+let clst,symlst = List.partition (function TUPLE2 _ | TUPLE3 _ | TUPLE4 _ | TUPLE5 _ | TUPLE6 _ | TUPLE7 _ | TUPLE8 _ | TUPLE9 _ | TUPLE10 _ | TUPLE11 _ | TUPLE12 _ | TUPLE13 _ -> true| _ -> false) (List.sort compare !clst);;

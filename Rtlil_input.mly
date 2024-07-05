@@ -1,6 +1,6 @@
 %{
   open Parsing
-  open Input_types
+  open Rtlil_input_types
   let stderr = open_out "parser_stderr.log" (* to capture parser trace mode info *)
   let declst = ref []
   let packhash_add id_t = Hashtbl.add packhash id_t ()
@@ -100,9 +100,9 @@
 %%
 
 
-ml_start: input EOF_TOKEN { TUPLE3(STRING("ml_start0"),$1,EOF_TOKEN) }
+ml_start: rtlil_input EOF_TOKEN { TUPLE3(STRING("ml_start0"),$1,EOF_TOKEN) }
 
-input: optional_eol /* 1 */ design { TUPLE3(STRING("input2"),$1,$2) }
+rtlil_input: optional_eol /* 1 */ design { TUPLE3(STRING("rtlil_input2"),$1,$2) }
 
 EOL: optional_eol TOK_EOL { TUPLE3(STRING("EOL3"),$1,TOK_EOL) }
 

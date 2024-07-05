@@ -121,10 +121,6 @@ let v = "junk.pp";;
 let v = "../yosys/tests/simple/memory.v";;
 let v = "examples/memtest01.v";;
 
-(*
-let x = rw (parse v);;
-*)
-
 (* *)
 let (modlst,x,p,p',status) = rewrite_rtlil v;;
 (* *)

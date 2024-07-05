@@ -1,5 +1,5 @@
 open String
-open Input
+open Rtlil_input
 let getstr = function
 
 | ACCEPT -> uppercase_ascii("ACCEPT") 

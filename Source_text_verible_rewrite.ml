@@ -1,63 +1,10 @@
-open Source_text_rewrite_types
-open Source_text_lex
-open Source_text
+open Source_text_verible_rewrite_types
+open Source_text_verible_lex
+open Source_text_verible
 
 let verbose = try int_of_string (Sys.getenv ("DESCEND_VERBOSE")) > 0 with _ -> false
 
 let trim s = if s.[0] = '\\' then String.sub s 1 (String.length s - 1) else s
-let idx s i = E.INDEXED (trim s,i)
-let scalar s = E.SCALAR (trim s)
-let and2 a b = F.make_and [a;b]
-let or2 a b = F.make_or [a;b]
-let xor2 a b = F.make_xor a b
-let knot a = F.make_not a
-let mux2 a b s = or2 (and2 a (knot s)) (and2 b s)
-let atom signal = F.make_atom ( E.make signal )
-
-let othstr = ref None
-let (othlst:(string * Source_text_rewrite_types.E.signal * Source_text_rewrite_types.F.t option) list ref) = ref []
-
-let cnv_pwr = function
-  | "1'0" -> E.GND
-  | "1'1" -> E.PWR
-  | "1'x" -> E.GND
-  | oth -> othstr := Some oth; failwith "cnv_pwr"
-
-let addwire idx' ind signal =
-  match Hashtbl.find_opt ind.wires signal with
-    | Some x -> print_endline (E.string_of_signal signal^" redeclared")
-    | None -> Hashtbl.add ind.wires signal None
-
-let addfunc ind signal func =
-  match Hashtbl.find_opt ind.wires signal with
-    | Some None ->
-        if verbose then print_endline ("Installed function for wire: "^E.string_of_signal signal);
-        Hashtbl.replace ind.wires signal (Some func)
-    | Some _ -> print_endline (E.string_of_signal signal ^" redeclared")
-    | None -> print_endline (E.string_of_signal signal ^" undefined")
-
-let addnxt' pat = function
-| E.PWR -> E.SCALAR (pat^"$PWR")
-| GND -> E.SCALAR (pat^"$GND")
-| SCALAR string -> E.SCALAR (pat^"$"^string)
-| INDEXED (string, int) -> E.INDEXED (pat^"$"^string, int)
-
-let addnxt pat ind d q =
-   let lhs' = addnxt' pat q in
-   addwire 0 ind lhs';
-   Hashtbl.add ind.inffop lhs' ();
-   addfunc ind lhs' d
-
-(* dump a cnf in ASCII *)
-
-let fpp q =
-  let buf' = Buffer.create 1000 in
-  let buf = Format.formatter_of_buffer buf' in
-(*
-  if verbose then F.mypp buf q;
-*)
-  Format.pp_print_flush buf ();
-  Buffer.contents buf'
 
 let notsupp kind lst = failwith ("Not supported: "^kind)
 
@@ -298,17 +245,37 @@ let getstr = function
   | Xnor _ -> "Xnor"
   | Xor _ -> "Xor"
 
+let rec exp_lst_proper = function
+| TUPLE4 (STRING "expression_list_proper1", (TUPLE4 (STRING "expression_list_proper1", _, COMMA, _) as lst), COMMA, expr) ->
+    expr :: exp_lst_proper lst
+| TUPLE4 (STRING "expression_list_proper1", expr, COMMA, expr') -> expr :: expr' :: []
+| oth ->failwith "exp_lst_proper"
+
 let rec rw = function
+| STRING _ as str -> str
+| TK_BinBase _ as b -> b
+| TK_BinDigits _ as b -> b
+| TK_OctBase _ as o -> o
+| TK_OctDigits _ as o -> o
+| TK_DecBase _ as d -> d
+| TK_DecDigits _ as d -> d
+| TK_HexBase _ as h -> h
+| TK_HexDigits _ as h -> h
+| TK_DecNumber _ as d -> d
+| TK_StringLiteral _ as s -> s
+| TK_UnBasedNumber _ as d -> d
+| TK_RealTime _ as f -> f
+| SymbolIdentifier _ as sym -> sym
+| SystemTFIdentifier _ as sym -> sym
+| TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, lst, RBRACE) ->
+    TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, TLIST (exp_lst_proper lst), RBRACE) 
 | CONS1 oth -> TLIST (rw oth::[])
 | CONS3(lft,_,rght) -> (match rw lft with TLIST arg -> TLIST (rw rght :: arg) | oth -> TLIST (rw rght :: oth :: []))
 | CONS4(lft,arg1,arg2,arg3) -> (match rw lft with TLIST arg -> TLIST (rw arg1 :: rw arg2 :: rw arg3 :: arg) | _ -> failwith "CONS4")
 | CONS2(lft,rght) -> (match rw lft with TLIST arg -> TLIST (rw rght :: arg) | _ -> failwith "CONS2")
-| ELIST lst -> ELIST (List.map rw lst)
 | TLIST lst -> TLIST (List.map rw lst)
 | TUPLE2(arg1,arg2) -> TUPLE2 (rw arg1, rw arg2)
 | TUPLE4(STRING _ as arg0,LPAREN,arg,RPAREN) -> TUPLE4(arg0,LPAREN,rw arg,RPAREN)
-| TUPLE4(STRING _,arg1,(PLUS|HYPHEN|STAR|SLASH|AMPERSAND|AMPERSAND_AMPERSAND|VBAR|VBAR_VBAR|EQ_EQ|PLING_EQ|LT_EQ|GT_EQ|LT_LT|GT_GT|GT_GT_GT|LESS|GREATER|CARET|CARET_TILDE|STAR_STAR|EQ_EQ_EQ|PLING_EQ_EQ as arg2),arg3) -> ELIST (flatten (flatten (arg1 :: arg2 :: arg3 :: [])))
-| TUPLE5(arg1,QUERY,arg3,COLON,arg5) -> ELIST (flatten (flatten (arg1 :: QUERY :: arg3 :: COLON :: arg5 :: [])))
 | TUPLE3(arg1,arg2,arg3) -> TUPLE3 (rw arg1, rw arg2, rw arg3)
 | TUPLE4(arg1,arg2,arg3,arg4) -> TUPLE4 (rw arg1, rw arg2, rw arg3, rw arg4)
 | TUPLE5(arg1,arg2,arg3,arg4,arg5) -> TUPLE5 (rw arg1, rw arg2, rw arg3, rw arg4, rw arg5)
@@ -326,25 +293,21 @@ let rec rw = function
    TUPLE12(rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6, rw arg7, rw arg8, rw arg9, rw arg10, rw arg11, rw arg12)
 | TUPLE13(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13) ->
    TUPLE13(rw arg1, rw arg2, rw arg3, rw arg4, rw arg5, rw arg6, rw arg7, rw arg8, rw arg9, rw arg10, rw arg11, rw arg12, rw arg13)
-| ((IDENTIFIER _
-| INTEGER_NUMBER _| STRING _
-| AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|LBRACE|RBRACE
-| COLON|SEMICOLON|COMMA|CARET|TILDE|QUERY|QUOTE|PERCENT
+| ((AT|EMPTY_TOKEN|LPAREN|RPAREN|LBRACK|RBRACK|LBRACE|RBRACE
+| COLON|SEMICOLON|COMMA|CARET|TILDE|QUERY|QUOTE
 | PLUS|HYPHEN|STAR|SLASH|HASH|PLING
 | AMPERSAND|AMPERSAND_AMPERSAND|AMPERSAND_EQ
 | GT_GT_GT|PLUS_COLON|PLUS_PLUS|COLON_COLON
 | EQUALS|LT_EQ|VBAR_VBAR|LT_LT|GT_GT|GT_EQ|EQ_EQ|LESS|GREATER|VBAR
-| TILDE_VBAR|TILDE_AMPERSAND|EQ_EQ_EQ|PLING_EQ_EQ
-| CARET_TILDE
+| TILDE_VBAR|TILDE_AMPERSAND
+| TILDE_CARET
 | HYPHEN_HYPHEN
 | VBAR_EQ|PLUS_EQ
 | PLING_EQ|DOT_STAR|STAR_STAR
-| TYPE_HYPHEN_IDENTIFIER _|IDENTIFIER_HYPHEN_COLON_COLON _|QUOTE_LBRACE
-| DLR_display|DLR_stop|DLR_finish|DLR_write
-| DLR_signed|DLR_unsigned|DLR_time|DLR_readmemh|DLR_clog2|DLR_bits|DLR_error
+| QUOTE_LBRACE
 | Module|Always|Assign|Reg|Wire|Logic|Bit|Int|Integer
-| Unsigned|Signed|Real
-| Output|Input|Posedge|Negedge|Or|DOT|Wand|Wor
+| Unsigned|Signed
+| Output|Input|Posedge|Negedge|Or|DOT
 | Parameter|Localparam|Initial
 | If|Else|Modport|For
 | Begin|End|Endmodule
@@ -367,18 +330,6 @@ let rec rw = function
 | Assert
 | Const
 | Inout
-| DLR_fatal
-| DLR_warning
-| DLR_random
-| DLR_sformatf
-| DLR_fscanf
-| DLR_fwrite
-| DLR_fclose
-| DLR_fopen
-| DLR_feof
-| DLR_size
-| DLR_high
-| DLR_low
 | Break
 | Type
 | Property
@@ -391,15 +342,83 @@ let rec rw = function
 | Unique
 | Foreach
 | Final
-| Specparam | Specify | Endspecify
 | HYPHEN_COLON
 | HYPHEN_EQ
-| FLOATING_HYPHEN_POINT_NUMBER _
-| EOF_TOKEN) as oth) -> oth
-| oth -> failwith ("rw fail: "^Source_text_tokens.getstr oth)
+| End_of_file
+|Zi_zp|Zi_zd|Zi_np|Zi_nd|Xor|Xnor|Wreal|Wor|Wone|Within|
+With_LPAREN_covergroup_RPAREN|With|Wildcard|White_noise|Weak1|Weak0|Weak|
+Wand|Wait_order|Wait|Virtual|Vectored|Var|VBAR_HYPHEN_GT|VBAR_EQ_GT|Uwire|
+Use|Untyped|Until_with|Until|Units|Unique_index|Unique0|UNDERSCORE|
+Type_option|Trireg|Trior|Triand|Tri1|Tri0|Tri|Transition|Tranif1|Tranif0|
+Tran|Timeunit_check|Timeunit|Timeprecision_check|Timeprecision|Time|
+Throughout|This|Tagged|Table|TK_edge_descriptor|TK_XZDigits|
+TK_TimeLiteral|TK_RS_EQ|TK_RSS_EQ|
+TK_OTHER|TK_LS_EQ|TK_EvalStringLiteral|
+TK_AngleBracketInclude|
+Sync_reject_on|Sync_accept_on|Supply1|Supply0|Super|Sum|Strong1|Strong0|
+Strong|Static|Specparam|Specify|Sort|Solve|Soft|Small|Shuffle|Showcancelled|
+Shortreal|Shortint|Sequence|Scalared|Sample|S_until_with|S_until|S_nexttime|
+S_eventually|S_always|STAR_RPAREN|STAR_GT|STAR_EQ|
+SLASH_SLASH_end_of_line_comment|SLASH_EQ|
+SLASH_AMPERSAND_lowast_SEMICOLON_comment_AMPERSAND_lowast_SEMICOLON_SLASH|
+SEMICOLON_LPAREN_after_HYPHEN_assertion_HYPHEN_variable_HYPHEN_decls_RPAREN|
+Rtranif1|Rtranif0|Rtran|Rsort|Rpmos|Rnmos|Reverse|Restrict|Resolveto|Repeat|
+Release|Reject_on|Ref|Realtime|Real|Rcmos|Randsequence|Randomize|Randcase|
+Randc|Rand|Pure|Pulsestyle_onevent|Pulsestyle_ondetect|Pullup|Pulldown|Pull1|
+Pull0|Protected|Program|Product|Priority|Primitive|Pow|Potential|Pmos|
+Paramset|PP_Identifier|PLING_EQ_QUERY|PLING_EQ_EQ|PERCENT_EQ|PERCENT|Option|
+Null|Notif1|Notif0|Not|Noshowcancelled|Nor|Noise_table|Nmos|Nexttime|New|
+Nettype|Net_resolution|Nature|Nand|NUMBER_step|Min|Medium|Max|Matches|
+Macromodule|MacroNumericWidth|MacroIdentifier|MacroIdItem|MacroCallId|
+MacroCallCloseToEndLine|MacroArg|Local_COLON_COLON|Local|Limexp|Library|
+Liblist|Let|Less_than_TK_else|Last_crossing|Large|Laplace_zp|Laplace_zd|
+Laplace_np|Laplace_nd|LT_PLUS|LT_LT_space_GT_GT|LT_LT_filepath_GT_GT|
+LT_LT_default_HYPHEN_text_GT_GT|LT_LT_BACKSLASH_BACKSLASH_n_GT_GT|
+LT_LT_BACKSLASH_BACKSLASH_line_HYPHEN_cont_GT_GT|
+LT_LT_BACKQUOTE_define_HYPHEN_tokens_GT_GT|LT_HYPHEN_GT|
+LPAREN_timescale_unit_RPAREN|LPAREN_STAR_attribute_STAR_RPAREN|LPAREN_STAR|
+LINEFEED|LBRACK_STAR_RBRACK|LBRACK_STAR|LBRACK_PLUS_RBRACK|LBRACK_HYPHEN_GT|
+LBRACK_EQ|Join_none|Join_any|Join|Intersect|Interconnect|Instance|Infinite|
+Inf|Include|Incdir|Implies|Implements|Illegal_bins|Ignore_bins|Ifnone|Iff|
+Idt_nature|Highz1|Highz0|HYPHEN_GT_LPAREN_trigger_RPAREN|
+HYPHEN_GT_LPAREN_logical_HYPHEN_implies_RPAREN|
+HYPHEN_GT_LPAREN_constraint_HYPHEN_implies_RPAREN|HYPHEN_GT_GT|HYPHEN_GT|
+HASH_HYPHEN_HASH|HASH_HASH|HASH_EQ_HASH|Global|From|Forkjoin|Fork|Forever|
+Force|Flow|Flicker_noise|First_match|Find_last_index|Find_last|Find_index|
+Find_first_index|Find_first|Find|Extern|Extends|Export|Expect|Exclude|
+Eventually|Event|EscapedIdentifier|Error|Endtable|Endspecify|Endsequence|
+Endproperty|Endprogram|Endprimitive|Endparamset|Endnature|Endgroup|
+Enddiscipline|Endconnectrules|Endconfig|Endclocking|Endclass|Endchecker|Edge|
+ERROR_TOKEN|EQ_GT|EQ_EQ_QUERY|EQ_EQ_EQ|EOF_TOKEN|Driver_update|Domain|Do|
+Dist|Discrete|Discipline|Disable|Design|Defparam|Deassign|Ddt_nature|
+DOUBLEQUOTE|DOLLAR|DLR_width|DLR_unit|DLR_timeskew|DLR_skew|DLR_setuphold|
+DLR_setup|DLR_root|DLR_removal|DLR_recrem|DLR_recovery|DLR_period|
+DLR_nochange|DLR_hold|DLR_fullskew|DLR_attribute|DEFAULT|Cross|Coverpoint|
+Covergroup|Cover|Continuous|Continue|Context|Constraint|Connectrules|
+Connectmodule|Connect|Config|Cmos|Clocking|Class|Checker|Chandle|Cell|
+COLON_SLASH|COLON_EQ|CHAR|CARET_EQ|Bufif1|Bufif0|Buf|Binsof|Bins|Bind|Before|
+BACKSLASH|BACKQUOTE_uselib|BACKQUOTE_undef|BACKQUOTE_unconnected_drive|
+BACKQUOTE_timescale|BACKQUOTE_suppress_faults|BACKQUOTE_resetall|
+BACKQUOTE_protect|BACKQUOTE_pragma|BACKQUOTE_nounconnected_drive|
+BACKQUOTE_nosuppress_faults|BACKQUOTE_include|BACKQUOTE_ifndef|
+BACKQUOTE_ifdef|BACKQUOTE_endprotect|BACKQUOTE_endif|BACKQUOTE_endcelldefine|
+BACKQUOTE_end_keywords|BACKQUOTE_enable_portfaults|BACKQUOTE_elsif|
+BACKQUOTE_else|BACKQUOTE_disable_portfaults|BACKQUOTE_delay_mode_zero|
+BACKQUOTE_delay_mode_unit|BACKQUOTE_delay_mode_path|
+BACKQUOTE_delay_mode_distributed|BACKQUOTE_define|
+BACKQUOTE_default_trireg_strength|BACKQUOTE_default_nettype|
+BACKQUOTE_default_decay_time|BACKQUOTE_celldefine|BACKQUOTE_begin_keywords|
+BACKQUOTE_UNDERSCORE_UNDERSCORE_UNDERSCORE_UNDERSCORE_verible_verilog_library_end____|
+BACKQUOTE_UNDERSCORE_UNDERSCORE_UNDERSCORE_UNDERSCORE_verible_verilog_library_begin____|
+BACKQUOTE_BACKQUOTE|BACKQUOTE|Assume|And|Analysis|Analog|Aliasparam|Alias|
+Access|Accept_on|Ac_stim|Abstol|Absdelay|AT_AT|AMPERSAND_AMPERSAND_AMPERSAND|
+ACCEPT|TUPLE15 _|TUPLE14 _|SLIST _|
+CONS5 _
+) as oth) -> oth
+(*  
+| oth -> failwith ("rw fail: "^Source_text_verible_tokens.getstr oth)
+*)
 
-and flatten lst = List.flatten (List.map (function ELIST lst -> List.map rw lst | oth -> [rw oth]) lst)
- 
 type attr = {subst: (rw,rw)Hashtbl.t; fn: attr -> rw -> rw; pth: string}
 
 let rec descend' (attr:attr) = function
@@ -646,56 +665,3 @@ and descend_itm attr x = if verbose then print_endline (getstr x); attr.fn attr 
 let rec descend (attr:attr) = function
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> exp)
   | oth -> descend' {attr with fn=descend} oth
-
-(* for plain Verilog reading without pre-proc only *)
-
-let parse_output_ast_from_chan ch =
-  let lb = Lexing.from_channel ch in
-  let output = try
-      ml_start token lb
-  with
-    | Parsing.Parse_error ->
-      let n = Lexing.lexeme_start lb in
-      failwith (Printf.sprintf "Output.parse: parse error at character %d" n);
-  in
-  output
-
-(* for preprocessed input *)
-
-let parse_output_ast_from_function f =
-  let lb = Lexing.from_function f in
-  let output = try
-      ml_start token lb
-  with
-    | Parsing.Parse_error ->
-      let n = Lexing.lexeme_start lb in
-      failwith (Printf.sprintf "Output.parse: parse error at character %d" n);
-  in
-  output
-
-(* for Verilator pre-processed input *)
-
-let parse_output_ast_from_pipe v =
-  let ch = Unix.open_process_in ("verilator -E "^v) in
-  let lb = Lexing.from_channel ch in
-  let output = try
-      ml_start token lb
-  with
-    | Parsing.Parse_error ->
-      let n = Lexing.lexeme_start lb in
-      failwith (Printf.sprintf "Output.parse: parse error at character %d" n);
-  in
-  output
-
-(* for plain Verilog reading without pre-proc only *)
-
-let parse_output_ast_from_string s =
-  let lb = Lexing.from_string s in
-  let output = try
-      ml_start token lb
-  with
-    | Parsing.Parse_error ->
-      let n = Lexing.lexeme_start lb in
-      failwith (Printf.sprintf "Output.parse: parse error at character %d" n);
-  in
-  Matchmly.mly (rw output)

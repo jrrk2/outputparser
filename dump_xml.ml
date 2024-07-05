@@ -1,4 +1,5 @@
-open Vxml_types
+open Dump_types
+open Input_types
 open Source_text_rewrite_types
 open Source_text_lex
 open Source_text
@@ -16,11 +17,14 @@ type vtyp =
   | Vfun of string
   | Venum of string
   | Vintf of string
-  | Vcomp of Vxml_types.rw list
+  | Vcomp of Input_types.rw list
   | Vemember of string * string * rw
 
 let unhand = ref None
 let othinst = ref None
+
+let cnv = function
+| oth -> failwith "cnv"
 
 let update typhash id expr =
 (*  print_endline id;
@@ -30,19 +34,18 @@ let update typhash id expr =
 type sysver_attr = {fn: sysver_attr -> rw -> rw}
 
 let rec recurs' (sysver_attr:sysver_attr) = function
-  | Id id -> Id id
   | Expression rw -> Expression(recurs_itm sysver_attr  rw)
+  | Id id -> Id id
   | Itmlst(rw_lst) -> Itmlst(recurs_lst sysver_attr (rw_lst:rw list))
   | Unknown (str,lst) -> Unknown (str, recurs_lst sysver_attr  lst)
   | In -> In
   | Out -> Out
   | Inout -> Inout
   | Modul(str1, rw_lst1, rw_lst2, rw_lst3) -> Modul(str1, recurs_lst sysver_attr  rw_lst1, recurs_lst sysver_attr  rw_lst2, recurs_lst sysver_attr  rw_lst3)
-  | DeclReg(rw_lst, str1_lst, rw_lst_lst) -> DeclReg(recurs_lst sysver_attr  rw_lst, str1_lst,
-    List.map (fun itm -> recurs_lst sysver_attr  itm) rw_lst_lst)
+  | DeclReg(rw_lst, str1_lst, rw_lst_lst) -> DeclReg(recurs_lst sysver_attr  rw_lst, str1_lst, recurs' sysver_attr rw_lst_lst)
   | NonBlocking(rw, rw2) -> NonBlocking(recurs_itm sysver_attr  rw, recurs_itm sysver_attr  rw2)
   | Query(rw, rw2, rw3) -> Query(recurs_itm sysver_attr  rw, recurs_itm sysver_attr  rw2, recurs_itm sysver_attr  rw3)
-  | Port(rw, str1, rw_lst1, rw_lst2) -> Port(recurs_itm sysver_attr  rw, str1, recurs_lst sysver_attr rw_lst1, recurs_lst sysver_attr rw_lst2)
+  | Port(rw, str1, rw_lst1, rw_lst2) -> Port(recurs_itm sysver_attr  rw, str1, recurs_lst sysver_attr rw_lst1, recurs' sysver_attr rw_lst2)
   | Pos(str1) -> Pos (str1)
   | Neg(str1) -> Neg (str1)
   | Edge(rw, rw2) -> Edge(recurs_itm sysver_attr (rw), recurs_itm sysver_attr (rw2))
@@ -106,10 +109,10 @@ let rec recurs' (sysver_attr:sysver_attr) = function
 AlwaysFF (_, _)|AlwaysLatch _|AlwaysLegacy (_, _)|And3 (_, _)|
 AnyRange (_, _)|Asgn1 (_, _)|AsgnPat _|At _|Atom _|AutoFunDecl (_, _, _)|
 CaseStart (_, _)|CaseStart1 _|CaseStartInside (_, _)|CaseStartUniq (_, _)|
-CaseStartUniqInside (_, _)|CellParamItem1 (_, _)|CellParamItem2 (_, _)|
-CellParamItem3 (_, _)|CellPinItem1 (_, _)|CellPinItem2 (_, _)|
+CaseStartUniqInside (_, _)|CellParamItem2 (_, _)|
+CellParamItem3 (_, _)|CellPinItem2 (_, _)|
 CellPinItemImplied _|CellPinItemNC _|CondGen1 (_, _, _)|ContAsgn _|
-DeclAsgn (_, _)|DeclInt2 _|DeclLogic2 (_, _)|DeclReg2 (_, _)|
+DeclAsgn (_, _)|DeclInt2 _|DeclLogic2 (_, _)|
 DotBus (_, _, _, _)|ElabTask _|ElseStmt _|EnumInit (_, _)|
 Equals3 (_, _)|EqualsQuery (_, _)|Equate (_, _)|
 EquateArrayField (_, _, _, _, _)|EquateField (_, _, _)|
@@ -123,7 +126,7 @@ FopAsgnArrayMemSel (_, _, _, _)|FopAsgnArrayRange (_, _, _, _)|
 FopAsgnArrayRange2 (_, _, _, _)|FopAsgnArraySel (_, _, _)|
 FopAsgnArrayWid (_, _, _, _)|FopAsgnConcat (_, _)|ForEach (_, _)|
 FunDecl (_, _, _)|FunGuts (_, _)|FunRef (_, _)|FunRef2 (_, _, _)|
-GenItem (_, _)|Generate _|HyphenGt (_, _)|IdArrayed1 (_, _, _)|
+GenItem (_, _)|HyphenGt (_, _)|IdArrayed1 (_, _, _)|
 IdArrayed2 (_, _)|IdArrayed3 (_, _)|IdArrayedColon (_, _, _)|
 IdArrayedHyphenColon (_, _, _)|IdArrayedPlusColon (_, _, _)|
 Iff (_, _)|Import _|Inc _|InitPair (_, _)|InitPat _|
@@ -141,7 +144,10 @@ SysTaskCall (_, _)|TFBody (_, _)|TaskRef (_, _)|Typ2 (_, _, _)|Typ3 (_, _)|
 Typ4 (_, _, _, _)|Typ5 (_, _)|Typ6 _|Typ7 (_, _)|Typ8 (_, _)|Typ9 (_, _, _)|
 Typ10 (_, _, _)|TypEnum3 _|TypEnum4 (_, _, _)|TypEnum5 _|TypEnum6 (_, _, _)|
 TypParam (_, _, _)|UPlus _|Union (_, _)|VNum _|ValueRange (_, _)|
-VarDeclAsgn (_, _)|VarDim _|While (_, _)|PackageParam _|PackageParam2 _|EquateConcat (_, _)|TaskDecl (_, _, _, _)|SysTaskRef (_, _) as x) -> x
+VarDeclAsgn (_, _)|VarDim _|While (_, _)|PackageParam _|PackageParam2 _|EquateConcat (_, _)|TaskDecl (_, _, _, _)|SysTaskRef (_, _)|
+AlwaysSync|BlockItem _|CaretTilde _|Float _|FopAsgnArrayField8 (_, _, _, _, _)|FopAsgnArrayField9 (_, _, _, _, _, _)|
+Genvar _|InstArrayDecl (_, _, _, _, _)|PortItemFront2 (_, _, _)|
+TF_port_decl (_, _, _)|TF_variable (_, _, _, _)|Unimplemented (_, _) as x) -> x
 
 and recurs_lst sysver_attr x = List.map (sysver_attr.fn sysver_attr ) x
 
@@ -240,7 +246,7 @@ let rec vexpr typhash = function
 | Tilde expr -> UNRY(Unot, vexpr typhash expr :: [])
 | Pling expr -> UNRY(Unegate, vexpr typhash expr :: [])
 | Concat lst -> REPL("", 1, List.map (vexpr typhash) lst)
-| Add (lhs, rhs) -> ARITH(Aadd, vexpr typhash lhs :: vexpr typhash rhs :: [])
+| Add (lhs, rhs) -> ARITH(Aadd "", vexpr typhash lhs :: vexpr typhash rhs :: [])
 | Sub (lhs, rhs) -> ARITH(Asub, vexpr typhash lhs :: vexpr typhash rhs :: [])
 | Mult (lhs, rhs) -> ARITH(Amul, vexpr typhash lhs :: vexpr typhash rhs :: [])
 | Div (lhs, rhs) -> ARITH(Aunknown, vexpr typhash lhs :: vexpr typhash rhs :: [])
@@ -355,13 +361,13 @@ let vdir = function
   | _ -> failwith "vdir"
 
 let ports typhash = function
-    | Port((In|Out|Inout) as dir, nam, [], []) -> update typhash nam Std_logic;
+    | Port((In|Out|Inout) as dir, nam, [], _) -> update typhash nam Std_logic;
         IO ("", [nam], (BASDTYP, "logic", TYPNONE, []), vdir dir, "logic", [])
-    | Port(PortDir((In|Out|Inout) as dir, Atom "wire"), nam, [], []) -> update typhash nam Std_logic;
+    | Port(PortDir((In|Out|Inout) as dir, Atom "wire"), nam, [], _) -> update typhash nam Std_logic;
         IO ("", [nam], (BASDTYP, "logic", TYPNONE, []), vdir dir, "logic", [])
-    | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: [], []) -> update typhash nam (Std_logic_vector(hi,lo));
+    | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: [], _) -> update typhash nam (Std_logic_vector(hi,lo));
         IO ("", [nam], (BASDTYP, "logic", TYPRNG(cexpr typhash hi, cexpr typhash lo), []), vdir dir, "logic", [])
-    | Port (PortDir((In|Out|Inout) as dir, Atom "wire"), nam, AnyRange (hi, lo) :: [], []) -> update typhash nam (Std_logic_vector(hi,lo));
+    | Port (PortDir((In|Out|Inout) as dir, Atom "wire"), nam, AnyRange (hi, lo) :: [], _) -> update typhash nam (Std_logic_vector(hi,lo));
         IO ("", [nam], (BASDTYP, "logic", TYPRNG(cexpr typhash hi, cexpr typhash lo), []), vdir dir, "logic", [])
 (*
     | Port ((In|Out|Inout) as dir, nam, AnyRange (hi, lo) :: AnyRange(hi', lo') :: [], []) -> update typhash nam (Std_logic_vector(hi,lo));
@@ -383,13 +389,14 @@ let ports typhash = function
     |  DotBus (bus, dir, member, AnyRange(lft,rght) :: []) -> update typhash member (Vintf bus);
         sprintf "%s %s %s" member bus dir
 *)
-    |  Port ((In|Out|Inout) as dir, nam, Typ6 (Atom primtyp) :: [], []) -> update typhash nam (Std_logic);
+    |  Port ((In|Out|Inout) as dir, nam, Typ6 (Atom primtyp) :: [], _) -> update typhash nam (Std_logic);
         IO ("", [nam], (BASDTYP, primtyp, TYPNONE, []), vdir dir, "logic", [])
     | oth -> unhand := Some oth; failwith "component"
 
 let rec parm_generic typhash = function
-  | CellParamItem1 (nam, s) ->
-      update typhash nam (match Hashtbl.find_opt typhash s with Some x -> x | None -> Std_logic)
+(*
+  | CellParamItem1 (nam, s) -> update typhash nam (match Hashtbl.find_opt typhash s with Some x -> x | None -> Std_logic)
+*)
   | CellParamItem2 (nam, Typ1 s) -> update typhash nam (Vtyp s)
   | CellParamItem2 (nam, Typ3(id_t, PackageBody (pkg,[]) :: [])) -> update typhash nam (Vtyp id_t)
   | CellParamItem2 (nam, Typ5(Atom "logic", AnyRange(lft,rght) :: [])) -> update typhash nam (Std_logic_vector(lft,rght))
@@ -501,7 +508,7 @@ let rec stmt_clause typhash = function
       | DeclLogic lst -> BGN(None, [])
       | Seq (id, lst) -> BGN(None, List.map (stmt_clause typhash) lst)
       | Blocking (Asgn1 (lhs, expr)) -> ASGN(true, "", vexpr typhash expr :: vexpr typhash lhs :: [])
-      | Blocking (FopAsgn (lhs, expr)) -> ASGN(true, "", vexpr typhash expr :: vexpr typhash (Id lhs) :: [])
+      | Blocking (FopAsgn (lhs, expr)) -> ASGN(true, "", vexpr typhash expr :: vexpr typhash (lhs) :: [])
 (*
       | Blocking (Asgn1 (IdArrayed2(Id id, sel), expr)) -> sprintf "        %s[%s] = %s; // 777	\n" id (vexpr typhash sel) (vexpr typhash expr)
       | Blocking (Asgn1 (Dot1(Id lft, Id rght), expr)) -> sprintf "        %s.%s = %s; // 778	\n" lft rght (vexpr typhash expr)
@@ -540,13 +547,13 @@ let rec stmt_clause typhash = function
           FORSTMT("", ix, Clt, vexpr typhash (Intgr 0), (32, HEX 0),  (32, HEX 1),  (32, HEX 2), stmt_clause typhash seq :: [])
       | ForLoop ([Typ9 (ix, AnyRange(hi,lo) :: [], Atom ("logic"))], Less (Id ix', limit), SideEffect (Id xi'', Atom "++"), seq) ->
           FORSTMT("", ix, Clt, vexpr typhash (Intgr 0), (32, HEX 0),  (32, HEX 1),  (32, HEX 2), stmt_clause typhash seq :: [])
-      | Equate (id,expr) -> ASGN(true, "", vexpr typhash expr :: vexpr typhash (Id id) :: [])
+      | Equate (id,expr) -> ASGN(true, "", vexpr typhash expr :: vexpr typhash (id) :: [])
       | EquateSlice (id,hi',lo',expr) ->
 	  let lo = ceval typhash lo' in
 	  let hi = ceval typhash hi' in
 	  ASGN(true, "", vexpr typhash expr :: SEL ("", vexpr typhash id :: CNST(32, HEX lo) :: CNST(32, HEX(hi-lo+1)) :: []) :: [])
       | EquateSelect (id,ix,expr) ->
-          ASGN(true, "", vexpr typhash expr :: SEL("", vexpr typhash (Id id) :: vexpr typhash ix :: CNST(32, HEX 1) :: []) :: [])
+          ASGN(true, "", vexpr typhash expr :: SEL("", vexpr typhash (id) :: vexpr typhash ix :: CNST(32, HEX 1) :: []) :: [])
 (*
       | EquateSelect2 (id,ix,expr) -> sprintf "            %s[%s] <= %s; // 820	\n" (vexpr typhash id) (vexpr typhash ix) (vexpr typhash expr);
       | EquateArrayField (id,id',ix,ix',expr) -> sprintf "            %s.%s(%s)(%s) <= %s; // 821	\n" id id' (vexpr typhash ix) (vexpr typhash ix') (vexpr typhash expr);
@@ -626,10 +633,10 @@ if not (Hashtbl.mem typhash typ) then
     end
 
 let rec decl_template typhash modules cnt = function
-    | NetDecl (Atom "wire", wire_lst) -> List.map (function
+    | NetDecl (Atom "wire" :: [], wire_lst) -> List.map (function
           | Id nam -> update typhash nam Std_logic;
 	      VAR ("", [nam], (BASDTYP, "logic", TYPNONE, []), "logic")
-	  | DeclAsgn (nam, AnyRange (hi, lo) :: []) ->
+	  | DeclAsgn (Id nam, AnyRange (hi, lo) :: []) ->
 	      VAR ("", [nam], (BASDTYP, "logic", TYPRNG (cexpr typhash hi, cexpr typhash lo), []), "logic")
 (*
           | InitSig (nam, expr) -> (function
@@ -647,16 +654,16 @@ let rec decl_template typhash modules cnt = function
         ) id_lst;
     | DeclLogic (reg_lst) -> List.map (function
 	  | Id nam -> update typhash nam Std_logic; VAR ("", [nam], (BASDTYP, "logic", TYPNONE, []), "logic")
-          | DeclAsgn (nam, AnyRange (hi, lo) :: []) ->
+          | DeclAsgn (Id nam, AnyRange (hi, lo) :: []) ->
 	      VAR ("", [nam], (BASDTYP, "logic", TYPRNG (cexpr typhash hi, cexpr typhash lo), []), "logic")
-          | VarDeclAsgn (nam, expr) ->
+          | VarDeclAsgn (Id nam, expr) ->
               VAR ("", [nam], (BASDTYP, "logic", TYPNONE, []), "logic")
 	  | oth -> unhand := Some oth; failwith "DeclLogic651"
         ) reg_lst;
     | DeclLogic2 (wire_lst, AnyRange (hi, lo) :: []) -> List.map (function
 	  | Id nam -> update typhash nam (Std_logic_vector(hi,lo));
 	      VAR ("", [nam], (BASDTYP, "logic", TYPRNG (cexpr typhash hi, cexpr typhash lo), []), "logic")
-	  | DeclAsgn (nam, AnyRange (hi, lo) :: []) ->
+	  | DeclAsgn (Id nam, AnyRange (hi, lo) :: []) ->
 	      VAR ("", [nam], (BASDTYP, "logic", TYPRNG (cexpr typhash hi, cexpr typhash lo), []), "logic")
 	  | oth -> unhand := Some oth; failwith "DeclLogic2") wire_lst
     | DeclLogic2 (wire_lst, AnyRange (hi, lo) :: AnyRange (hi', lo') :: []) -> List.map (function
@@ -670,10 +677,11 @@ let rec decl_template typhash modules cnt = function
 	  sprintf "wire [%s : %s] [%s : %s] [%s : %s] %s ; // 645\n" (vexpr typhash hi) (vexpr typhash lo) (vexpr typhash hi') (vexpr typhash lo') (vexpr typhash hi'') (vexpr typhash lo'') nam
 *)
 	  | oth -> unhand := Some oth; failwith "DeclWire") wire_lst
-    | DeclReg (reg_lst, [], []) -> List.map (function
+    | DeclReg (reg_lst, [], _) -> List.map (function
       | Id nam -> update typhash nam Std_logic;
       VAR ("", [nam], (BASDTYP, "logic", TYPNONE, []), "logic")
       | oth -> unhand := Some oth; failwith "DeclReg550") reg_lst
+(*
     | DeclReg2 (reg_lst, AnyRange(hi, lo) :: []) -> List.map (function
       | Id nam -> update typhash nam (Std_logic_vector(hi,lo));
 	      VAR ("", [nam], (BASDTYP, "logic", TYPRNG (cexpr typhash hi, cexpr typhash lo), []), "logic")
@@ -681,6 +689,7 @@ let rec decl_template typhash modules cnt = function
        let rec' = RECTYP (BASDTYP, "logic", TYPRNG (cexpr typhash hi, cexpr typhash lo), []) in
        VAR ("", [mem], (UNPACKADTYP, "mem", rec', TYPRNG (cexpr typhash lft, cexpr typhash rght) :: []), "logic")
       | oth -> unhand := Some oth; failwith "DeclReg555") reg_lst;
+*)
     | CaseStmt _ -> []
     | ContAsgn _ -> []
     | LoopGen1 _ -> []
@@ -692,12 +701,12 @@ let rec decl_template typhash modules cnt = function
     | AlwaysLegacy _ -> []
     | Initial _ -> []
     | Final _ -> []
-    | Generate _ -> []
+(*    | Generate _ -> [] *)
     | DeclInt2 id_lst -> List.map (function
 	| Id nam ->  VAR ("", [nam], (BASDTYP, "logic", TYPNONE, []), "logic")
-        | VarDeclAsgn (nam, expr) -> VAR ("", [nam], (BASDTYP, "logic", TYPNONE, []), "logic")
+        | VarDeclAsgn (Id nam, expr) -> VAR ("", [nam], (BASDTYP, "logic", TYPNONE, []), "logic")
         | oth -> unhand := Some oth; failwith "DeclInt2") id_lst
-    | InstDecl (typ, params, lst) -> List.flatten (List.map (function
+    | InstDecl (Id typ, params, lst) -> List.flatten (List.map (function
         | (InstNameParen1 _ | InstNameParen2 _) ->  mod_template modules typhash (typ, params); []
         | Id nam -> VAR ("", [nam], (BASDTYP, "logic", TYPNONE, []), "logic") :: []
         | oth -> unhand := Some oth; failwith "InstDecl") lst);
@@ -833,19 +842,21 @@ INST("", MODULE, [inst], (typ, (List.mapi (fun ix -> function
       | IO (loc, [pin], (BASDTYP, basetyp, wid, []), dir, "logic", []) -> PORT(loc, pin, dir, vexpr typhash (Id id) :: [])
       | oth -> othinst := Some oth; failwith "instance_template'")
     | _ -> PORT("", ("__pinNumber"^string_of_int ix), Dinout, vexpr typhash (Id id) :: []))     
+(*
   | CellPinItem1 (pin, conn) -> PORT("", pin, Dinout, vexpr typhash (Id conn) :: [])
+*)
   | CellPinItem2 (pin, conn) -> PORT("", pin, Dinout, vexpr typhash conn :: [])
   | CellPinItemImplied (pin) -> PORT("", pin, Dinout, vexpr typhash (Id pin) :: [])
   | CellPinItemNC pin -> PORT("", pin, Dinout, [])
   | oth -> unhand := Some oth; failwith "instance_template") pinlst)))
 
 let at_template typhash sent_lst = function
-| At (EventOr (Pos clk :: Pos rst :: _ as dep_lst)) ->
+| At (EventOr (Pos clk (* :: Pos rst *) :: _ as dep_lst)) ->
 ALWYS ("",
        (SNTRE
         (List.map (function
-		   | Pos dep -> SNITM ("POS", vexpr typhash (Id dep) :: [])
-		   | Neg dep -> SNITM ("NEG", vexpr typhash (Id dep) :: [])
+		   | Pos dep -> SNITM ("POS", vexpr typhash (dep) :: [])
+		   | Neg dep -> SNITM ("NEG", vexpr typhash (dep) :: [])
 		   | oth -> unhand := Some oth; failwith "at_template_edge") dep_lst)) ::
 	  stmt_clause typhash sent_lst :: []) :: []
 | At (EventOr (Id _ :: _ as dep_lst)) ->
@@ -876,7 +887,7 @@ let rec proc_template typhash cnt = function
   (*
     | Iff _ -> ()
 	*)
-    | InstDecl (typ, params, lst) -> List.map (function
+    | InstDecl (Id typ, params, lst) -> List.map (function
         | InstNameParen1 (inst, Itmlst pins :: []) -> instance_template typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst pins
         | InstNameParen2 (inst, InstRange(lft,rght) :: []) -> instance_template typhash typ (match params with Itmlst lst :: _ -> lst | _ -> []) inst []
         | Id id -> VAR ("", [id], (BASDTYP, "logic", TYPRNG (HEX 2, HEX 0), []), "state_type")
@@ -891,12 +902,10 @@ let rec proc_template typhash cnt = function
     | Typ7 _ -> []
     | DeclInt2 _ -> []
     | NetDecl _ -> []
-    | DeclReg2 _ -> []
     | DeclLogic2 _ -> []
     | LoopGen1 _ -> [] (* placeholder *)
     | CondGen1 _ -> [] (* placeholder *)
     | GenItem _ -> [] (* placeholder *)
-    | Generate _ -> [] (* placeholder *)
     | ParamDecl _ -> []
     | FunDecl (fn, Atom primtyp, FunGuts (PortItem _ :: [], lst)) -> [] (* placeholder *)
     | AutoFunDecl (fn, typ, FunGuts (ports, lst)) -> [] (* placeholder *)
@@ -935,6 +944,7 @@ let template modules = function
   PKG ("", pkg, List.flatten (List.map (decl_template typhash modules cnt) body_lst))
   | oth -> unhand := Some oth; failwith "This template only handles modules/packages"
 
+(*  
 let template_header modlst xml = XML
  [FILS ("files",
    [FIL ("c", "../outputparser/apb_uart.sv"); FIL ("a", "&lt;built-in&gt;");
@@ -991,3 +1001,4 @@ let template_header modlst xml = XML
           "apb_uart.UART_RX.RX_MVF", []);
          CELL ("c1784", "RX_IFSB", "slib_input_filter",
           "apb_uart.UART_RX.RX_IFSB", [])])])], Vxml.empty_attr(ref []))]
+	  *)

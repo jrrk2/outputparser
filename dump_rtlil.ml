@@ -2035,13 +2035,17 @@ let rec proc_template bufh typhash modules = function
     | Itmlst lst -> List.iter (proc_template bufh typhash modules) lst
     | DeclReg _ -> ()
     | DeclLogic _ -> ()
-    | AlwaysLegacy (At (EventOr ((Pos _|Neg _) :: _ as edglst)), body) ->
+    | AlwaysLegacy (At (EventOr ((Pos (Id clk)|Neg (Id clk)) :: _ as edglst)), (Seq("", [Equate (Id q, Id d)]) as body)) ->
     let dhash = Hashtbl.create 255 in
-    let inst = newnam() in
+    let inst = "procdff$"^newnam() in
     dbgproc := Some (typhash, dhash, inst, edglst, body);
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
     let sync_lst = List.sort_uniq compare s in
-    bufh.l := Proc_stmt (inst, [], (List.sort_uniq compare p) @ u, List.map (mapedge sync_lst) edglst) :: !(bufh.l)
+    let param = TokParam ([TokID "\\CLK_POLARITY"], [TokInt 1]) :: TokParam ([TokID "\\WIDTH"], [TokInt 8]) :: [] in
+    let pins = TokConn ([TokID "CLK"], [TokID (clk)]) ::
+               TokConn ([TokID "D"], [TokID (d)]) ::
+               TokConn ([TokID "Q"], [TokID (q)]) :: [] in
+    bufh.i := Cell_stmt ("$dff", inst, [], param@pins) :: !(bufh.i)
     | AlwaysLegacy (AtStar, body) ->
     let dhash = Hashtbl.create 255 in
     let inst = newnam() in

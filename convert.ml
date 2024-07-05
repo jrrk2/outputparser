@@ -9,6 +9,7 @@ let othst = ref []
 let othclst = ref []
 let othwlst = ref []
 let othconn = ref None
+let othklst = ref []
 
 let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "", ["",E.GND,None] -> failwith "GND" (* dummy to force type inference *)
@@ -187,7 +188,8 @@ and recurse ind klst signal = function
     end;
   Hashtbl.find ind.wires signal
 | None ->
-  print_endline ("recurse into "^E.string_of_signal signal^" failed"); None
+  othklst := klst;
+  failwith ("recurse into "^E.string_of_signal signal^" failed"); None
 
 and getcon ind klst pin = function
   | E.GND -> Some F.f_false

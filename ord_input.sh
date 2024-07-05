@@ -17,7 +17,7 @@
 #**************************************************************************)
 
 echo open String > ord_input.ml
-echo open Input >> ord_input.ml
+echo open Rtlil_input >> ord_input.ml
 echo let getstr = function >> ord_input.ml
-sed '/exception/,$d' input.mli | grep '\ [A-Z][A-Za-z_]' | cut -d\( -f1 | tr '\011' ' ' |\
+sed '/exception/,$d' Rtlil_input.mli | grep '\ [A-Z][A-Za-z_]' | cut -d\( -f1 | tr '\011' ' ' |\
 sed -e 's=[|\ ]*\([A-Z][A-Za-z0-9_\ o]*\)=|\ \1 -> uppercase_ascii(\"\1\") \;=' -e 's= of [A-Za-z0-9\ ]*= _=' -e 's= of[A-Za-z0-9\ ]*==' | cut -d\; -f1 | sort >> ord_input.ml

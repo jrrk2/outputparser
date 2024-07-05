@@ -1,6 +1,6 @@
 open Input_lex
 open Input_rewrite_types
-open Input
+open Rtlil_input
 open Printf
 
 let unhand = ref None
@@ -104,7 +104,7 @@ let rec rw' = function
 | TUPLE3(STRING("design6"),arg1,arg2) -> Design6(rw'' arg1, rw'' arg2) :: []
 | TUPLE3(STRING("design7"),arg1,arg2) -> Design7(rw'' arg1, rw'' arg2) :: []
 | TUPLE3(STRING("design8"),arg1,arg2) -> Design8(rw'' arg1, rw'' arg2) :: []
-| TUPLE3(STRING("input2"),EMPTY_TOKEN,arg2) -> rw'' arg2
+| TUPLE3(STRING("rtlil_input2"),EMPTY_TOKEN,arg2) -> rw'' arg2
 | TUPLE3(STRING("ml_start0"),arg1,EOF_TOKEN) -> rw'' arg1
 | TUPLE3(STRING("module_body13"),arg1,arg2) -> Module_body13(rw'' arg1, rw'' arg2) :: []
 | TUPLE3(STRING("optional_eol4"),arg1,TOK_EOL) -> rw'' arg1

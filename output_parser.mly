@@ -196,12 +196,17 @@ termitm:
 	dolitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   quotitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
     |   dquotitm LPAREN NUMBER RPAREN numlst { TERMITM($1,$3) }
-    |   ID LPAREN NUMBER RPAREN numlst { TERMITM(ID (String.uppercase_ascii $1),$3) }
-    |   ID LESS ID GREATER LPAREN NUMBER RPAREN numlst { TERMITM(ID (String.uppercase_ascii $1),$6) }
+    |   ID LPAREN NUMBER RPAREN numlst { TERMITM(ID ( (*String.uppercase_ascii*) $1),$3) }
+    |   ID LESS ID GREATER LPAREN NUMBER RPAREN numlst { TERMITM(ID ( (*String.uppercase_ascii*) $1),$6) }
 
 quotitm:
-	QUOTE BACKSLASH ID QUOTE
+	QUOTE BACKSLASH QUOTE QUOTE { QUOTE }
+    |	QUOTE BACKSLASH ID QUOTE
 	      { match $3 with "n" -> LINEFEED | _ -> CHAR ($3.[0]) }
+    |	QUOTE ID QUOTE
+	      { CHAR ($2.[0]) }
+    |	QUOTE NUMBER QUOTE
+	      { CHAR ( char_of_int ($2 + int_of_char '0') ) }
     |   QUOTE punct QUOTE { $2 }
 
 dquotitm:
@@ -215,7 +220,9 @@ numlst:
 
 unlst:
 	ID { [ $1 ] }
+    | dquotitm { [ "\"" ] }
     | unlst ID { $2 :: $1 }
+    | unlst dquotitm { "\"" :: $1 }
 
 gramitmlst:
 	gramitm { [ $1 ] }
@@ -251,6 +258,7 @@ ru:
 
 dqlst:
     | ID { [ ID $1 ] }
+    | NUMBER { [ NUMBER $1 ] }
     | punct { [ $1 ] }
     | dqlst ID { ID $2 :: $1 }
     | dqlst punct { $2 :: $1 }
