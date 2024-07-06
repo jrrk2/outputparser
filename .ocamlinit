@@ -142,9 +142,11 @@ let found = List.assoc "TK_XZDigits" !lst;;
 open Source_text_verible_rewrite_types
 open Source_text_verible_lex
 open Source_text_verible
+open Source_text_verible_rewrite
 
 let v = "examples/ariane_preproc.sv";;
 let v = "examples/picorv32_ref.v";;
+let v = "examples/count0.v";;
 let p = parse_output_ast_from_file v;;
 let p' = Source_text_verible_rewrite.rw p;;
 (*
@@ -156,7 +158,6 @@ let clst,symlst = List.partition (function TUPLE2 _ | TUPLE3 _ | TUPLE4 _ | TUPL
 *)
 open Verible_pat
 let p'' = pat p';;
-let _ = Array.iteri (fun ix k -> if !k > 0 then print_endline (string_of_int ix^" "^string_of_int !k)) cnt;;
 
 (*
 open Clst

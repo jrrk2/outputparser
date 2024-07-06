@@ -2,6 +2,8 @@ open Source_text_verible_rewrite_types
 open Source_text_verible_lex
 open Source_text_verible
 
+let othcons = ref End_of_file
+
 let verbose = try int_of_string (Sys.getenv ("DESCEND_VERBOSE")) > 0 with _ -> false
 
 let trim s = if s.[0] = '\\' then String.sub s 1 (String.length s - 1) else s
@@ -268,11 +270,13 @@ let rec rw = function
 | SymbolIdentifier _ as sym -> sym
 | SystemTFIdentifier _ as sym -> sym
 | TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, lst, RBRACE) ->
-    TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, TLIST (exp_lst_proper lst), RBRACE) 
-| CONS1 oth -> TLIST (rw oth::[])
-| CONS3(lft,_,rght) -> (match rw lft with TLIST arg -> TLIST (rw rght :: arg) | oth -> TLIST (rw rght :: oth :: []))
-| CONS4(lft,arg1,arg2,arg3) -> (match rw lft with TLIST arg -> TLIST (rw arg1 :: rw arg2 :: rw arg3 :: arg) | _ -> failwith "CONS4")
-| CONS2(lft,rght) -> (match rw lft with TLIST arg -> TLIST (rw rght :: arg) | _ -> failwith "CONS2")
+  TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, TLIST (exp_lst_proper lst), RBRACE)
+(*
+| CONS1 (TUPLE5 (STRING "port_declaration_noattr1", _, _, _, _) as p) -> rw p
+| CONS1 (CONS2 _ as c) -> rw c
+*)
+| CONS1 x -> (match rw x with TLIST x -> TLIST x | oth -> TLIST [oth])
+| CONS2 (CONS2 (a, b), c) -> (match rw a with TLIST lst -> TLIST (rw c :: rw b :: lst) | oth -> TLIST (rw c :: rw b :: oth :: []))
 | TLIST lst -> TLIST (List.map rw lst)
 | TUPLE2(arg1,arg2) -> TUPLE2 (rw arg1, rw arg2)
 | TUPLE4(STRING _ as arg0,LPAREN,arg,RPAREN) -> TUPLE4(arg0,LPAREN,rw arg,RPAREN)
@@ -415,6 +419,7 @@ Access|Accept_on|Ac_stim|Abstol|Absdelay|AT_AT|AMPERSAND_AMPERSAND_AMPERSAND|
 ACCEPT|TUPLE15 _|TUPLE14 _|SLIST _|
 CONS5 _
 ) as oth) -> oth
+| oth -> othcons := oth; failwith "CONS1"
 (*  
 | oth -> failwith ("rw fail: "^Source_text_verible_tokens.getstr oth)
 *)
