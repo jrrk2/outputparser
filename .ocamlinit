@@ -147,21 +147,23 @@ let v = "examples/ariane_preproc.sv";;
 let v = "examples/picorv32_ref.v";;
 let p = parse_output_ast_from_file v;;
 let p' = Source_text_verible_rewrite.rw p;;
-(* *)
+(*
 open Classify_verible
 let _ = classify'' p';;
 let clst = ref [];;
 Hashtbl.iter (fun k x -> clst := k :: !clst) chash;;
 let clst,symlst = List.partition (function TUPLE2 _ | TUPLE3 _ | TUPLE4 _ | TUPLE5 _ | TUPLE6 _ | TUPLE7 _ | TUPLE8 _ | TUPLE9 _ | TUPLE10 _ | TUPLE11 _ | TUPLE12 _ -> true| _ -> false) (List.sort compare !clst);;
-(* *)
+*)
 open Verible_pat
+let _ = verible_pat p';;
+let _ = Array.iteri (fun ix k -> if !k > 0 then print_endline (string_of_int ix^" "^string_of_int !k)) cnt;;
+
 (*
 open Clst
 let failed, passed = List.partition (fun itm -> try verible_pat itm; false with _ -> true) clst;;
-let _ = verible_pat p';;
-*)
 open Classify_verible
 let _ = classify'' (TLIST (!othpatlst));;
 let clst = ref [];;
 Hashtbl.iter (fun k x -> clst := k :: !clst) chash;;
 let clst,symlst = List.partition (function TUPLE2 _ | TUPLE3 _ | TUPLE4 _ | TUPLE5 _ | TUPLE6 _ | TUPLE7 _ | TUPLE8 _ | TUPLE9 _ | TUPLE10 _ | TUPLE11 _ | TUPLE12 _ | TUPLE13 _ -> true| _ -> false) (List.sort compare !clst);;
+*)
