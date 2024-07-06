@@ -1,7 +1,7 @@
      open Source_text_verible
 
      let othpat = ref End_of_file
-     let patlst = ref []
+     let othpatlst = ref []
      let othpatlst = ref []
 
 let cnt = Array.init 800 (fun _ -> ref 0)
@@ -76,7 +76,7 @@ let mark sel = function
 | `net_variable1 as lbl -> log lbl
 | `non_anonymous_gate_instance_or_register_variable1 as lbl -> log lbl
 | `non_anonymous_gate_instance_or_register_variable2 lst as lbl -> log lbl
-| `nonblocking_assignment1 as lbl -> log lbl
+| `nonblocking_assignment1 (lhs, rhs) as lbl -> log lbl
 | `param_type_followed_by_id_and_dimensions_opt4 as lbl -> log lbl
 | `parameter_value_byname1 as lbl -> log lbl
 | `parameter_value_byname_list_item_last2 lst as lbl -> log lbl
@@ -109,10 +109,10 @@ let mark sel = function
 | `unqualified_id1 (id,parm) as lbl -> log lbl
 | `tlist lst as lbl -> log lbl
 
-let rec verible_pat' = function
-| TLIST lst -> `tlist (List.map verible_pat lst)
+let rec pat' = function
+| TLIST lst -> `tlist (List.map pat lst)
 | TUPLE9 (STRING "task_declaration1", Task, EMPTY_TOKEN, SymbolIdentifier id,
-   EMPTY_TOKEN, SEMICOLON, TLIST lst, Endtask, EMPTY_TOKEN) -> f9 (`task_declaration1 lst)
+   EMPTY_TOKEN, SEMICOLON, TLIST lst, Endtask, EMPTY_TOKEN) -> f9 (`task_declaration1 (patlst lst))
 | TUPLE8 (STRING "case_statement1", EMPTY_TOKEN, Case, LPAREN,
        expr,
    RPAREN, case_items1, Endcase) -> f12 `case_statement1
@@ -124,22 +124,22 @@ let rec verible_pat' = function
   reference3, RBRACE, RBRACE) -> f18 `expr_primary_braces2
 | TUPLE6 (STRING "cond_expr2", expr_primary, QUERY, expr_true, COLON, expr_false) -> f19 `cond_expr2
 | TUPLE6 (STRING "continuous_assign1", Assign, EMPTY_TOKEN, dly, TLIST lst,
-  SEMICOLON) -> f21 (`continuous_assign1 lst)
+  SEMICOLON) -> f21 (`continuous_assign1 (patlst lst))
 | TUPLE6 (STRING "decl_variable_dimension1", LBRACK, TK_DecNumber hi, COLON, TK_DecNumber lo, RBRACK) -> f22 `decl_variable_dimension1
     | TUPLE6 (STRING "non_anonymous_gate_instance_or_register_variable2",
-  SymbolIdentifier id, EMPTY_TOKEN, LPAREN, TLIST lst, RPAREN) -> f24 (`non_anonymous_gate_instance_or_register_variable2 lst)
-| TUPLE6 (STRING "nonblocking_assignment1", lhs, LT_EQ, EMPTY_TOKEN, rhs, SEMICOLON) -> f25 `nonblocking_assignment1
-    | TUPLE6 (STRING "param_type_followed_by_id_and_dimensions_opt4", (Logic|EMPTY_TOKEN),
+  SymbolIdentifier id, EMPTY_TOKEN, LPAREN, TLIST lst, RPAREN) -> f24 (`non_anonymous_gate_instance_or_register_variable2 (patlst lst))
+| TUPLE6 (STRING "nonblocking_assignment1", lhs, LT_EQ, EMPTY_TOKEN, rhs, SEMICOLON) -> f25 (`nonblocking_assignment1 (pat lhs, pat rhs))
+| TUPLE6 (STRING "param_type_followed_by_id_and_dimensions_opt4", (Logic|EMPTY_TOKEN),
        EMPTY_TOKEN, TUPLE6 (STRING "decl_variable_dimension1", LBRACK, TK_DecNumber hi, COLON,
          TK_DecNumber lo, RBRACK),
    SymbolIdentifier id, EMPTY_TOKEN) -> f29 `param_type_followed_by_id_and_dimensions_opt4
-    | TUPLE6 (STRING "parameter_value_byname1", DOT, SymbolIdentifier id, LPAREN,
+| TUPLE6 (STRING "parameter_value_byname1", DOT, SymbolIdentifier id, LPAREN,
   TK_DecNumber num, RPAREN) -> f31 `parameter_value_byname1
-    | TUPLE6 (STRING "parameter_value_byname1", DOT, SymbolIdentifier id, LPAREN,
+| TUPLE6 (STRING "parameter_value_byname1", DOT, SymbolIdentifier id, LPAREN,
    unqualified_id1, RPAREN) -> f33 `parameter_value_byname1
-    | TUPLE6 (STRING "port_named1", DOT, SymbolIdentifier id, LPAREN,
+| TUPLE6 (STRING "port_named1", DOT, SymbolIdentifier id, LPAREN,
   unqualified_id1, RPAREN) -> f35 `port_named1
-    | TUPLE6 (STRING "select_variable_dimension1", LBRACK, TK_DecNumber hi, COLON,
+| TUPLE6 (STRING "select_variable_dimension1", LBRACK, TK_DecNumber hi, COLON,
    TK_DecNumber lo, RBRACK) -> f37 `select_variable_dimension1
 | TUPLE6 (STRING "select_variable_dimension3", LBRACK, unqualified_id1,
   PLUS_COLON, unqualified_id2, RBRACK) -> f39 `select_variable_dimension3
@@ -173,7 +173,7 @@ let rec verible_pat' = function
    generate_block1, Else, conditional_generate_construct1) -> f67 `conditional_generate_construct1
 | TUPLE5 (STRING "conditional_statement1", EMPTY_TOKEN, If,
    expression_in_parens1, seq_block1) -> f69 (`conditional_statement1 seq_block1)
-| TUPLE5 (STRING "event_control2", AT, LPAREN, TLIST lst, RPAREN) -> f70 (`event_control2 lst)
+| TUPLE5 (STRING "event_control2", AT, LPAREN, TLIST lst, RPAREN) -> f70 (`event_control2 (patlst lst))
 | TUPLE5 (STRING "net_declaration2", Wire,
        TUPLE3
        (STRING "data_type_or_implicit1",
@@ -230,22 +230,21 @@ let rec verible_pat' = function
     EMPTY_TOKEN) -> f124 `port_declaration_noattr1
 | TUPLE4 (STRING "assignment_statement_no_expr1", range_list_in_braces1, EQUALS,
    expr') -> f127 (`assignment_statement_no_expr1 range_list_in_braces1)
-| TUPLE4 (STRING "assignment_statement_no_expr1", reference, EQUALS, rhs) -> f128 (`assignment_statement_no_expr1 reference)
-| TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN) -> f129 (`call_base1 lst)
+| TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN) -> f129 (`call_base1 (patlst lst))
 | TUPLE4 (STRING "case_item1", sel, COLON, seq_block) -> f130 (`case_item1 seq_block)
 | TUPLE4 (STRING "case_item2", Default, COLON, SEMICOLON) -> f131 (`case_item2 SEMICOLON)
 | TUPLE4 (STRING "case_item2", Default, COLON, seq_block) -> f132 (`case_item2 seq_block)
 | TUPLE4 (STRING "cont_assign1", unqualified_id1, EQUALS, expr) -> f133 `cont_assign1
-| TUPLE4 (STRING "expr_primary_parens1", LPAREN, TLIST lst, RPAREN) -> f134 (`expr_primary_parens1 lst)
+| TUPLE4 (STRING "expr_primary_parens1", LPAREN, TLIST lst, RPAREN) -> f134 (`expr_primary_parens1 (patlst lst))
 | TUPLE4 (STRING "expression_in_parens1", LPAREN, cond_expr2, RPAREN) -> f139 (`expression_in_parens1 cond_expr2)
 | TUPLE3 (STRING "system_tf_call1", SystemTFIdentifier id,
-        TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN)) -> f138 (`system_tf_call1 lst)
+        TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN)) -> f138 (`system_tf_call1 (patlst lst))
 | TUPLE4 (STRING "expression_list_proper1", unqualified_id1, COMMA, expr') -> f140 `expression_list_proper1
    | TUPLE4 (STRING "gate_instance_or_register_variable1", SymbolIdentifier id,
    EMPTY_TOKEN, EMPTY_TOKEN) -> f142 `gate_instance_or_register_variable1
 | TUPLE4 (STRING "generate_block1", begin1,
-  TLIST lst, TUPLE3 (STRING "end1", End, EMPTY_TOKEN)) -> f144 (`generate_block1 (begin1, lst))
-| TUPLE4 (STRING "generate_region1", Generate, TLIST lst, Endgenerate) -> f145 (`generate_region1 lst)
+  TLIST lst, TUPLE3 (STRING "end1", End, EMPTY_TOKEN)) -> f144 (`generate_block1 (begin1, (patlst lst)))
+| TUPLE4 (STRING "generate_region1", Generate, TLIST lst, Endgenerate) -> f145 (`generate_region1 (patlst lst))
 | TUPLE4 (STRING "module_parameter_port1", Parameter,
       TUPLE5 (STRING "param_type_followed_by_id_and_dimensions_opt3", EMPTY_TOKEN,
         EMPTY_TOKEN, unqualified_id1, EMPTY_TOKEN),
@@ -275,23 +274,23 @@ let rec verible_pat' = function
       TUPLE6 (STRING "decl_variable_dimension1", LBRACK, TK_DecNumber hi, COLON,
         expr', RBRACK),
     EMPTY_TOKEN) -> f174 `non_anonymous_gate_instance_or_register_variable1
-| TUPLE4 (STRING "range_list_in_braces1", LBRACE, TLIST lst, RBRACE) -> f175 (`range_list_in_braces1 lst)
+| TUPLE4 (STRING "range_list_in_braces1", LBRACE, TLIST lst, RBRACE) -> f175 (`range_list_in_braces1 (patlst lst))
 | TUPLE4(STRING "select_variable_dimension2", LBRACK, TK_DecNumber lo, RBRACK) -> f176 `select_variable_dimension2
 | TUPLE4 (STRING "select_variable_dimension2", LBRACK, unqualified_id1, RBRACK) -> f177 `select_variable_dimension2
-| TUPLE4 (STRING "seq_block1", begin1, EMPTY_TOKEN, TUPLE3 (end1, End, EMPTY_TOKEN)) -> f178 (`seq_block1 [])
-| TUPLE4 (STRING "seq_block1", begin1, TLIST lst, TUPLE3 (end1, End, EMPTY_TOKEN)) -> f179 (`seq_block1 lst)
-| TUPLE3 (STRING "always_construct1", Always, procedural_timing_control_statement2) -> f180 (`always_construct1 procedural_timing_control_statement2)
+| TUPLE4 (STRING "seq_block1", begin1, EMPTY_TOKEN, TUPLE3 (end1, End, EMPTY_TOKEN)) -> f178 (`seq_block1 (`tlist []))
+| TUPLE4 (STRING "seq_block1", begin1, TLIST lst, TUPLE3 (end1, End, EMPTY_TOKEN)) -> f179 (`seq_block1 (patlst lst))
+| TUPLE3 (STRING "always_construct1", Always, procedural_timing_control_statement2) -> f180 (`always_construct1 (pat procedural_timing_control_statement2))
 | TUPLE3 (STRING "any_argument_list_item_last2",
       TUPLE3 (STRING "any_argument_list_trailing_comma1", TLIST lst, COMMA),
       TUPLE3 (STRING "reference2", unqualified_id1,
-    TUPLE3 (STRING "hierarchy_extension1", DOT, unqualified_id2))) -> f184 (`any_argument_list_item_last2 lst)
+    TUPLE3 (STRING "hierarchy_extension1", DOT, unqualified_id2))) -> f184 (`any_argument_list_item_last2 (patlst lst))
 | TUPLE3 (STRING "any_argument_list_item_last2",
       TUPLE3 (STRING "any_argument_list_trailing_comma1", TLIST lst, COMMA),
-   cond_expr2) -> f187 (`any_argument_list_item_last2 lst)
+   cond_expr2) -> f187 (`any_argument_list_item_last2 (patlst lst))
 | TUPLE3 (STRING "any_port_list_item_last1",
       TUPLE3 (STRING "any_port_list_trailing_comma1", TLIST lst, COMMA),
       TUPLE6 (STRING "port_named1", DOT, SymbolIdentifier id, LPAREN,
-     unqualified_id1, RPAREN)) -> f191 (`any_port_list_item_last1 lst)
+     unqualified_id1, RPAREN)) -> f191 (`any_port_list_item_last1 (patlst lst))
 | TUPLE3 (STRING "begin1", Begin, EMPTY_TOKEN) -> f192 `begin1
 | TUPLE3 (STRING "bin_based_number1", TK_BinBase base, TK_BinDigits digits) -> f193 `bin_based_number1
 | TUPLE3 (STRING "block_item_or_statement_or_null6", unqualified_id1, SEMICOLON) -> f194 `block_item_or_statement_or_null6
@@ -320,46 +319,44 @@ let rec verible_pat' = function
       TUPLE3 (STRING "data_type_primitive1",
         TUPLE3 (STRING "data_type_primitive_scalar1", Reg, EMPTY_TOKEN),
         EMPTY_TOKEN),
-   TLIST lst) -> f220 (`instantiation_base1 lst)
+   TLIST lst) -> f220 (`instantiation_base1 (patlst lst))
    | TUPLE3 (STRING "instantiation_base1",
       TUPLE3 (STRING "data_type_primitive1",
         TUPLE3 (STRING "data_type_primitive_scalar1", Reg, EMPTY_TOKEN),
         TUPLE6 (STRING "decl_variable_dimension1", LBRACK, TK_DecNumber hi, COLON,
           TK_DecNumber lo, RBRACK)),
-    TLIST lst) -> f226 (`instantiation_base1 lst)
+    TLIST lst) -> f226 (`instantiation_base1 (patlst lst))
    | TUPLE3 (STRING "instantiation_base1",
       TUPLE3 (STRING "data_type_primitive1",
         TUPLE3 (STRING "data_type_primitive_scalar1", Reg, EMPTY_TOKEN),
         TUPLE6 (STRING "decl_variable_dimension1", LBRACK, expr', COLON,
           TK_DecNumber lo, RBRACK)),
-   TLIST lst) -> f232 (`instantiation_base1 lst)
-| TUPLE3 (STRING "instantiation_base1", unqualified_id1, TLIST lst) -> f233 (`instantiation_base1 lst)
-| TUPLE3 (STRING "ml_start1", TLIST lst, End_of_file) -> f234 (`ml_start1 lst)
+   TLIST lst) -> f232 (`instantiation_base1 (patlst lst))
+| TUPLE3 (STRING "instantiation_base1", unqualified_id1, TLIST lst) -> f233 (`instantiation_base1 (patlst lst))
+| TUPLE3 (STRING "ml_start1", TLIST lst, End_of_file) -> f234 (`ml_start1 (patlst lst))
    | TUPLE3 (STRING "module_parameter_port_list_item_last1",
       TUPLE3 (STRING "module_parameter_port_list_trailing_comma1", TLIST lst, COMMA),
       TUPLE4 (STRING "module_parameter_port1", Parameter,
         param_type_followed_by_id_and_dimensions_opt4,
         TUPLE4 (STRING "trailing_assign1", EQUALS,
           hex_based_number1,
-       EMPTY_TOKEN))) -> f241 (`module_parameter_port_list_item_last1 lst)
+       EMPTY_TOKEN))) -> f241 (`module_parameter_port_list_item_last1 (patlst lst))
    | TUPLE3 (STRING "module_parameter_port_list_item_last1",
       TUPLE3 (STRING "module_parameter_port_list_trailing_comma1", TLIST lst, COMMA),
-   TUPLE4 (STRING "module_parameter_port2", Parameter, Type, type_assignment1)) -> f244 (`module_parameter_port_list_item_last1 lst)
+   TUPLE4 (STRING "module_parameter_port2", Parameter, Type, type_assignment1)) -> f244 (`module_parameter_port_list_item_last1 (patlst lst))
 | TUPLE3 (STRING "net_variable1", SymbolIdentifier id, EMPTY_TOKEN) -> f245 `net_variable1
 | TUPLE3 (STRING "parameter_value_byname_list_item_last2",
       TUPLE3 (STRING "parameter_value_byname_list_trailing_comma1", TLIST lst, COMMA),
       TUPLE6 (STRING "parameter_value_byname1", DOT, SymbolIdentifier id, LPAREN,
-    TK_DecNumber num, RPAREN)) -> f249 (`parameter_value_byname_list_item_last2 lst)
+    TK_DecNumber num, RPAREN)) -> f249 (`parameter_value_byname_list_item_last2 (patlst lst))
 | TUPLE3 (STRING "parameter_value_byname_list_item_last2",
       TUPLE3 (STRING "parameter_value_byname_list_trailing_comma1", TLIST lst, COMMA),
       TUPLE6 (STRING "parameter_value_byname1", DOT, SymbolIdentifier id, LPAREN,
-     unqualified_id1, RPAREN)) -> f253 (`parameter_value_byname_list_item_last2 lst)
+     unqualified_id1, RPAREN)) -> f253 (`parameter_value_byname_list_item_last2 (patlst lst))
 | TUPLE3 (STRING "port1",
       TUPLE3 (STRING "port_reference1", unqualified_id1, EMPTY_TOKEN),
    EMPTY_TOKEN) -> f256 `port1
-| TUPLE3 (STRING "procedural_timing_control_statement2", stmt, seq_block) -> f258 (`procedural_timing_control_statement2 (stmt, seq_block))
-| TUPLE5 (STRING "event_control2", AT, LPAREN, TLIST lst, RPAREN) -> f364 (`event_control2 lst)
-| TUPLE3 (STRING "event_control4", AT, STAR) -> f260 (`event_control4)
+| TUPLE3 (STRING "procedural_timing_control_statement2", stmt, seq_block) -> f258 (`procedural_timing_control_statement2 (pat stmt, pat seq_block))
 | TUPLE3 (STRING "reference2",
       TUPLE3 (STRING "reference2", unqualified_id1,
         TUPLE3 (STRING "hierarchy_extension1", DOT, unqualified_id2)),
@@ -383,28 +380,26 @@ let rec verible_pat' = function
       TUPLE4 (STRING "select_variable_dimension2", LBRACK, unqualified_id2,
     RBRACK)) -> f282 `reference3
 | TUPLE3 (STRING "reference_or_call_base1", unqualified_id1,
-  TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN)) -> f284 (`reference_or_call_base1 lst)
+  TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN)) -> f284 (`reference_or_call_base1 (patlst lst))
 | TUPLE3 (STRING "sequence_repetition_expr1", expression_or_dist1,
    EMPTY_TOKEN) -> f286 `sequence_repetition_expr1
 | TUPLE3 (STRING "statement3", reference, SEMICOLON) -> f287 `statement3
 | TUPLE3 (STRING "statement_item6", assignment_statement_no_expr1, SEMICOLON) -> f289 (`statement_item6 assignment_statement_no_expr1)
-| TUPLE3 (STRING "system_tf_call1", SystemTFIdentifier id,
-  TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN)) -> f291 (`system_tf_call1 lst)
 | TUPLE3 (STRING "unary_prefix_expr2", VBAR, reference) -> f293 (`unary_prefix_expr2 reference)
 | TUPLE3 (STRING "unary_prefix_expr2", TILDE, reference) -> f295 (`unary_prefix_expr2 reference)
 | TUPLE3 (STRING "unary_prefix_expr2", PLING, reference) -> f297 (`unary_prefix_expr2 reference)
 | TUPLE3 (STRING "unary_prefix_expr2", HYPHEN, reference) -> f298 (`unary_prefix_expr2 reference)
 | TUPLE3 (STRING "unary_prefix_expr2", AMPERSAND, reference) -> f299 (`unary_prefix_expr2 reference)
 | TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id, param) -> f300 (`unqualified_id1 (id, param))
-| TUPLE5 (STRING "parameters2", HASH, LPAREN, TLIST lst, RPAREN) -> f302 (`parameters2 lst)
+| TUPLE5 (STRING "parameters2", HASH, LPAREN, TLIST lst, RPAREN) -> f302 (`parameters2 (patlst lst))
 | TUPLE12 (STRING "module_or_interface_declaration1", Module, EMPTY_TOKEN,
       SymbolIdentifier id, EMPTY_TOKEN, EMPTY_TOKEN,
       TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst, RPAREN),
-   EMPTY_TOKEN, SEMICOLON, EMPTY_TOKEN, Endmodule, EMPTY_TOKEN) -> f306 (`module_or_interface_declaration1 (id, lst, []))
+   EMPTY_TOKEN, SEMICOLON, EMPTY_TOKEN, Endmodule, EMPTY_TOKEN) -> f306 (`module_or_interface_declaration1 (id, patlst lst, `tlist []))
 | TUPLE12 (STRING "module_or_interface_declaration1", Module, EMPTY_TOKEN,
       SymbolIdentifier id, EMPTY_TOKEN, EMPTY_TOKEN,
       TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst, RPAREN),
-   EMPTY_TOKEN, SEMICOLON, TLIST lst', Endmodule, EMPTY_TOKEN) -> f310 (`module_or_interface_declaration1 (id, lst, lst'))
+   EMPTY_TOKEN, SEMICOLON, TLIST lst', Endmodule, EMPTY_TOKEN) -> f310 (`module_or_interface_declaration1 (id, patlst lst, patlst lst'))
 | TUPLE12 (STRING "module_or_interface_declaration1", Module, EMPTY_TOKEN,
       SymbolIdentifier id, EMPTY_TOKEN,
       TUPLE5 (STRING "module_parameter_port_list_opt1", HASH, LPAREN, TLIST lst, RPAREN),
@@ -582,15 +577,8 @@ let rec verible_pat' = function
          "type_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt4",
         unqualified_id1, EMPTY_TOKEN),
    EMPTY_TOKEN) -> f486 `port_declaration_noattr1
-   | TUPLE4
-     (STRING "expression_list_proper1",
-      TUPLE3 (STRING "hex_based_number1", TK_HexBase _, TK_HexDigits _),
-      COMMA,
-   TUPLE3 (STRING "hex_based_number1", TK_HexBase _, TK_HexDigits _)) -> f491 `expression_list_proper1
-   | TUPLE4 (STRING "expression_list_proper1", expression_list_proper1, COMMA,
-   TUPLE3 (STRING "hex_based_number1", TK_HexBase _, TK_HexDigits _)) -> f494 `expression_list_proper1
    | TUPLE4 (STRING "generate_block1", begin1, EMPTY_TOKEN,
-   TUPLE3 (STRING "end1", End, EMPTY_TOKEN)) -> f497 (`generate_block1 (begin1, []))
+   TUPLE3 (STRING "end1", End, EMPTY_TOKEN)) -> f497 (`generate_block1 (begin1, `tlist []))
    | TUPLE4 (STRING "jump_statement4", Return, unqualified_id1, SEMICOLON) -> f499 `jump_statement4
    | TUPLE4 (STRING "module_parameter_port1", Parameter,
       TUPLE6 (STRING "param_type_followed_by_id_and_dimensions_opt5", Int,
@@ -627,16 +615,16 @@ let rec verible_pat' = function
           EMPTY_TOKEN),
         unqualified_id1, EMPTY_TOKEN),
    EMPTY_TOKEN) -> f552 `tf_port_item1
-| TUPLE3 (STRING "always_construct1", Always_latch, seq_block1) -> f553 (`always_construct1 seq_block1)
+| TUPLE3 (STRING "always_construct1", Always_latch, seq_block1) -> f553 (`always_construct1 (pat seq_block1))
 | TUPLE3 (STRING "always_construct1", Always_ff,
-   procedural_timing_control_statement2) -> f556 (`always_construct1 procedural_timing_control_statement2)
-| TUPLE3 (STRING "always_construct1", Always_comb, seq_block1) -> f557 (`always_construct1 seq_block1)
+   procedural_timing_control_statement2) -> f556 (`always_construct1 (pat procedural_timing_control_statement2))
+| TUPLE3 (STRING "always_construct1", Always_comb, seq_block1) -> f557 (`always_construct1 (pat seq_block1))
 | TUPLE3 (STRING "any_port_list_item_last1",
       TUPLE3 (STRING "any_port_list_trailing_comma1", TLIST _, COMMA),
-   TUPLE5 (STRING "port_named2", DOT, SymbolIdentifier _, LPAREN, RPAREN)) -> f561 (`any_port_list_item_last1 [])
+   TUPLE5 (STRING "port_named2", DOT, SymbolIdentifier _, LPAREN, RPAREN)) -> f561 (`any_port_list_item_last1 (`tlist []))
 | TUPLE3 (STRING "any_port_list_item_last1",
       TUPLE3 (STRING "any_port_list_trailing_comma1", TLIST lst, COMMA),
-   TUPLE3 (STRING "port_named3", DOT, SymbolIdentifier _)) -> f565 (`any_port_list_item_last1 lst)
+   TUPLE3 (STRING "port_named3", DOT, SymbolIdentifier _)) -> f565 (`any_port_list_item_last1 (patlst lst))
 | TUPLE3 (STRING "begin1", Begin,
    TUPLE3 (STRING "label_opt1", COLON, SymbolIdentifier _)) -> f568 `begin1
 | TUPLE3 (STRING "conditional_generate_construct2",
@@ -688,12 +676,12 @@ let rec verible_pat' = function
       TUPLE5 (STRING "module_parameter_port_list_opt1", HASH, LPAREN, TLIST lst, RPAREN),
       TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst', RPAREN),
       EMPTY_TOKEN, SEMICOLON, TLIST lst'', Endmodule,
-   TUPLE3 (STRING "label_opt1", COLON, SymbolIdentifier _)) -> f631 (`module_or_interface_declaration1 (id, lst, lst'))
+   TUPLE3 (STRING "label_opt1", COLON, SymbolIdentifier _)) -> f631 (`module_or_interface_declaration1 (id, patlst lst, patlst lst'))
 | TUPLE12 (STRING "module_or_interface_declaration1", Interface, EMPTY_TOKEN,
       SymbolIdentifier id, EMPTY_TOKEN,
       TUPLE5 (STRING "module_parameter_port_list_opt1", HASH, LPAREN, TLIST lst, RPAREN),
       TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst', RPAREN),
-   EMPTY_TOKEN, SEMICOLON, EMPTY_TOKEN, Endinterface, EMPTY_TOKEN) -> f639 (`module_or_interface_declaration1 (id, lst, lst'))
+   EMPTY_TOKEN, SEMICOLON, EMPTY_TOKEN, Endinterface, EMPTY_TOKEN) -> f639 (`module_or_interface_declaration1 (id, patlst lst, patlst lst'))
 | TUPLE11
      (STRING "function_declaration1", Function, EMPTY_TOKEN,
       TUPLE4
@@ -722,7 +710,7 @@ let rec verible_pat' = function
         SymbolIdentifier _, EQUALS, TK_DecNumber _),
       SEMICOLON, ELIST elst, SEMICOLON, inc_or_dec_expression2, RPAREN,
    seq_block) -> f667 (`loop_statement1 (elst, seq_block))
-| TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, TLIST lst, RBRACE) -> f668 (`assignment_pattern1 lst)
+| TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, TLIST lst, RBRACE) -> f668 (`assignment_pattern1 (patlst lst))
 | TUPLE9 (STRING "case_statement3", Unique, Case, LPAREN, STRING "unqualified_id1",
       RPAREN, Inside,
       TUPLE3
@@ -757,9 +745,12 @@ let rec verible_pat' = function
    RPAREN, STRING "case_items1", Endcase) -> f703 `case_statement1
 | TUPLE8 (STRING "case_statement1", Unique, Case, LPAREN, STRING "unqualified_id1",
    RPAREN, STRING "case_items1", Endcase) -> f706 `case_statement1
-| oth -> othpatlst := oth :: !othpatlst; failwith "verible_pat"
-   
-and verible_pat itm = patlst := itm :: !patlst; let rslt = verible_pat' itm in patlst := List.tl !patlst; rslt
+| TUPLE4 (STRING "logand_expr2", expr1, AMPERSAND_AMPERSAND, expr2) -> `logand_expr2 (pat expr1, pat expr2)
+| oth -> othpatlst := oth :: !othpatlst; failwith "pat"
+
+and patlst lst = `tlist (List.map pat lst)
+
+and pat itm = othpatlst := itm :: !othpatlst; let rslt = pat' itm in othpatlst := List.tl !othpatlst; rslt
 
 and  f104 lbl = mark (104) lbl
 and  f110 lbl = mark (110) lbl

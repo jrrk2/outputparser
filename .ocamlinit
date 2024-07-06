@@ -155,7 +155,7 @@ Hashtbl.iter (fun k x -> clst := k :: !clst) chash;;
 let clst,symlst = List.partition (function TUPLE2 _ | TUPLE3 _ | TUPLE4 _ | TUPLE5 _ | TUPLE6 _ | TUPLE7 _ | TUPLE8 _ | TUPLE9 _ | TUPLE10 _ | TUPLE11 _ | TUPLE12 _ -> true| _ -> false) (List.sort compare !clst);;
 *)
 open Verible_pat
-let p'' = verible_pat p';;
+let p'' = pat p';;
 let _ = Array.iteri (fun ix k -> if !k > 0 then print_endline (string_of_int ix^" "^string_of_int !k)) cnt;;
 
 (*
