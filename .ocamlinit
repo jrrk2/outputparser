@@ -145,8 +145,8 @@ open Source_text_verible
 open Source_text_verible_rewrite
 
 let v = "examples/ariane_preproc.sv";;
-let v = "examples/picorv32_ref.v";;
 let v = "examples/count0.v";;
+let v = "examples/picorv32_ref.v";;
 let p = parse_output_ast_from_file v;;
 let p' = Source_text_verible_rewrite.rw p;;
 (*

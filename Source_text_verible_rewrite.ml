@@ -276,7 +276,10 @@ let rec rw = function
 | CONS1 (CONS2 _ as c) -> rw c
 *)
 | CONS1 x -> (match rw x with TLIST x -> TLIST x | oth -> TLIST [oth])
+| CONS2 (CONS1 a, b) -> (match rw a with TLIST lst -> TLIST (rw b :: lst) | oth -> TLIST (rw b :: oth :: []))
 | CONS2 (CONS2 (a, b), c) -> (match rw a with TLIST lst -> TLIST (rw c :: rw b :: lst) | oth -> TLIST (rw c :: rw b :: oth :: []))
+| CONS3 (CONS1 a, COMMA, b) -> (match rw a with TLIST lst -> TLIST (rw b :: lst) | oth -> TLIST (rw b :: oth :: []))
+| CONS3 (CONS3 (a, COMMA, b), COMMA, c) -> (match rw a with TLIST lst -> TLIST (rw c :: rw b :: lst) | oth -> TLIST (rw c :: rw b :: oth :: []))
 | TLIST lst -> TLIST (List.map rw lst)
 | TUPLE2(arg1,arg2) -> TUPLE2 (rw arg1, rw arg2)
 | TUPLE4(STRING _ as arg0,LPAREN,arg,RPAREN) -> TUPLE4(arg0,LPAREN,rw arg,RPAREN)
