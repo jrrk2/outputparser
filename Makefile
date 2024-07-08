@@ -103,29 +103,6 @@ Source_text_preproc_grammar.ml: Source_text_preproc_grammar.mly
 
 dump.cmo: Source_text_rewrite_types.cmi
 
-############################################################################
-
-VOBJ=Source_text_verible_types.ml Source_text_verible.mli verible_pat.ml Source_text_verible_rewrite_types.mli Source_text_verible.ml Source_text_verible_tokens.ml Source_text_verible_lex.ml Source_text_verible_rewrite.ml dump_types.mli Input.mli Input_types.mli Input_dump.ml rtl_parser.mli Input_hardcaml.ml
-
-Source_verible_top: $(VOBJ)
-	ln -sf ../vpiparse/dump_types.mli
-	ln -sf ../vpiparse/Input.mli
-	ln -sf ../vpiparse/Input_types.mli
-	ln -sf ../vpiparse/Input_dump.ml
-	ln -sf ../vpiparse/Input_hardcaml.ml
-	ln -sf ../vpiparse/rtl_parser.mli
-	ocamlfind ocamlmktop -package msat,hardcaml,hardcaml_circuits,unix -linkpkg -g -o $@ -I +unix $(VOBJ)
-
-Source_text_verible.mly Source_text_verible_tokens.ml: verible.output output_parser Makefile
-	env OCAMLRUNPARAM=b STRING_LITERAL=string TK_StringLiteral=string SymbolIdentifier=string SystemTFIdentifier=string TK_DecNumber=string TK_BinBase=string TK_BinDigits=string TK_DecBase=string TK_DecDigits=string TK_OctBase=string TK_OctDigits=string TK_HexBase=string TK_HexDigits=string TK_UnBasedNumber=string TK_RealTime=string STRING=string ./output_parser $<
-
-Source_text_verible.ml Source_text_verible_types.ml: Source_text_verible.mly
-	ocamlc -c Source_text_verible_types.ml
-	menhir $(MENHIRFLAGS) $<
-
-Source_text_verible_lex.ml: Source_text_verible_lex.mll
-	ocamllex $<
-
 ###########################################################################
 
 Input_top: Rtlil_input.cmo Rtlil_input_tokens.cmo Input_rewrite_types.mli ord_input.ml Input_lex.ml Input_dump.ml Input_rewrite.ml Input_main.ml

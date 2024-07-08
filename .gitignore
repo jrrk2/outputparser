@@ -50,7 +50,6 @@ Input_lex.ml
 Input_ord.ml
 liberty_parser.y
 liberty_parser.tab.c
-liberty_parser.output
 NangateOpenCellLibrary_typical.lib
 Program
 Program.top
@@ -71,7 +70,6 @@ lef_file
 lef_file.ml
 lef_file.mli
 lef_file.top
-y.output
 y.tab.c
 y.tab.h
 lex.yy.c
@@ -130,9 +128,7 @@ examples/andvec.v
 examples_count0_dump.ml
 examples_count0_gold.ml
 from_hardcaml.ml
-junk2
 rtl_parser.mli
 synth
-verible.output
 verible_pat.ml-e
 *#
