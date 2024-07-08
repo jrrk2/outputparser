@@ -656,10 +656,12 @@ rule token = parse
       lft::rght::[] ->
       let rght' = String.trim (String.sub rght 1 (String.length rght - 1)) in
       let lft' = lft^"'"^String.sub rght 0 1 in
-      match rght.[0] with
+      match rght.[if rght.[0]=='s' then 1 else 0] with
       | 'b' -> [TK_BinBase lft';TK_BinDigits rght']
+      | 'o' -> [TK_OctBase lft';TK_OctDigits rght']
       | 'd' -> [TK_DecBase lft';TK_DecDigits rght']
       | 'h' -> [TK_HexBase lft';TK_HexDigits rght']
+      | _ -> failwith rght
       }
   | number as n { tok (TK_DecNumber n) }
   | unbased as n { tok (TK_UnBasedNumber n) }

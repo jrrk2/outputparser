@@ -8,9 +8,6 @@ let rec pat' = function
 | TLIST lst -> `tlist (List.map pat lst)
 | TUPLE9 (STRING "task_declaration1", Task, EMPTY_TOKEN, SymbolIdentifier id,
    EMPTY_TOKEN, SEMICOLON, TLIST lst, Endtask, EMPTY_TOKEN) -> (`task_declaration1 (patlst lst))
-| TUPLE8 (STRING "case_statement1", EMPTY_TOKEN, Case, LPAREN,
-       expr,
-   RPAREN, case_items1, Endcase) -> `case_statement1
 | TUPLE7 (STRING "conditional_statement2", EMPTY_TOKEN, If,
        expression_in_parens1,
        then_statement,
@@ -70,7 +67,7 @@ let rec pat' = function
 | TUPLE4 (STRING "assignment_statement_no_expr1", range_list_in_braces1, EQUALS, expr') ->
     `assignment_statement_no_expr1 (pat range_list_in_braces1, pat expr')
 | TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN) -> (`call_base1 (patlst lst))
-| TUPLE4 (STRING "case_item1", sel, COLON, seq_block) -> `case_item1 (pat seq_block)
+| TUPLE4 (STRING "case_item1", sel, COLON, seq_block) -> `case_item1 (pat sel, pat seq_block)
 | TUPLE4 (STRING "case_item2", Default, COLON, SEMICOLON) -> `case_item2 `empty
 | TUPLE4 (STRING "case_item2", Default, COLON, seq_block) -> `case_item2 (pat seq_block)
 | TUPLE4 (STRING "cont_assign1", unqualified_id1, EQUALS, expr) -> `cont_assign1
@@ -111,7 +108,7 @@ let rec pat' = function
 | TUPLE3 (STRING "begin1", Begin, EMPTY_TOKEN) -> `begin1 `empty
 | TUPLE3 (STRING "bin_based_number1", TK_BinBase base, TK_BinDigits digits) -> `bin_based_number1 (base, digits)
 | TUPLE3 (STRING "block_item_or_statement_or_null6", unqualified_id1, SEMICOLON) -> `block_item_or_statement_or_null6
-| TUPLE3 (STRING "case_items1", case_item1, case_item2) -> (`case_items1)
+| TUPLE3 (STRING "case_items1", item1, item2) -> `case_items1 (pat item1, pat item2)
 | TUPLE3 (STRING "data_declaration_or_module_instantiation1",
    instantiation_base1, SEMICOLON) -> `data_declaration_or_module_instantiation1 (pat instantiation_base1)
 | TUPLE3 (STRING "end1", End, EMPTY_TOKEN) -> `end1
@@ -124,19 +121,19 @@ let rec pat' = function
       TUPLE3 (STRING "data_type_primitive1",
         TUPLE3 (STRING "data_type_primitive_scalar1", Reg, EMPTY_TOKEN),
         EMPTY_TOKEN),
-   TLIST lst) -> (`instantiation_base1 (patlst lst))
-   | TUPLE3 (STRING "instantiation_base1",
+   TLIST lst) -> (`instantiation_base1_reg (patlst lst))
+| TUPLE3 (STRING "instantiation_base1",
       TUPLE3 (STRING "data_type_primitive1",
         TUPLE3 (STRING "data_type_primitive_scalar1", Reg, EMPTY_TOKEN),
         TUPLE6 (STRING "decl_variable_dimension1", LBRACK, TK_DecNumber hi, COLON,
           TK_DecNumber lo, RBRACK)),
     TLIST lst) -> (`instantiation_base1 (patlst lst))
-   | TUPLE3 (STRING "instantiation_base1",
+| TUPLE3 (STRING "instantiation_base1",
       TUPLE3 (STRING "data_type_primitive1",
         TUPLE3 (STRING "data_type_primitive_scalar1", Reg, EMPTY_TOKEN),
         TUPLE6 (STRING "decl_variable_dimension1", LBRACK, expr', COLON,
           TK_DecNumber lo, RBRACK)),
-   TLIST lst) -> (`instantiation_base1 (patlst lst))
+   TLIST lst) -> (`instantiation_base1_reg (patlst lst))
 | TUPLE3 (STRING "instantiation_base1", unqualified_id1, TLIST lst) -> (`instantiation_base1 (patlst lst))
 | TUPLE3 (STRING "ml_start1", TLIST lst, End_of_file) -> (`ml_start1 (patlst lst))
    | TUPLE3 (STRING "module_parameter_port_list_item_last1",
@@ -158,9 +155,7 @@ let rec pat' = function
       TUPLE3 (STRING "parameter_value_byname_list_trailing_comma1", TLIST lst, COMMA),
       TUPLE6 (STRING "parameter_value_byname1", DOT, SymbolIdentifier id, LPAREN,
      unqualified_id1, RPAREN)) -> (`parameter_value_byname_list_item_last2 (patlst lst))
-| TUPLE3 (STRING "port1",
-      TUPLE3 (STRING "port_reference1", unqualified_id1, EMPTY_TOKEN),
-   EMPTY_TOKEN) -> `port1
+| TUPLE3 (STRING "port1", TUPLE3 (STRING "port_reference1", unqualified_id1, EMPTY_TOKEN), EMPTY_TOKEN) -> `port1 (pat unqualified_id1)
 | TUPLE3 (STRING "procedural_timing_control_statement2", stmt, seq_block) -> (`procedural_timing_control_statement2 (pat stmt, pat seq_block))
 | TUPLE6 (STRING "select_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK) -> `select_variable_dimension1 (pat hi, pat lo)
 | TUPLE4 (STRING "select_variable_dimension2", LBRACK, ix, RBRACK) -> `select_variable_dimension2 (pat ix)
@@ -171,11 +166,16 @@ let rec pat' = function
    EMPTY_TOKEN) -> `sequence_repetition_expr1
 | TUPLE3 (STRING "statement3", reference, SEMICOLON) -> `statement3 (pat reference)
 | TUPLE3 (STRING "statement_item6", assignment_statement_no_expr1, SEMICOLON) -> (`statement_item6 (pat assignment_statement_no_expr1))
-| TUPLE3 (STRING "unary_prefix_expr2", VBAR, reference) -> (`unary_prefix_expr2 (pat reference))
-| TUPLE3 (STRING "unary_prefix_expr2", TILDE, reference) -> (`unary_prefix_expr2 (pat reference))
-| TUPLE3 (STRING "unary_prefix_expr2", PLING, reference) -> (`unary_prefix_expr2 (pat reference))
-| TUPLE3 (STRING "unary_prefix_expr2", HYPHEN, reference) -> (`unary_prefix_expr2 (pat reference))
-| TUPLE3 (STRING "unary_prefix_expr2", AMPERSAND, reference) -> (`unary_prefix_expr2 (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", PLUS, reference) -> (`unary_prefix_expr_plus (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", VBAR, reference) -> (`unary_prefix_expr_or (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", CARET, reference) -> (`unary_prefix_expr_xor (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", TILDE_CARET, reference) -> (`unary_prefix_expr_xnor (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", TILDE_VBAR, reference) -> (`unary_prefix_expr_nor (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", TILDE, reference) -> (`unary_prefix_expr_tilde (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", PLING, reference) -> (`unary_prefix_expr_not (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", HYPHEN, reference) -> (`unary_prefix_expr_negate (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", AMPERSAND, reference) -> (`unary_prefix_expr_and (pat reference))
+| TUPLE3 (STRING "unary_prefix_expr2", TILDE_AMPERSAND, reference) -> (`unary_prefix_expr_nand (pat reference))
 | TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id, param) -> (`unqualified_id1 (id, pat param))
 | TUPLE5 (STRING "parameters2", HASH, LPAREN, TLIST lst, RPAREN) -> (`parameters2 (patlst lst))
 | TUPLE12 (STRING "module_or_interface_declaration1", Module, EMPTY_TOKEN,
@@ -357,42 +357,23 @@ let rec pat' = function
       SEMICOLON, expr', SEMICOLON, inc_or_dec_expression2, RPAREN,
    seq_block) -> (`loop_statement1 (pat expr', pat seq_block))
 | TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, TLIST lst, RBRACE) -> (`assignment_pattern1 (patlst lst))
-| TUPLE9 (STRING "case_statement3", Unique, Case, LPAREN, STRING "unqualified_id1",
-      RPAREN, Inside,
-      TUPLE3
-       (STRING "case_inside_items1",
-        TUPLE4
-         (STRING "case_inside_item1", TLIST _, COLON,
-          TUPLE4
-           (STRING "jump_statement4", Return, STRING "bin_based_number1",
-            SEMICOLON)),
-        TUPLE4
-         (STRING "case_inside_item2", Default, COLON,
-          TUPLE4
-           (STRING "jump_statement4", Return, STRING "bin_based_number1",
-            SEMICOLON))),
-   Endcase) -> `case_statement3
-| TUPLE9 (STRING "case_statement3", EMPTY_TOKEN, Case, LPAREN,
-      STRING "unqualified_id1", RPAREN, Inside,
-      TUPLE3
-       (STRING "case_inside_items1",
-        TUPLE4
-         (STRING "case_inside_item1", TLIST _, COLON, STRING "seq_block1"),
-        TUPLE4
-         (STRING "case_inside_item2", Default, COLON,
-          TUPLE4
-           (STRING "jump_statement4", Return, STRING "bin_based_number1",
-            SEMICOLON))),
-   Endcase) -> `case_statement3
-| TUPLE8 (STRING "case_statement1", Unique, Case, LPAREN,
-      TUPLE3
-       (STRING "reference2", STRING "unqualified_id1",
-        TUPLE3 (STRING "hierarchy_extension1", DOT, STRING "unqualified_id1")),
-   RPAREN, STRING "case_items1", Endcase) -> `case_statement1
-| TUPLE8 (STRING "case_statement1", Unique, Case, LPAREN, STRING "unqualified_id1",
-   RPAREN, STRING "case_items1", Endcase) -> `case_statement1
-| TUPLE4 (STRING "comp_expr2", expr1, LESS, expr2) -> `less_expr2 (pat expr1, pat expr2)
+| TUPLE3 (STRING "case_inside_items1",
+        TUPLE4 (STRING "case_inside_item1", TLIST _, COLON,
+          TUPLE4 (STRING "jump_statement4", Return, STRING "bin_based_number1", SEMICOLON)),
+        TUPLE4 (STRING "case_inside_item2", Default, COLON,
+          TUPLE4 (STRING "jump_statement4", Return, STRING "bin_based_number1", SEMICOLON))) -> `case_inside_items1
+| TUPLE9 (STRING "case_statement3", Unique, Case, LPAREN, unqualified_id1, RPAREN, Inside, items, Endcase) ->
+    `case_statement3
+| TUPLE9 (STRING "case_statement3", EMPTY_TOKEN, Case, LPAREN, unqualified_id1, RPAREN, Inside, case_inside_items1, Endcase) ->
+    `case_statement3
+| TUPLE4 (STRING "case_inside_item1", TLIST _, COLON, STRING "seq_block1") -> `case_inside_item1
+| TUPLE4 (STRING "case_inside_item2", Default, COLON, stmt) -> `case_inside_item2
+| TUPLE8 (STRING "case_statement1", unique, Case, LPAREN, expr, RPAREN, items, Endcase) ->
+    `case_statement1 (pat unique, pat expr, pat items)
+| TUPLE4 (STRING "comp_expr2", expr1, LESS, expr2) -> `lt_expr2 (pat expr1, pat expr2)
+| TUPLE4 (STRING "comp_expr3", expr1, GREATER, expr2) -> `gt_expr2 (pat expr1, pat expr2)
 | TUPLE4 (STRING "comp_expr4", expr1, LT_EQ, expr2) -> `lteq_expr2 (pat expr1, pat expr2)
+| TUPLE4 (STRING "comp_expr5", expr1, GT_EQ, expr2) -> `gteq_expr2 (pat expr1, pat expr2)
 | TUPLE4 (STRING "logand_expr2", expr1, AMPERSAND_AMPERSAND, expr2) -> `logand_expr2 (pat expr1, pat expr2)
 | TUPLE4 (STRING "logor_expr2", expr1, VBAR_VBAR, expr2) -> `logor_expr2 (pat expr1, pat expr2)
 | TUPLE4 (STRING "logeq_expr2", expr1, EQ_EQ, expr2) -> `logeq_expr2 (pat expr1, pat expr2)
@@ -404,10 +385,22 @@ let rec pat' = function
 | TUPLE4 (STRING "add_expr3", expr1, HYPHEN, expr2) -> `sub_expr (pat expr1, pat expr2)
 | TUPLE4 (STRING "mul_expr2", expr1, STAR, expr2) -> `mul_expr (pat expr1, pat expr2)
 | TUPLE4 (STRING "mul_expr3", expr1, SLASH, expr2) -> `div_expr (pat expr1, pat expr2)
+| TUPLE4 (STRING "mul_expr4", expr1, PERCENT, expr2) -> `mod_expr (pat expr1, pat expr2)
+| TUPLE4 (STRING "pow_expr2", expr1, STAR_STAR, expr2) -> `pow_expr (pat expr1, pat expr2)
 | TUPLE4 (STRING "shift_expr2", expr1, LT_LT, expr2) -> `shift_expr2 (pat expr1, pat expr2)
 | TUPLE4 (STRING "shift_expr3", expr1, GT_GT, expr2) -> `shift_expr3 (pat expr1, pat expr2)
 | TUPLE4 (STRING "shift_expr4", expr1, GT_GT_GT, expr2) -> `shift_expr4 (pat expr1, pat expr2)
+| TUPLE7 (STRING "module_port_declaration3", Input, signed, dim, EMPTY_TOKEN, TLIST dimlst, SEMICOLON) ->
+    `module_port_declaration3 (`input, pat signed, pat dim, patlst dimlst)
+| TUPLE5 (STRING "module_port_declaration5", Input, signed, TLIST idlst, SEMICOLON) ->
+    `module_port_declaration5 (`input, pat signed, patlst idlst)
+| TUPLE7 (STRING "module_port_declaration7", Output, Reg, EMPTY_TOKEN, dim, TLIST [SymbolIdentifier id], SEMICOLON) ->
+    `module_port_declaration7_reg (pat dim, id)
+| TUPLE3 (STRING "identifier_optional_unpacked_dimensions1", SymbolIdentifier id, EMPTY_TOKEN) ->
+`identifier_optional_unpacked_dimensions1 id
 | EMPTY_TOKEN -> `empty
+| Signed -> `signed
+| Unique -> `unique
 | oth -> othpat' := oth; failwith "pat"
 
 and patlst lst = `tlist (List.map pat lst)
