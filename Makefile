@@ -105,9 +105,15 @@ dump.cmo: Source_text_rewrite_types.cmi
 
 ############################################################################
 
-VOBJ=Source_text_verible_types.ml Source_text_verible.mli verible_pat.ml Source_text_verible_rewrite_types.mli Source_text_verible.ml Source_text_verible_tokens.ml Source_text_verible_lex.ml Source_text_verible_rewrite.ml classify_verible.ml 
+VOBJ=Source_text_verible_types.ml Source_text_verible.mli verible_pat.ml Source_text_verible_rewrite_types.mli Source_text_verible.ml Source_text_verible_tokens.ml Source_text_verible_lex.ml Source_text_verible_rewrite.ml dump_types.mli Input.mli Input_types.mli Input_dump.ml rtl_parser.mli Input_hardcaml.ml
 
 Source_verible_top: $(VOBJ)
+	ln -sf ../vpiparse/dump_types.mli
+	ln -sf ../vpiparse/Input.mli
+	ln -sf ../vpiparse/Input_types.mli
+	ln -sf ../vpiparse/Input_dump.ml
+	ln -sf ../vpiparse/Input_hardcaml.ml
+	ln -sf ../vpiparse/rtl_parser.mli
 	ocamlfind ocamlmktop -package msat,hardcaml,hardcaml_circuits,unix -linkpkg -g -o $@ -I +unix $(VOBJ)
 
 Source_text_verible.mly Source_text_verible_tokens.ml: verible.output output_parser Makefile

@@ -109,15 +109,15 @@ let rec pat' = function
       TUPLE3 (STRING "any_argument_list_trailing_comma1", TLIST lst, COMMA),
    cond_expr2) -> (`any_argument_list_item_last2 (patlst lst))
 | TUPLE3 (STRING "begin1", Begin, EMPTY_TOKEN) -> `begin1 `empty
-| TUPLE3 (STRING "bin_based_number1", TK_BinBase base, TK_BinDigits digits) -> `bin_based_number1
+| TUPLE3 (STRING "bin_based_number1", TK_BinBase base, TK_BinDigits digits) -> `bin_based_number1 (base, digits)
 | TUPLE3 (STRING "block_item_or_statement_or_null6", unqualified_id1, SEMICOLON) -> `block_item_or_statement_or_null6
 | TUPLE3 (STRING "case_items1", case_item1, case_item2) -> (`case_items1)
 | TUPLE3 (STRING "data_declaration_or_module_instantiation1",
    instantiation_base1, SEMICOLON) -> `data_declaration_or_module_instantiation1 (pat instantiation_base1)
 | TUPLE3 (STRING "end1", End, EMPTY_TOKEN) -> `end1
 | TUPLE3 (STRING "event_control4", AT, STAR) -> `event_control4
-| TUPLE3 (STRING "event_expression1", Posedge, unqualified_id1) -> `event_expression1
-| TUPLE3 (STRING "event_expression1", Negedge, unqualified_id1) -> `event_expression1
+| TUPLE3 (STRING "event_expression1", Posedge, unqualified_id1) -> `event_expression_posedge (pat unqualified_id1)
+| TUPLE3 (STRING "event_expression1", Negedge, unqualified_id1) -> `event_expression_negedge (pat unqualified_id1)
 | TUPLE3 (STRING "expression_or_dist1", cond_expr2, EMPTY_TOKEN) -> `expression_or_dist1
 | TUPLE3 (STRING "initial_construct1", Initial, seq_block1) -> `initial_construct1 (pat seq_block1)
    | TUPLE3 (STRING "instantiation_base1",
@@ -305,7 +305,8 @@ let rec pat' = function
 | TUPLE3 (STRING "begin1", Begin, label) -> `begin1 (pat label)
 | TUPLE3 (STRING "generate_if1", If, expression_in_parens1) -> `generate_if1 (pat expression_in_parens1)
 | TUPLE3 (STRING "conditional_generate_construct2", expr, generate_block1) -> `conditional_generate_construct2 (pat expr, pat generate_block1)
-| TUPLE3 (STRING "data_type_primitive_scalar1", (Reg|Logic), EMPTY_TOKEN) -> `data_type_primitive_scalar1
+| TUPLE3 (STRING "data_type_primitive_scalar1", Reg, EMPTY_TOKEN) -> `data_type_primitive_scalar1_reg
+| TUPLE3 (STRING "data_type_primitive_scalar1", Logic, EMPTY_TOKEN) -> `data_type_primitive_scalar1_logic
 | TUPLE3 (STRING "data_type_primitive1", prim, dim) -> `data_type_primitive1 (pat prim, pat dim)
 | TUPLE3 (STRING "dec_based_number1", TK_DecBase _, TK_DecDigits _) -> `dec_based_number1
 | TUPLE3 (STRING "decl_dimensions2", dim1, dim2) -> `decl_dimensions2 (pat dim1, pat dim2)
