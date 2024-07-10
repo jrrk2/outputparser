@@ -242,7 +242,7 @@ let fail' msg = function
       | Vmodule_parameter_port2 -> failwith (msg^": module_parameter_port2)")
       | Vmodule_parameter_port_list_item_last1 (othtran') -> failwith (msg^": module_parameter_port_list_item_last1")
       | Vmodule_port_declaration3 (othtran,  othtran',  othtran'',  othtran''') -> failwith (msg^": module_port_declaration3")
-      | Vmodule_port_declaration5 (dir,  othtran,  othtran') -> failwith (msg^": module_port_declaration5 (([>")
+      | Vmodule_port_declaration5 (dir,  othtran,  othtran') -> failwith (msg^": module_port_declaration5")
       | Vmodule_port_declaration7_reg (dir, othtran, string) -> failwith (msg^": module_port_declaration7_reg")
       | Vmodule_port_list_opt1 (othtran,  othtran',  othtran'') -> failwith (msg^": module_port_list_opt1")
       | Vmul_expr (othtran,  othtran') -> failwith (msg^": mul_expr")
@@ -725,14 +725,24 @@ let rec bin_to_native x = match String.length x with
 | 1 -> Char.code (x.[0]) - Char.code '0'
 | n -> bin_to_native (String.sub x 0 (n-1)) * 2 + bin_to_native (String.sub x (n-1) 1)
 
-let prevdir = ref Dump_types.Dinput
-
 let trandir  = function
 | Vinput -> Dump_types.Dinput
 | Voutput -> Doutput
 | oth -> fail "trandir" oth
 
-let trandir x = let dir = trandir x in prevdir := dir; dir
+(*
+let othadd = ref None
+*)
+
+let addio (itms:Input_types.itms) (id, itm) = if not (List.mem_assoc id !(itms.io)) then itms.io := (id, itm) :: !(itms.io)
+(*
+ else match List.assoc id !(itms.io), itm with
+| ("", (BASDTYP, _, TYPNONE, []), _, _, [] as prev), ("", (BASDTYP, _, TYPNONE, []), dir, _, [] as crnt) ->
+    othadd := Some (prev,crnt)
+| ("", (BASDTYP, _, TYPNONE, []), _, _, [] as prev), ("", (BASDTYP, _, TYPRNG _, []), dir, _, [] as crnt) ->
+    othadd := Some (prev,crnt)
+| prev, crnt -> othadd := Some (prev,crnt); failwith "addio"
+*)
 
 let rec tran  (itms:Input_types.itms) modnam = function
 | Vml_start1 (Vtlist modlst) -> List.iter (tran  itms modnam) modlst 
@@ -743,29 +753,31 @@ let rec tran  (itms:Input_types.itms) modnam = function
 | Vport_declaration_noattr1 (dir, Vdata_type_or_implicit_basic_followed_by_id_and_dimensions_opt1
        (Vdata_type_primitive1 (Vdata_type_primitive_scalar1_reg, typ),
         Vunqualified_id1 (id, Vempty))) ->
-    itms.io := (id, ("", (BASDTYP, "reg", trantyp typ, []), trandir dir, "wire", [])) :: !(itms.io)
+    addio itms (id, ("", (BASDTYP, "reg", trantyp typ, []), trandir dir, "wire", []))
 | Vport_declaration_noattr1 (dir, Vdata_type_or_implicit_basic_followed_by_id_and_dimensions_opt4
        (Vdecl_variable_dimension1 (hi, lo), Vunqualified_id1 (id, Vempty))) ->
-    itms.io := (id, ("", (BASDTYP, "reg", TYPRNG (tran'  hi, tran'  lo), []), trandir dir, "wire", [])) :: !(itms.io)
+    addio itms (id, ("", (BASDTYP, "reg", TYPRNG (tran'  hi, tran'  lo), []), trandir dir, "wire", []))
 | Vport_declaration_noattr1 (dir, Vtype_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt4
        (Vunqualified_id1 (id, Vempty))) ->
-    itms.io := (id, ("", (BASDTYP, "wire", TYPNONE, []), trandir dir, "wire", [])) :: !(itms.io)
+    addio itms (id, ("", (BASDTYP, "wire", TYPNONE, []), trandir dir, "wire", []))
 | Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control2 (Vtlist
              [Vevent_expression_posedge (Vunqualified_id1 (clk, Vempty))]), body)) -> 
     itms.alwys := ("", Input_types.POSEDGE clk, tranlst''  body) :: !(itms.alwys)
 | Valways_construct1 (Vstatement_item6 _ as stmt) ->
     itms.alwys := ("", Input_types.COMB, (SNTRE [] :: tran'' stmt :: [])) :: !(itms.alwys)
 | Vcomma -> ()
-| Vport1 (Vunqualified_id1 (id, Vempty)) ->
-    if true then itms.io := (id, ("", (BASDTYP, "wire", TYPNONE, []), !prevdir, "wire", [])) :: !(itms.io)
+| Vport1 (Vunqualified_id1 (id, Vempty)) -> print_endline ("Vport1: "^id)
 | Vmodule_port_declaration7_reg (dir, Vdecl_variable_dimension1 (hi, lo), id) ->
-    itms.io := (id, ("", (BASDTYP, "reg", TYPRNG (tran'  hi, tran'  lo), []), trandir dir, "wire", [])) :: !(itms.io)
+    addio itms (id, ("", (BASDTYP, "reg", TYPRNG (tran'  hi, tran'  lo), []), trandir dir, "wire", []))
 | Vmodule_port_declaration3 (dir, Vempty, Vdecl_variable_dimension1 (hi, lo), Vtlist iolst) -> List.iter (function
     | Videntifier_optional_unpacked_dimensions1 id -> 
-        itms.io := (id, ("", (BASDTYP, "reg", TYPRNG (tran'  hi, tran'  lo), []), trandir  dir, "wire", [])) :: !(itms.io)
+        addio itms (id, ("", (BASDTYP, "reg", TYPRNG (tran'  hi, tran'  lo), []), trandir  dir, "wire", []))
     | oth -> fail "tran iolst" oth) iolst
-| Vmodule_port_declaration5 (dir, Vempty, Vtlist [Vempty; Vunqualified_id1 (id, Vempty)]) ->
-    itms.io := (id, ("", (BASDTYP, "logic", TYPNONE, []), trandir dir, "logic", [])) :: !(itms.io)
+| Vmodule_port_declaration5 (dir, Vempty, Vtlist lst) ->
+    List.iter (function
+      | Vempty -> ()
+      | Vunqualified_id1 (id, Vempty) -> addio itms (id, ("", (BASDTYP, "logic", TYPNONE, []), trandir dir, "logic", []))
+      | oth -> fail "module_port_declaration5" oth) lst
 | Vcontinuous_assign1 (Vtlist lst) -> List.iter (function
     | Vcont_assign1 (lhs, rhs) -> itms.ca := ("", tran'' lhs, tran'' rhs) :: !(itms.ca)
     | oth -> fail "cont_assign" oth) lst
@@ -807,7 +819,7 @@ let modnam = ref "" in
 let uitms = Input_dump.empty_itms [] in
 let _ = tran uitms modnam p'' in
 othitms := uitms;
-let _ = Input_dump.dump' "junk1" ("junk1", ((), uitms)) in
+let _ = Input_dump.dump' "_check" (!modnam, ((), uitms)) in
 let rtl = Input_hardcaml.cnv (!modnam, uitms) in
 let fd = open_out "rtl.v" in output_string fd rtl; close_out fd;
 (*
