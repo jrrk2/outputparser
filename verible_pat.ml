@@ -54,7 +54,7 @@ type othtran =
           | Vexpr_primary_parens1 of othtran
           | Vexpression_in_parens1 of othtran
           | Vexpression_list_proper1
-          | Vexpression_or_dist1
+          | Vexpression_or_dist1 of othtran
           | Vfunction_declaration1
           | Vgate_instance_or_register_variable1
           | Vgenerate_block1 of othtran * othtran
@@ -123,7 +123,7 @@ type othtran =
           | Vselect_variable_dimension2 of othtran
           | Vselect_variable_dimension3 of othtran * othtran
           | Vseq_block1 of othtran
-          | Vsequence_repetition_expr1
+          | Vsequence_repetition_expr1 of othtran
           | Vshift_expr2 of othtran * othtran
           | Vshift_expr3 of othtran * othtran
           | Vshift_expr4 of othtran * othtran
@@ -168,67 +168,67 @@ let fail' msg = function
       | Vbin_based_number1 (string, string') -> failwith (msg^": bin_based_number1 (string,")
       | Vbitand_expr (othtran,  othtran') -> failwith (msg^": bitand_expr")
       | Vbitor_expr (othtran,  othtran') -> failwith (msg^": bitor_expr")
-      | Vblock_item_or_statement_or_null6 -> failwith (msg^": block_item_or_statement_or_null6)")
+      | Vblock_item_or_statement_or_null6 -> failwith (msg^": block_item_or_statement_or_null6")
       | Vcall_base1 (othtran') -> failwith (msg^": call_base1")
-      | Vcase_inside_item1 -> failwith (msg^": case_inside_item1)")
-      | Vcase_inside_item2 -> failwith (msg^": case_inside_item2)")
-      | Vcase_inside_items1 -> failwith (msg^": case_inside_items1)")
+      | Vcase_inside_item1 -> failwith (msg^": case_inside_item1")
+      | Vcase_inside_item2 -> failwith (msg^": case_inside_item2")
+      | Vcase_inside_items1 -> failwith (msg^": case_inside_items1")
       | Vcase_item1 (othtran,  othtran') -> failwith (msg^": case_item1")
       | Vcase_item2 (othtran') -> failwith (msg^": case_item2")
       | Vcase_items1 (othtran,  othtran') -> failwith (msg^": case_items1")
       | Vcase_statement1 (othtran, othtran',  othtran'') -> failwith (msg^": case_statement1")
-      | Vcase_statement3 -> failwith (msg^": case_statement3)")
-      | Vcast1 -> failwith (msg^": cast1)")
-      | Vcomma -> failwith (msg^": comma)")
+      | Vcase_statement3 -> failwith (msg^": case_statement3")
+      | Vcast1 -> failwith (msg^": cast1")
+      | Vcomma -> failwith (msg^": comma")
       | Vcond_expr -> failwith (msg^": cond_expr")
       | Vconditional_generate_construct1 (othtran,  othtran',  othtran'') -> failwith (msg^": conditional_generate_construct1")
       | Vconditional_generate_construct2 (othtran,  othtran') -> failwith (msg^": conditional_generate_construct2")
       | Vconditional_statement1 (othtran,  othtran') -> failwith (msg^": conditional_statement1")
       | Vconditional_statement2 (othtran,  othtran',  othtran'') -> failwith (msg^": conditional_statement2")
-      | Vcont_assign1(lhs,rhs) -> failwith (msg^": cont_assign1)")
+      | Vcont_assign1(lhs,rhs) -> failwith (msg^": cont_assign1")
       | Vcontinuous_assign1 (othtran') -> failwith (msg^": continuous_assign1")
       | Vdata_declaration_or_module_instantiation1 (othtran') -> failwith (msg^": data_declaration_or_module_instantiation1")
-      | Vdata_declaration_or_module_instantiation2 -> failwith (msg^": data_declaration_or_module_instantiation2)")
+      | Vdata_declaration_or_module_instantiation2 -> failwith (msg^": data_declaration_or_module_instantiation2")
       | Vdata_type_or_implicit_basic_followed_by_id_and_dimensions_opt1 (othtran,  othtran') -> failwith (msg^": data_type_or_implicit_basic_followed_by_id_and_dimensions_opt1")
       | Vdata_type_or_implicit_basic_followed_by_id_and_dimensions_opt4 (othtran,  othtran') -> failwith (msg^": data_type_or_implicit_basic_followed_by_id_and_dimensions_opt4")
       | Vdata_type_primitive1 (othtran,  othtran') -> failwith (msg^": data_type_primitive1")
-      | Vdata_type_primitive_scalar1_logic -> failwith (msg^": data_type_primitive_scalar1_logic)")
-      | Vdata_type_primitive_scalar1_reg -> failwith (msg^": data_type_primitive_scalar1_reg)")
-      | Vdec_based_number1 -> failwith (msg^": dec_based_number1)")
+      | Vdata_type_primitive_scalar1_logic -> failwith (msg^": data_type_primitive_scalar1_logic")
+      | Vdata_type_primitive_scalar1_reg -> failwith (msg^": data_type_primitive_scalar1_reg")
+      | Vdec_based_number1 -> failwith (msg^": dec_based_number1")
       | Vdec_num (string) -> failwith (msg^": dec_num (string)")
       | Vdecl_dimensions2 (othtran,  othtran') -> failwith (msg^": decl_dimensions2")
       | Vdecl_variable_dimension1 (othtran,  othtran') -> failwith (msg^": decl_variable_dimension1")
       | Vdiv_expr (othtran,  othtran') -> failwith (msg^": div_expr")
-      | Vempty -> failwith (msg^": empty)")
-      | Vend1 -> failwith (msg^": end1)")
+      | Vempty -> failwith (msg^": empty")
+      | Vend1 -> failwith (msg^": end1")
       | Vevent_control2 (othtran') -> failwith (msg^": event_control2")
-      | Vevent_control4 -> failwith (msg^": event_control4)")
+      | Vevent_control4 -> failwith (msg^": event_control4")
       | Vevent_expression_negedge (othtran') -> failwith (msg^": event_expression_negedge")
       | Vevent_expression_posedge (othtran') -> failwith (msg^": event_expression_posedge")
-      | Vexpr_primary_braces2 -> failwith (msg^": expr_primary_braces2)")
+      | Vexpr_primary_braces2 -> failwith (msg^": expr_primary_braces2")
       | Vexpr_primary_parens1 (othtran') -> failwith (msg^": expr_primary_parens1")
       | Vexpression_in_parens1 (othtran') -> failwith (msg^": expression_in_parens1")
-      | Vexpression_list_proper1 -> failwith (msg^": expression_list_proper1)")
-      | Vexpression_or_dist1 -> failwith (msg^": expression_or_dist1)")
-      | Vfunction_declaration1 -> failwith (msg^": function_declaration1)")
-      | Vgate_instance_or_register_variable1 -> failwith (msg^": gate_instance_or_register_variable1)")
+      | Vexpression_list_proper1 -> failwith (msg^": expression_list_proper1")
+      | Vexpression_or_dist1 othtran -> failwith (msg^": expression_or_dist1")
+      | Vfunction_declaration1 -> failwith (msg^": function_declaration1")
+      | Vgate_instance_or_register_variable1 -> failwith (msg^": gate_instance_or_register_variable1")
       | Vgenerate_block1 (othtran,  othtran') -> failwith (msg^": generate_block1")
       | Vgenerate_if1 (othtran') -> failwith (msg^": generate_if1")
       | Vgenerate_region1 (othtran') -> failwith (msg^": generate_region1")
       | Vgt_expr (othtran,  othtran') -> failwith (msg^": gt_expr")
       | Vgteq_expr (othtran,  othtran') -> failwith (msg^": gteq_expr")
-      | Vhex_based_number1 -> failwith (msg^": hex_based_number1)")
+      | Vhex_based_number1 -> failwith (msg^": hex_based_number1")
       | Vhierarchy_extension1 (othtran') -> failwith (msg^": hierarchy_extension1")
-      | Vident -> failwith (msg^": ident)")
+      | Vident -> failwith (msg^": ident")
       | Videntifier_optional_unpacked_dimensions1 (string) -> failwith (msg^": identifier_optional_unpacked_dimensions1 (string)")
-      | Vinc_or_dec_expression2 -> failwith (msg^": inc_or_dec_expression2)")
+      | Vinc_or_dec_expression2 -> failwith (msg^": inc_or_dec_expression2")
       | Vinitial_construct1 (othtran') -> failwith (msg^": initial_construct1")
-      | Vinput -> failwith (msg^": input)")
+      | Vinput -> failwith (msg^": input")
       | Vinstantiation_base1 (othtran') -> failwith (msg^": instantiation_base1")
       | Vinstantiation_base1_reg (othtran') -> failwith (msg^": instantiation_base1_reg")
-      | Vjump_statement4 -> failwith (msg^": jump_statement4)")
+      | Vjump_statement4 -> failwith (msg^": jump_statement4")
       | Vlabel_opt1 (string) -> failwith (msg^": label_opt1 (string)")
-      | Vless -> failwith (msg^": less)")
+      | Vless -> failwith (msg^": less")
       | Vlogand_expr (othtran,  othtran') -> failwith (msg^": logand_expr")
       | Vlogeq_expr (othtran,  othtran') -> failwith (msg^": logeq_expr")
       | Vlogor_expr (othtran,  othtran') -> failwith (msg^": logor_expr")
@@ -238,38 +238,38 @@ let fail' msg = function
       | Vml_start1 (othtran') -> failwith (msg^": ml_start1")
       | Vmod_expr (othtran,  othtran') -> failwith (msg^": mod_expr")
       | Vmodule_or_interface_declaration1 (string,  othtran,  othtran') -> failwith (msg^": module_or_interface_declaration1 (string, ")
-      | Vmodule_parameter_port1 -> failwith (msg^": module_parameter_port1)")
-      | Vmodule_parameter_port2 -> failwith (msg^": module_parameter_port2)")
+      | Vmodule_parameter_port1 -> failwith (msg^": module_parameter_port1")
+      | Vmodule_parameter_port2 -> failwith (msg^": module_parameter_port2")
       | Vmodule_parameter_port_list_item_last1 (othtran') -> failwith (msg^": module_parameter_port_list_item_last1")
       | Vmodule_port_declaration3 (othtran,  othtran',  othtran'',  othtran''') -> failwith (msg^": module_port_declaration3")
       | Vmodule_port_declaration5 (dir,  othtran,  othtran') -> failwith (msg^": module_port_declaration5")
       | Vmodule_port_declaration7_reg (dir, othtran, string) -> failwith (msg^": module_port_declaration7_reg")
       | Vmodule_port_list_opt1 (othtran,  othtran',  othtran'') -> failwith (msg^": module_port_list_opt1")
       | Vmul_expr (othtran,  othtran') -> failwith (msg^": mul_expr")
-      | Vnet_declaration1 -> failwith (msg^": net_declaration1)")
-      | Vnet_declaration2 -> failwith (msg^": net_declaration2)")
-      | Vnet_declaration4 -> failwith (msg^": net_declaration4)")
-      | Vnet_variable1 -> failwith (msg^": net_variable1)")
+      | Vnet_declaration1 -> failwith (msg^": net_declaration1")
+      | Vnet_declaration2 -> failwith (msg^": net_declaration2")
+      | Vnet_declaration4 -> failwith (msg^": net_declaration4")
+      | Vnet_variable1 -> failwith (msg^": net_variable1")
       | Vnon_anonymous_gate_instance_or_register_variable1 (string,  othtran') -> failwith (msg^": non_anonymous_gate_instance_or_register_variable1 (string, ")
       | Vnon_anonymous_gate_instance_or_register_variable2 (othtran') -> failwith (msg^": non_anonymous_gate_instance_or_register_variable2")
       | Vnonblocking_assignment1 (othtran,  othtran') -> failwith (msg^": nonblocking_assignment1")
-      | Voutput -> failwith (msg^": output)")
+      | Voutput -> failwith (msg^": output")
       | Vparam_type_followed_by_id_and_dimensions_opt2 (othtran, string) -> failwith (msg^": param_type_followed_by_id_and_dimensions_opt2")
       | Vparam_type_followed_by_id_and_dimensions_opt3 (othtran') -> failwith (msg^": param_type_followed_by_id_and_dimensions_opt3")
-      | Vparam_type_followed_by_id_and_dimensions_opt4 -> failwith (msg^": param_type_followed_by_id_and_dimensions_opt4)")
-      | Vparameter_value_byname1 -> failwith (msg^": parameter_value_byname1)")
+      | Vparam_type_followed_by_id_and_dimensions_opt4 -> failwith (msg^": param_type_followed_by_id_and_dimensions_opt4")
+      | Vparameter_value_byname1 -> failwith (msg^": parameter_value_byname1")
       | Vparameter_value_byname_list_item_last2 (othtran') -> failwith (msg^": parameter_value_byname_list_item_last2")
       | Vparameters2 (othtran') -> failwith (msg^": parameters2")
       | Vplingeq_expr (othtran,  othtran') -> failwith (msg^": plingeq_expr")
       | Vport1 (othtran') -> failwith (msg^": port1")
       | Vport_declaration_noattr1 (othtran, othtran') -> failwith (msg^": port_declaration_noattr1")
-      | Vport_declaration_noattr4 -> failwith (msg^": port_declaration_noattr4)")
+      | Vport_declaration_noattr4 -> failwith (msg^": port_declaration_noattr4")
       | Vport_named1 (string,  othtran') -> failwith (msg^": port_named1 (string, ")
       | Vport_named2 (string) -> failwith (msg^": port_named2 (string)")
       | Vport_named3 (string) -> failwith (msg^": port_named3 (string)")
       | Vpow_expr (othtran,  othtran') -> failwith (msg^": pow_expr")
       | Vprocedural_timing_control_statement2 (othtran,  othtran') -> failwith (msg^": procedural_timing_control_statement2")
-      | Vqualified_id2 -> failwith (msg^": qualified_id2)")
+      | Vqualified_id2 -> failwith (msg^": qualified_id2")
       | Vrange_list_in_braces1 (othtran') -> failwith (msg^": range_list_in_braces1")
       | Vreference2 (othtran,  othtran') -> failwith (msg^": reference2")
       | Vreference3 (othtran,  othtran') -> failwith (msg^": reference3")
@@ -278,22 +278,22 @@ let fail' msg = function
       | Vselect_variable_dimension2 (othtran') -> failwith (msg^": select_variable_dimension2")
       | Vselect_variable_dimension3 (othtran,  othtran') -> failwith (msg^": select_variable_dimension3")
       | Vseq_block1 (othtran') -> failwith (msg^": seq_block1")
-      | Vsequence_repetition_expr1 -> failwith (msg^": sequence_repetition_expr1)")
+      | Vsequence_repetition_expr1 lst -> failwith (msg^": sequence_repetition_expr1")
       | Vshift_expr2 (othtran,  othtran') -> failwith (msg^": shift_expr2")
       | Vshift_expr3 (othtran,  othtran') -> failwith (msg^": shift_expr3")
       | Vshift_expr4 (othtran,  othtran') -> failwith (msg^": shift_expr4")
-      | Vsigned -> failwith (msg^": signed)")
-      | Vsimple_immediate_assertion_statement1 -> failwith (msg^": simple_immediate_assertion_statement1)")
+      | Vsigned -> failwith (msg^": signed")
+      | Vsimple_immediate_assertion_statement1 -> failwith (msg^": simple_immediate_assertion_statement1")
       | Vstatement3 (othtran') -> failwith (msg^": statement3")
       | Vstatement_item6 (othtran') -> failwith (msg^": statement_item6")
-      | Vstring -> failwith (msg^": string)")
+      | Vstring -> failwith (msg^": string")
       | Vstring_literal (string) -> failwith (msg^": string_literal (string)")
       | Vsub_expr (othtran,  othtran') -> failwith (msg^": sub_expr")
       | Vsystem_tf_call1 (string,  othtran') -> failwith (msg^": system_tf_call1 (string, ")
       | Vtask_declaration1 (othtran') -> failwith (msg^": task_declaration1")
-      | Vtf_port_item1 -> failwith (msg^": tf_port_item1)")
+      | Vtf_port_item1 -> failwith (msg^": tf_port_item1")
       | Vtlist (othtran_lst) -> failwith (msg^": tlist")
-      | Vtrailing_decl_assignment2 -> failwith (msg^": trailing_decl_assignment2)")
+      | Vtrailing_decl_assignment2 -> failwith (msg^": trailing_decl_assignment2")
       | Vtype_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt2 (othtran,  othtran') -> failwith (msg^": type_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt2")
       | Vtype_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt4 (othtran') -> failwith (msg^": type_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt4")
       | Vunary_prefix_expr_and (othtran') -> failwith (msg^": unary_prefix_expr_and")
@@ -306,9 +306,9 @@ let fail' msg = function
       | Vunary_prefix_expr_tilde (othtran') -> failwith (msg^": unary_prefix_expr_tilde")
       | Vunary_prefix_expr_xnor (othtran') -> failwith (msg^": unary_prefix_expr_xnor")
       | Vunary_prefix_expr_xor (othtran') -> failwith (msg^": unary_prefix_expr_xor")
-      | Vunique -> failwith (msg^": unique)")
+      | Vunique -> failwith (msg^": unique")
       | Vunqualified_id1 (string,  othtran') -> failwith (msg^": unqualified_id1 (string, ")
-      | Vxor_expr (othtran,  othtran') -> failwith (msg^": xor_expr2")
+      | Vxor_expr (othtran,  othtran') -> failwith (msg^": xor_expr")
 
 let othpat' = ref End_of_file
 let othpatlst = ref []
@@ -427,7 +427,7 @@ let rec pat' = function
 | TUPLE3 (STRING "event_control4", AT, STAR) -> Vevent_control4
 | TUPLE3 (STRING "event_expression1", Posedge, unqualified_id1) -> Vevent_expression_posedge (pat unqualified_id1)
 | TUPLE3 (STRING "event_expression1", Negedge, unqualified_id1) -> Vevent_expression_negedge (pat unqualified_id1)
-| TUPLE3 (STRING "expression_or_dist1", cond_expr2, EMPTY_TOKEN) -> Vexpression_or_dist1
+| TUPLE3 (STRING "expression_or_dist1", cond_expr2, EMPTY_TOKEN) -> Vexpression_or_dist1 (pat cond_expr2)
 | TUPLE3 (STRING "initial_construct1", Initial, seq_block1) -> Vinitial_construct1 (pat seq_block1)
    | TUPLE3 (STRING "instantiation_base1",
       TUPLE3 (STRING "data_type_primitive1",
@@ -475,7 +475,7 @@ let rec pat' = function
 | TUPLE3 (STRING "reference_or_call_base1", unqualified_id1,
   TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN)) -> (Vreference_or_call_base1 (patlst lst))
 | TUPLE3 (STRING "sequence_repetition_expr1", expression_or_dist1,
-   EMPTY_TOKEN) -> Vsequence_repetition_expr1
+   EMPTY_TOKEN) -> Vsequence_repetition_expr1 (pat expression_or_dist1)
 | TUPLE3 (STRING "statement3", reference, SEMICOLON) -> Vstatement3 (pat reference)
 | TUPLE3 (STRING "statement_item6", assignment_statement_no_expr1, SEMICOLON) -> (Vstatement_item6 (pat assignment_statement_no_expr1))
 | TUPLE3 (STRING "unary_prefix_expr2", PLUS, reference) -> (Vunary_prefix_expr_plus (pat reference))
@@ -762,13 +762,13 @@ let rec tran  (itms:Input_types.itms) modnam = function
     addio itms (id, ("", (BASDTYP, "wire", TYPNONE, []), trandir dir, "wire", []))
 | Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control2 (Vtlist
              [Vevent_expression_posedge (Vunqualified_id1 (clk, Vempty))]), body)) -> 
-    itms.alwys := ("", Input_types.POSEDGE clk, tranlst''  body) :: !(itms.alwys)
-| Valways_construct1 (Vstatement_item6 _ as stmt) ->
+    itms.alwys := ("", Input_types.POSEDGE clk, tranlst'' body) :: !(itms.alwys)
+| Valways_construct1 ((Vstatement_item6 _|Vcase_statement1 _) as stmt) ->
     itms.alwys := ("", Input_types.COMB, (SNTRE [] :: tran'' stmt :: [])) :: !(itms.alwys)
 | Vcomma -> ()
 | Vport1 (Vunqualified_id1 (id, Vempty)) -> print_endline ("Vport1: "^id)
-| Vmodule_port_declaration7_reg (dir, Vdecl_variable_dimension1 (hi, lo), id) ->
-    addio itms (id, ("", (BASDTYP, "reg", TYPRNG (tran'  hi, tran'  lo), []), trandir dir, "wire", []))
+| Vmodule_port_declaration7_reg (dir, typ, id) ->
+    addio itms (id, ("", (BASDTYP, "reg", trantyp typ, []), trandir dir, "wire", []))
 | Vmodule_port_declaration3 (dir, Vempty, Vdecl_variable_dimension1 (hi, lo), Vtlist iolst) -> List.iter (function
     | Videntifier_optional_unpacked_dimensions1 id -> 
         addio itms (id, ("", (BASDTYP, "reg", TYPRNG (tran'  hi, tran'  lo), []), trandir  dir, "wire", []))
@@ -793,24 +793,44 @@ and tran'  = function
 | Vdec_num s -> HEX (int_of_string s)
 | oth -> fail "tran'" oth
 
-and tran''  = function
+and tran'' = function
 | Vbin_based_number1 (radix, bin) -> Scanf.sscanf radix "%d'b" (fun rad -> Input_types.CNST(rad, HEX (bin_to_native bin)))
-| Vadd_expr (lhs, rhs) -> ARITH (Aadd "", tran''  lhs :: tran''  rhs :: [])
-| Vsub_expr (lhs, rhs) -> ARITH (Asub, tran''  lhs :: tran''  rhs :: [])
-| Vbitand_expr (lhs, rhs) -> LOGIC (Land, tran''  lhs :: tran''  rhs :: [])
-| Vbitor_expr (lhs, rhs) -> LOGIC (Lor, tran''  lhs :: tran''  rhs :: [])
+| Vadd_expr (lhs, rhs) -> ARITH (Aadd "", tran'' lhs :: tran'' rhs :: [])
+| Vmul_expr (lhs, rhs) -> ARITH (Amul, tran'' lhs :: tran'' rhs :: [])
+| Vsub_expr (lhs, rhs) -> ARITH (Asub, tran'' lhs :: tran'' rhs :: [])
+| Vbitand_expr (lhs, rhs) -> LOGIC (Land, tran'' lhs :: tran'' rhs :: [])
+| Vbitor_expr (lhs, rhs) -> LOGIC (Lor, tran'' lhs :: tran'' rhs :: [])
+| Vxor_expr (lhs, rhs) -> LOGIC (Lxor, tran'' lhs :: tran'' rhs :: [])
 | Vlogeq_expr (lhs, rhs) -> CMP (Ceq, tran'' lhs :: tran'' rhs :: [])
 | Vlt_expr (lhs, rhs) -> CMP (Clt, tran'' lhs :: tran'' rhs :: [])
+| Vgt_expr (lhs, rhs) -> CMP (Cgt, tran'' lhs :: tran'' rhs :: [])
+| Vgteq_expr (lhs, rhs) -> CMP (Cgte, tran'' lhs :: tran'' rhs :: [])
+| Vlteq_expr (lhs, rhs) -> CMP (Clte, tran'' lhs :: tran'' rhs :: [])
+| Vplingeq_expr (lhs, rhs) -> CMP (Cneq, tran'' lhs :: tran'' rhs :: [])
 | Vunqualified_id1 (id, Vempty) -> VRF (id, (BASDTYP, "wire", TYPNONE, []), [])
 | Vconditional_statement2 (Vexpression_in_parens1 cond, then_, else_) ->
-  Input_types.IF ("", tran''  cond :: tran''  then_ :: tran''  else_ :: [])
-| Vstatement_item6 (Vassignment_statement_no_expr1 (rhs, lhs)) -> ASGN( false, "", tran''  lhs :: tran''  rhs :: [])
-| Vcase_statement1 (Vempty, sel, Vtlist itmlst) -> CS ("", tran''  sel :: List.map (tran'' ) itmlst)
-| Vcase_item1 (sel, stmt) -> CSITM ("", CNST(32, tran'  sel) :: tran''  stmt :: [])
-| Vnonblocking_assignment1 (lhs, rhs) -> ASGN (true, "", tran''  rhs :: tran''  lhs :: [])
+  Input_types.IF ("", tran'' cond :: tran'' then_ :: tran'' else_ :: [])
+| Vstatement_item6 (Vassignment_statement_no_expr1 (rhs, lhs)) -> ASGN( false, "", tran'' lhs :: tran'' rhs :: [])
+| Vcase_statement1 (Vempty, sel, Vtlist itmlst) -> CS ("", tran'' sel :: List.map (tran'' ) itmlst)
+| Vcase_item1 (sel, stmt) -> CSITM ("", CNST(32, tran'  sel) :: tran'' stmt :: [])
+| Vnonblocking_assignment1 (lhs, rhs) -> ASGN (true, "", tran'' rhs :: tran'' lhs :: [])
+| Vunary_prefix_expr_and othtran -> LOGIC(Lredand, tran'' othtran :: [])
+| Vunary_prefix_expr_or othtran -> LOGIC(Lredor, tran'' othtran :: [])
+(*
+| Vunary_prefix_expr_nand othtran
+| Vunary_prefix_expr_negate othtran
+| Vunary_prefix_expr_nor othtran
+| Vunary_prefix_expr_not othtran
+| Vunary_prefix_expr_plus othtran
+| Vunary_prefix_expr_tilde othtran
+| Vunary_prefix_expr_xnor othtran
+| Vunary_prefix_expr_xor othtran
+*)
+| Vexpr_primary_parens1 (Vtlist [Vsequence_repetition_expr1 arg]) -> tran'' arg
+| Vexpression_or_dist1 othtran -> tran'' othtran
 | oth -> fail "tran''" oth
 
-and tranlst''  = function
+and tranlst'' = function
 | Vseq_block1 (Vtlist lst) -> List.map (tran'' ) lst
 | oth -> failwith "tranlst''"
 
