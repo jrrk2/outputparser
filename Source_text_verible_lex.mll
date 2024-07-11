@@ -614,9 +614,10 @@ rule token = parse
   | sizednumber as n
       { match String.split_on_char '\'' n with
       lft::rght::[] -> (
-      let rght' = String.trim (String.sub rght 1 (String.length rght - 1)) in
-      let lft' = lft^"'"^String.sub rght 0 1 in
-      match rght.[if rght.[0]=='s' then 1 else 0] with
+      let ix = if rght.[0]=='s' then 1 else 0 in
+      let rght' = String.trim (String.sub rght (ix+1) (String.length rght - ix - 1)) in
+      let lft' = lft^"'"^String.sub rght ix 1 in
+      match rght.[ix] with
 	| 'b' -> [TK_BinBase lft';TK_BinDigits rght']
 	| 'o' -> [TK_OctBase lft';TK_OctDigits rght']
 	| 'd' -> [TK_DecBase lft';TK_DecDigits rght']
