@@ -1,5 +1,7 @@
 open Source_text_verible
 
+type subst = {prev:string; next:string}
+
 type othtran =
           | Vadd_expr of othtran * othtran
           | Valways_construct1 of othtran
@@ -313,6 +315,8 @@ let fail' msg = function
 let othpat' = ref End_of_file
 let othpatlst = ref []
 let othtran = ref Vempty
+let othseq = ref []
+let othseq' = ref []
 let othcnst = ref (Input_types.CNST (32, ERR ""), Input_types.CNST (32, ERR ""))
 let fail msg x = othtran := x; fail' msg x
 
@@ -740,7 +744,7 @@ let rec tran (itms:Input_types.itms) modnam = function
     List.iter (tran itms modnam) (List.rev declst);
     List.iter (tran itms modnam) bodylst
 | Vport_declaration_noattr1 (dir, Vdata_type_or_implicit_basic_followed_by_id_and_dimensions_opt1
-       (Vdata_type_primitive1 (Vdata_type_primitive_scalar1_reg, typ),
+       (Vdata_type_primitive1 ((Vdata_type_primitive_scalar1_reg|Vdata_type_primitive_scalar1_logic), typ),
         Vunqualified_id1 (id, Vempty))) ->
     addio itms (id, ("", (BASDTYP, "reg", trantyp typ, []), trandir dir, "wire", []))
 | Vport_declaration_noattr1 (dir, Vdata_type_or_implicit_basic_followed_by_id_and_dimensions_opt4
@@ -752,6 +756,12 @@ let rec tran (itms:Input_types.itms) modnam = function
 | Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control2 (Vtlist
              [Vevent_expression_posedge (Vunqualified_id1 (clk, Vempty))]), body)) -> 
     itms.alwys := ("", Input_types.POSEDGE clk, tranlst'' body) :: !(itms.alwys)
+| Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control4, Vseq_block1 (Vtlist seq))) ->
+    print_endline "transeq";
+    othseq := seq;
+    let seq' = transeq seq in
+    othseq' := seq';
+    itms.alwys := ("", Input_types.COMB, (SNTRE [] :: List.map tran'' seq')) :: !(itms.alwys)
 | Valways_construct1 ((Vstatement_item6 _|Vcase_statement1 _) as stmt) ->
     itms.alwys := ("", Input_types.COMB, (SNTRE [] :: tran'' stmt :: [])) :: !(itms.alwys)
 | Vcomma -> ()
@@ -770,8 +780,70 @@ let rec tran (itms:Input_types.itms) modnam = function
 | Vcontinuous_assign1 (Vtlist lst) -> List.iter (function
     | Vcont_assign1 (lhs, rhs) -> itms.ca := ("", tran'' lhs, tran'' rhs) :: !(itms.ca)
     | oth -> fail "cont_assign" oth) lst
-
 | oth -> fail "tran" oth
+
+and transubst subst = function
+| Vbin_based_number1 (radix, bin) -> Vbin_based_number1 (radix, bin)
+| Vdec_based_number1 (radix, bin) -> Vdec_based_number1 (radix, bin)
+| Vhex_based_number1 (radix, bin) -> Vhex_based_number1 (radix, bin)
+| Vadd_expr (lhs, rhs) -> Vadd_expr (transubst subst lhs, transubst subst rhs)
+| Vsub_expr (lhs, rhs) -> Vsub_expr (transubst subst lhs, transubst subst rhs)
+| Vmul_expr (lhs, rhs) -> Vmul_expr (transubst subst lhs, transubst subst rhs)
+| Vdiv_expr (lhs, rhs) -> Vdiv_expr (transubst subst lhs, transubst subst rhs)
+| Vmod_expr (lhs, rhs) -> Vmod_expr (transubst subst lhs, transubst subst rhs)
+| Vpow_expr (lhs, rhs) -> Vpow_expr (transubst subst lhs, transubst subst rhs)
+| Vshift_expr2 (lhs, rhs) -> Vshift_expr2 (transubst subst lhs, transubst subst rhs)
+| Vshift_expr3 (lhs, rhs) -> Vshift_expr3 (transubst subst lhs, transubst subst rhs)
+| Vshift_expr4 (lhs, rhs) -> Vshift_expr4 (transubst subst lhs, transubst subst rhs)
+| Vlogand_expr (lhs, rhs) -> Vlogand_expr (transubst subst lhs, transubst subst rhs)
+| Vbitand_expr (lhs, rhs) -> Vbitand_expr (transubst subst lhs, transubst subst rhs)
+| Vbitor_expr (lhs, rhs) -> Vbitor_expr (transubst subst lhs, transubst subst rhs)
+| Vxor_expr (lhs, rhs) -> Vxor_expr (transubst subst lhs, transubst subst rhs)
+| Vlogeq_expr (lhs, rhs) -> Vlogeq_expr (transubst subst lhs, transubst subst rhs)
+| Vlt_expr (lhs, rhs) -> Vlt_expr (transubst subst lhs, transubst subst rhs)
+| Vgt_expr (lhs, rhs) -> Vgt_expr (transubst subst lhs, transubst subst rhs)
+| Vgteq_expr (lhs, rhs) -> Vgteq_expr (transubst subst lhs, transubst subst rhs)
+| Vlteq_expr (lhs, rhs) -> Vlteq_expr (transubst subst lhs, transubst subst rhs)
+| Vplingeq_expr (lhs, rhs) -> Vplingeq_expr (transubst subst lhs, transubst subst rhs)
+| Vunqualified_id1 (id, Vempty) when id=subst.prev -> Vunqualified_id1 (subst.next, Vempty)
+| Vunqualified_id1 (id, Vempty) -> Vunqualified_id1 (id, Vempty)
+| Vconditional_statement2 (cond, then_, else_) -> Vconditional_statement2 (transubst subst cond, transubst subst then_, transubst subst else_)
+| Vstatement_item6 stmt -> Vstatement_item6 (transubst subst stmt)
+| Vassignment_statement_no_expr1 (rhs, lhs) -> Vassignment_statement_no_expr1 (transubst subst rhs, transubst subst lhs)
+| Vcase_statement1 (Vempty, sel, Vtlist itmlst) -> Vcase_statement1 (Vempty, transubst subst sel, transubstlst subst itmlst)
+| Vcase_item1 (sel, stmt) -> Vcase_item1 (transubst subst sel, transubst subst stmt)
+| Vnonblocking_assignment1 (lhs, rhs) -> Vnonblocking_assignment1 (transubst subst lhs, transubst subst rhs)
+| Vunary_prefix_expr_and othtran -> Vunary_prefix_expr_and (transubst subst othtran)
+| Vunary_prefix_expr_nand othtran -> Vunary_prefix_expr_nand (transubst subst othtran)
+| Vunary_prefix_expr_or othtran -> Vunary_prefix_expr_or (transubst subst othtran)
+| Vunary_prefix_expr_nor othtran -> Vunary_prefix_expr_nor (transubst subst othtran)
+| Vunary_prefix_expr_xor othtran -> Vunary_prefix_expr_xor (transubst subst othtran)
+| Vunary_prefix_expr_xnor othtran -> Vunary_prefix_expr_xnor (transubst subst othtran)
+| Vunary_prefix_expr_tilde othtran -> Vunary_prefix_expr_tilde (transubst subst othtran)
+| Vunary_prefix_expr_negate othtran -> Vunary_prefix_expr_negate (transubst subst othtran)
+| Vunary_prefix_expr_not othtran -> Vunary_prefix_expr_not (transubst subst othtran)
+| Vunary_prefix_expr_plus othtran -> Vunary_prefix_expr_plus (transubst subst othtran)
+| Vexpr_primary_parens1 (Vtlist lst) -> Vexpr_primary_parens1 ( transubstlst subst lst )
+| Vexpression_or_dist1 othtran -> Vexpression_or_dist1 (transubst subst othtran)
+| Vcond_expr (cond, true_, false_) -> Vcond_expr (transubst subst cond, transubst subst true_, transubst subst false_)
+| Vdec_num ix -> Vdec_num ix
+| Vreference3 (vector, Vselect_variable_dimension2 ix) ->
+  Vreference3 (transubst subst vector, Vselect_variable_dimension2 (transubst subst ix))
+| Vreference3 (vector, Vselect_variable_dimension1 (hi,lo)) ->
+  Vreference3 (vector, Vselect_variable_dimension1 (transubst subst hi,transubst subst lo))
+| Vrange_list_in_braces1 (Vtlist lst) -> Vrange_list_in_braces1 (Vtlist lst)
+| Vexpr_primary_braces2 (Vdec_num repl, reference3) -> Vexpr_primary_braces2 (Vdec_num repl, reference3)
+| Vsequence_repetition_expr1 othtran -> Vsequence_repetition_expr1 (transubst subst othtran)
+| oth -> fail "transubst" oth
+
+and transubstlst subst lst = Vtlist (List.map (transubst subst) lst)
+
+and transeq = function
+| [] -> []
+| Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (c, Vempty), Vunqualified_id1 (a, Vempty))) ::
+  Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (c', Vempty), expr)) :: tl when c=c' ->
+  Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (c', Vempty), transubst {prev=c;next=a} expr)) :: transeq tl
+| oth :: tl -> oth :: transeq tl
 
 and transign = function
 | Vsigned -> [TYPSIGNED]
