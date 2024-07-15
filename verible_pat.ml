@@ -155,8 +155,6 @@ type othtran =
           | Vunqualified_id1 of string * othtran
           | Vxor_expr of othtran * othtran
 
-type subst = {prev:othtran; next:othtran}
-
 type expand = {exp:othtran}
 
 let fail' msg = function
@@ -314,8 +312,9 @@ let fail' msg = function
       | Vunqualified_id1 (string, othtran') -> failwith (msg^": unqualified_id1 (string, ")
       | Vxor_expr (othtran, othtran') -> failwith (msg^": xor_expr")
 
+let seqlst = ref []
 let othpat' = ref End_of_file
-let othloop = ref ([])
+let othloop = ref []
 let othpatlst = ref []
 let othtran = ref Vempty
 let othexp = ref []
@@ -763,24 +762,11 @@ let rec tran (itms:Input_types.itms) modnam = function
 | Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control2 (Vtlist
              [Vevent_expression_posedge (Vunqualified_id1 (clk, Vempty))]), body)) -> 
     itms.alwys := ("", Input_types.POSEDGE clk, tranlst'' body) :: !(itms.alwys)
-| Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control4, Vseq_block1 (Vtlist seq))) ->
-    print_endline "transeq1";
-    othseq := seq;
-    let exp' = List.map (tranexpand {exp=Vempty}) seq in
-    othexp := exp';
-    let seq' = transeq seq in
-    othseq' := seq';
-    itms.alwys := ("", Input_types.COMB, (SNTRE [] :: List.map tran'' seq')) :: !(itms.alwys)
+    | Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control4, Vseq_block1 (Vtlist seq))) ->
+    
+    itms.alwys := ("", Input_types.COMB, (SNTRE [] :: List.map tran'' (transeqlst seq))) :: !(itms.alwys)
 | Valways_construct1 (Vseq_block1 (Vtlist seq)) ->
-    print_endline "transeq2";
-    othseq := seq;
-    let exp = List.map (tranexpand {exp=Vempty}) seq in
-    othexp := exp;
-    let exp' = tranexpandlst' exp in
-    othexp' := exp';
-    let seq' = transeq exp' in
-    othseq' := seq';
-    itms.alwys := ("", Input_types.COMB, (SNTRE [] :: List.map tran'' seq')) :: !(itms.alwys)
+    itms.alwys := ("", Input_types.COMB, (SNTRE [] :: List.map tran'' (transeqlst seq))) :: !(itms.alwys)
 | Valways_construct1 stmt ->
     itms.alwys := ("", Input_types.COMB, (SNTRE [] :: tran'' stmt :: [])) :: !(itms.alwys)
 | Vcomma -> ()
@@ -824,8 +810,7 @@ and transubst subst = function
 | Vgteq_expr (lhs, rhs) -> Vgteq_expr (transubst subst lhs, transubst subst rhs)
 | Vlteq_expr (lhs, rhs) -> Vlteq_expr (transubst subst lhs, transubst subst rhs)
 | Vplingeq_expr (lhs, rhs) -> Vplingeq_expr (transubst subst lhs, transubst subst rhs)
-| Vunqualified_id1 (_, Vempty) as id when id=subst.prev -> subst.next
-| Vunqualified_id1 (id, Vempty) -> Vunqualified_id1 (id, Vempty)
+| Vunqualified_id1 (_, Vempty) as id -> if Hashtbl.mem subst id then Hashtbl.find subst id else id
 | Vconditional_statement2 (cond, then_, else_) -> Vconditional_statement2 (transubst subst cond, transubst subst then_, transubst subst else_)
 | Vstatement_item6 stmt -> Vstatement_item6 (transubst subst stmt)
 | Vassignment_statement_no_expr1 (rhs, lhs) -> Vassignment_statement_no_expr1 (transubst subst rhs, transubst subst lhs)
@@ -922,12 +907,24 @@ and tranexpandlst' = function
 | stmt :: Vseq_block1 (Vtlist lst) :: tl -> stmt :: tranexpandlst' (lst @ tl)
 | oth :: tl -> oth :: tranexpandlst' tl
 
-and transeq = function
-| [] -> []
-| Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (_, Vempty) as c, a)) ::
-  Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (_, Vempty) as c', expr)) :: tl when c=c' ->
-  transeq (Vstatement_item6 (Vassignment_statement_no_expr1 (c', transubst {prev=c;next=a} expr)) :: tl)
-| oth :: tl -> oth :: transeq tl
+and transeq subh = function
+| [] -> let lst = ref [] in Hashtbl.iter (fun c a -> lst := Vstatement_item6 (Vassignment_statement_no_expr1 (c, a)) :: !lst) subh; !lst
+| Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (_, Vempty) as c, a)) :: tl ->
+  let a' = transubst subh a in
+  Hashtbl.replace subh c a'; seqlst := a' :: !seqlst; transeq subh tl
+| oth :: tl -> transubst subh oth :: transeq subh tl
+
+and transeqlst seq =
+print_endline "transeq1";
+othseq := seq;
+let exp = List.map (tranexpand {exp=Vempty}) seq in
+othexp := exp;
+let exp' = tranexpandlst' exp in
+othexp' := exp';
+let subh = Hashtbl.create 257 in
+let seq' = transeq subh exp' in
+othseq' := seq';
+seq'
 
 and transign = function
 | Vsigned -> [TYPSIGNED]
@@ -1006,7 +1003,10 @@ and tranflatten = function
   | oth :: tl -> oth :: tranflatten tl
 
 and tranloop id lo hi inc lst = let loop = (List.flatten (List.init ((hi-lo)/inc) (fun ix' -> let ix = lo + ix' * inc in
-       print_endline (string_of_int (ix)); List.map (transubst {prev=id;next=Vdec_num (string_of_int ix)}) lst))) in
+       print_endline (string_of_int (ix));
+       let subh = Hashtbl.create 257 in
+       Hashtbl.add subh id (Vdec_num (string_of_int ix));
+       List.map (transubst subh) lst))) in
        othloop := loop;
        loop
        
