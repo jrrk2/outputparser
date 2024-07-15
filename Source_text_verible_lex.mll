@@ -538,23 +538,31 @@ let line = '`'[^'\n']*
 let colon_begin = ':'[' ']*"begin"
    
 rule token = parse
-| "<<" { tok ( LT_LT ) }
-| ">>" { tok ( GT_GT ) }
-| "<=" { tok ( LT_EQ ) }
-| "==" { tok ( EQ_EQ ) }
-| "!=" { tok ( PLING_EQ ) }
+| "<<<=" { tok ( TK_LS_EQ ) }
+| ">>>=" { tok ( TK_RSS_EQ ) }
 | ">>>" { tok ( GT_GT_GT ) }
 | "<<<" { tok ( LT_LT ) } (* placeholder *)
 | "===" { tok ( EQ_EQ_EQ ) }
 | "!==" { tok ( PLING_EQ_EQ ) }
+| "<<=" { tok ( TK_LS_EQ ) }
+| ">>=" { tok ( TK_RS_EQ ) }
+| "<<" { tok ( LT_LT ) }
+| ">>" { tok ( GT_GT ) }
+| "<=" { tok ( LT_EQ ) }
+| "==" { tok ( EQ_EQ ) }
+| ">=" { tok ( GT_EQ ) }
+| "!=" { tok ( PLING_EQ ) }
 | "||" { tok ( VBAR_VBAR ) }
 | "~|" { tok ( TILDE_VBAR ) }
 | "~^" { tok ( TILDE_CARET ) }
 | "~&" { tok ( TILDE_AMPERSAND ) }
 | "+=" { tok ( PLUS_EQ ) }
 | "-=" { tok ( HYPHEN_EQ ) }
+| "*=" { tok ( STAR_EQ ) }
+| "/=" { tok ( SLASH_EQ ) }
+| "&=" { tok ( AMPERSAND_EQ ) }
 | "|=" { tok ( VBAR_EQ ) }
-| ">=" { tok ( GT_EQ ) }
+| "^=" { tok ( CARET_EQ ) }
 | ".*" { tok ( DOT_STAR ) }
 | "+:" { tok ( PLUS_COLON ) }
 | "-:" { tok ( HYPHEN_COLON ) }
@@ -563,12 +571,7 @@ rule token = parse
 | "--" { tok ( HYPHEN_HYPHEN ) }
 | "**" { tok ( STAR_STAR ) }
 | "&&" { tok ( AMPERSAND_AMPERSAND ) }
-| "&=" { tok ( AMPERSAND_EQ ) }
 | "'{" { tok ( QUOTE_LBRACE ) }
-(*
-| "<<=" { tok ( LT_LT_EQ ) }
-| colon_begin { tok ( COLON_HYPHEN_begin ) }
-*)
 | '-' { tok ( HYPHEN ) }
 | '+' { tok ( PLUS ) }
 | '!' { tok ( PLING ) }

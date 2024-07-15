@@ -387,6 +387,28 @@ let rec pat' = function
 | TUPLE5 (STRING "port_declaration_noattr1", dir, EMPTY_TOKEN, typ, EMPTY_TOKEN) -> Vport_declaration_noattr1 (pat dir, pat typ)
 | TUPLE4 (STRING "assignment_statement_no_expr1", range_list_in_braces1, EQUALS, expr') ->
     Vassignment_statement_no_expr1 (pat range_list_in_braces1, pat expr')
+| TUPLE4 (STRING "assign_modify_statement1", lhs, PLUS_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vadd_expr (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement2", lhs, HYPHEN_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vsub_expr (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement3", lhs, STAR_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vmul_expr (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement4", lhs, SLASH_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vdiv_expr (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement5", lhs, PERCENT_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vmod_expr (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement6", lhs, AMPERSAND_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vbitand_expr (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement7", lhs, VBAR_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vbitor_expr (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement8", lhs, CARET_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vxor_expr (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement9", lhs, TK_LS_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vshift_expr2 (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement10", lhs, TK_RS_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vshift_expr3 (lhs', pat rhs))
+| TUPLE4 (STRING "assign_modify_statement11", lhs, TK_RSS_EQ, rhs) -> let lhs' = pat lhs in
+    Vassignment_statement_no_expr1 (lhs', Vshift_expr4 (lhs', pat rhs))
 | TUPLE4 (STRING "call_base1", LPAREN, TLIST lst, RPAREN) -> (Vcall_base1 (patlst lst))
 | TUPLE4 (STRING "case_item1", sel, COLON, seq_block) -> Vcase_item1 (pat sel, pat seq_block)
 | TUPLE4 (STRING "case_item2", Default, COLON, SEMICOLON) -> Vcase_item2 Vempty
