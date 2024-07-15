@@ -1,7 +1,5 @@
 open Source_text_verible
 
-type subst = {prev:string; next:string}
-
 type othtran =
           | Vadd_expr of othtran * othtran
           | Valways_construct1 of othtran
@@ -79,7 +77,7 @@ type othtran =
           | Vlogand_expr of othtran * othtran
           | Vlogeq_expr of othtran * othtran
           | Vlogor_expr of othtran * othtran
-          | Vloop_statement1 of othtran * othtran
+          | Vloop_statement1 of string * othtran * othtran * othtran * othtran
           | Vlt_expr of othtran * othtran
           | Vlteq_expr of othtran * othtran
           | Vml_start1 of othtran
@@ -156,6 +154,10 @@ type othtran =
           | Vunique
           | Vunqualified_id1 of string * othtran
           | Vxor_expr of othtran * othtran
+
+type subst = {prev:othtran; next:othtran}
+
+type expand = {exp:othtran}
 
 let fail' msg = function
       | Vadd_expr (othtran, othtran') -> failwith (msg^": add_expr")
@@ -234,7 +236,7 @@ let fail' msg = function
       | Vlogand_expr (othtran, othtran') -> failwith (msg^": logand_expr")
       | Vlogeq_expr (othtran, othtran') -> failwith (msg^": logeq_expr")
       | Vlogor_expr (othtran, othtran') -> failwith (msg^": logor_expr")
-      | Vloop_statement1 (othtran, othtran') -> failwith (msg^": loop_statement1")
+      | Vloop_statement1 (string, othtran, othtran', othtran'', othtran''') -> failwith (msg^": loop_statement1")
       | Vlt_expr (othtran, othtran') -> failwith (msg^": lt_expr")
       | Vlteq_expr (othtran, othtran') -> failwith (msg^": lteq_expr")
       | Vml_start1 (othtran') -> failwith (msg^": ml_start1")
@@ -313,8 +315,11 @@ let fail' msg = function
       | Vxor_expr (othtran, othtran') -> failwith (msg^": xor_expr")
 
 let othpat' = ref End_of_file
+let othloop = ref ([])
 let othpatlst = ref []
 let othtran = ref Vempty
+let othexp = ref []
+let othexp' = ref []
 let othseq = ref []
 let othseq' = ref []
 let othcnst = ref (Input_types.CNST (32, ERR ""), Input_types.CNST (32, ERR ""))
@@ -660,18 +665,20 @@ let rec pat' = function
         unqualified_id1, EMPTY_TOKEN),
       LPAREN, TLIST _, RPAREN, SEMICOLON, TLIST _, Endfunction,
    TUPLE3 (STRING "label_opt1", COLON, SymbolIdentifier _)) -> Vfunction_declaration1
+(*
 | TUPLE10 (STRING "loop_statement1", For, LPAREN,
       TUPLE4 (STRING "for_init_decl_or_assign1", unqualified_id1, EQUALS, TK_DecNumber num),
       SEMICOLON, expr', SEMICOLON, assignment_statement_no_expr1,
-   RPAREN, seq_block) -> (Vloop_statement1 (pat expr', pat seq_block))
+   RPAREN, seq_block) -> Vloop_statement1 (pat expr', pat seq_block)
+*)
 | TUPLE10 (STRING "loop_statement1", For, LPAREN,
       TUPLE5 (STRING "for_init_decl_or_assign2",
         TUPLE3 (STRING "data_type_primitive1",
-          TUPLE3 (STRING "data_type_primitive_scalar5", Int, Unsigned),
+          TUPLE3 (STRING "data_type_primitive_scalar5", Int, (Unsigned|EMPTY_TOKEN)),
           EMPTY_TOKEN),
-        SymbolIdentifier _, EQUALS, TK_DecNumber _),
-      SEMICOLON, expr', SEMICOLON, inc_or_dec_expression2, RPAREN,
-   seq_block) -> (Vloop_statement1 (pat expr', pat seq_block))
+        SymbolIdentifier ix, EQUALS, init),
+      SEMICOLON, cond, SEMICOLON, inc_or_dec_expression2, RPAREN,
+   seq_block) -> Vloop_statement1 (ix, pat init, pat cond, pat inc_or_dec_expression2, pat seq_block)
 | TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, TLIST lst, RBRACE) -> (Vassignment_pattern1 (patlst lst))
 | TUPLE3 (STRING "case_inside_items1",
         TUPLE4 (STRING "case_inside_item1", TLIST _, COLON,
@@ -757,12 +764,24 @@ let rec tran (itms:Input_types.itms) modnam = function
              [Vevent_expression_posedge (Vunqualified_id1 (clk, Vempty))]), body)) -> 
     itms.alwys := ("", Input_types.POSEDGE clk, tranlst'' body) :: !(itms.alwys)
 | Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control4, Vseq_block1 (Vtlist seq))) ->
-    print_endline "transeq";
+    print_endline "transeq1";
     othseq := seq;
+    let exp' = List.map (tranexpand {exp=Vempty}) seq in
+    othexp := exp';
     let seq' = transeq seq in
     othseq' := seq';
     itms.alwys := ("", Input_types.COMB, (SNTRE [] :: List.map tran'' seq')) :: !(itms.alwys)
-| Valways_construct1 ((Vstatement_item6 _|Vcase_statement1 _) as stmt) ->
+| Valways_construct1 (Vseq_block1 (Vtlist seq)) ->
+    print_endline "transeq2";
+    othseq := seq;
+    let exp = List.map (tranexpand {exp=Vempty}) seq in
+    othexp := exp;
+    let exp' = tranexpandlst' exp in
+    othexp' := exp';
+    let seq' = transeq exp' in
+    othseq' := seq';
+    itms.alwys := ("", Input_types.COMB, (SNTRE [] :: List.map tran'' seq')) :: !(itms.alwys)
+| Valways_construct1 stmt ->
     itms.alwys := ("", Input_types.COMB, (SNTRE [] :: tran'' stmt :: [])) :: !(itms.alwys)
 | Vcomma -> ()
 | Vport1 (Vunqualified_id1 (id, Vempty)) -> print_endline ("Vport1: "^id)
@@ -805,7 +824,7 @@ and transubst subst = function
 | Vgteq_expr (lhs, rhs) -> Vgteq_expr (transubst subst lhs, transubst subst rhs)
 | Vlteq_expr (lhs, rhs) -> Vlteq_expr (transubst subst lhs, transubst subst rhs)
 | Vplingeq_expr (lhs, rhs) -> Vplingeq_expr (transubst subst lhs, transubst subst rhs)
-| Vunqualified_id1 (id, Vempty) when id=subst.prev -> Vunqualified_id1 (subst.next, Vempty)
+| Vunqualified_id1 (_, Vempty) as id when id=subst.prev -> subst.next
 | Vunqualified_id1 (id, Vempty) -> Vunqualified_id1 (id, Vempty)
 | Vconditional_statement2 (cond, then_, else_) -> Vconditional_statement2 (transubst subst cond, transubst subst then_, transubst subst else_)
 | Vstatement_item6 stmt -> Vstatement_item6 (transubst subst stmt)
@@ -838,11 +857,76 @@ and transubst subst = function
 
 and transubstlst subst lst = Vtlist (List.map (transubst subst) lst)
 
+and tranexpand exattr = function
+| Vbin_based_number1 (radix, bin) -> Vbin_based_number1 (radix, bin)
+| Vdec_based_number1 (radix, bin) -> Vdec_based_number1 (radix, bin)
+| Vhex_based_number1 (radix, bin) -> Vhex_based_number1 (radix, bin)
+| Vadd_expr (lhs, rhs) -> Vadd_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vsub_expr (lhs, rhs) -> Vsub_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vmul_expr (lhs, rhs) -> Vmul_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vdiv_expr (lhs, rhs) -> Vdiv_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vmod_expr (lhs, rhs) -> Vmod_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vpow_expr (lhs, rhs) -> Vpow_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vshift_expr2 (lhs, rhs) -> Vshift_expr2 (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vshift_expr3 (lhs, rhs) -> Vshift_expr3 (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vshift_expr4 (lhs, rhs) -> Vshift_expr4 (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vlogand_expr (lhs, rhs) -> Vlogand_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vbitand_expr (lhs, rhs) -> Vbitand_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vbitor_expr (lhs, rhs) -> Vbitor_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vxor_expr (lhs, rhs) -> Vxor_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vlogeq_expr (lhs, rhs) -> Vlogeq_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vlt_expr (lhs, rhs) -> Vlt_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vgt_expr (lhs, rhs) -> Vgt_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vgteq_expr (lhs, rhs) -> Vgteq_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vlteq_expr (lhs, rhs) -> Vlteq_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vplingeq_expr (lhs, rhs) -> Vplingeq_expr (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vunqualified_id1 (id, Vempty) -> Vunqualified_id1 (id, Vempty)
+| Vconditional_statement2 (cond, then_, else_) -> Vconditional_statement2 (tranexpand exattr cond, tranexpand exattr then_, tranexpand exattr else_)
+| Vstatement_item6 stmt -> Vstatement_item6 (tranexpand exattr stmt)
+| Vassignment_statement_no_expr1 (rhs, lhs) -> Vassignment_statement_no_expr1 (tranexpand exattr rhs, tranexpand exattr lhs)
+| Vcase_statement1 (Vempty, sel, Vtlist itmlst) -> Vcase_statement1 (Vempty, tranexpand exattr sel, tranexpandlst exattr itmlst)
+| Vcase_item1 (sel, stmt) -> Vcase_item1 (tranexpand exattr sel, tranexpand exattr stmt)
+| Vnonblocking_assignment1 (lhs, rhs) -> Vnonblocking_assignment1 (tranexpand exattr lhs, tranexpand exattr rhs)
+| Vunary_prefix_expr_and othtran -> Vunary_prefix_expr_and (tranexpand exattr othtran)
+| Vunary_prefix_expr_nand othtran -> Vunary_prefix_expr_nand (tranexpand exattr othtran)
+| Vunary_prefix_expr_or othtran -> Vunary_prefix_expr_or (tranexpand exattr othtran)
+| Vunary_prefix_expr_nor othtran -> Vunary_prefix_expr_nor (tranexpand exattr othtran)
+| Vunary_prefix_expr_xor othtran -> Vunary_prefix_expr_xor (tranexpand exattr othtran)
+| Vunary_prefix_expr_xnor othtran -> Vunary_prefix_expr_xnor (tranexpand exattr othtran)
+| Vunary_prefix_expr_tilde othtran -> Vunary_prefix_expr_tilde (tranexpand exattr othtran)
+| Vunary_prefix_expr_negate othtran -> Vunary_prefix_expr_negate (tranexpand exattr othtran)
+| Vunary_prefix_expr_not othtran -> Vunary_prefix_expr_not (tranexpand exattr othtran)
+| Vunary_prefix_expr_plus othtran -> Vunary_prefix_expr_plus (tranexpand exattr othtran)
+| Vexpr_primary_parens1 (Vtlist lst) -> Vexpr_primary_parens1 ( tranexpandlst exattr lst )
+| Vexpression_or_dist1 othtran -> Vexpression_or_dist1 (tranexpand exattr othtran)
+| Vcond_expr (cond, true_, false_) -> Vcond_expr (tranexpand exattr cond, tranexpand exattr true_, tranexpand exattr false_)
+| Vdec_num ix -> Vdec_num ix
+| Vreference3 (vector, Vselect_variable_dimension2 ix) ->
+  Vreference3 (tranexpand exattr vector, Vselect_variable_dimension2 (tranexpand exattr ix))
+| Vreference3 (vector, Vselect_variable_dimension1 (hi,lo)) ->
+  Vreference3 (vector, Vselect_variable_dimension1 (tranexpand exattr hi,tranexpand exattr lo))
+| Vrange_list_in_braces1 (Vtlist lst) -> Vrange_list_in_braces1 (Vtlist lst)
+| Vexpr_primary_braces2 (Vdec_num repl, reference3) -> Vexpr_primary_braces2 (Vdec_num repl, reference3)
+| Vsequence_repetition_expr1 othtran -> Vsequence_repetition_expr1 (tranexpand exattr othtran)
+| Vloop_statement1 (ix, Vdec_num lo, Vlt_expr (Vunqualified_id1 (ix', Vempty) as id, Vdec_num hi),
+   Vassignment_statement_no_expr1 (Vunqualified_id1 (ix'', Vempty),
+    Vadd_expr (Vunqualified_id1 (ix''', Vempty), Vdec_num inc)),
+   Vseq_block1 (Vtlist itmlst)) when ix=ix' && ix'=ix'' && ix''=ix''' ->
+   Vseq_block1 (Vtlist (tranloop id (int_of_string lo) (int_of_string hi) (int_of_string inc) itmlst))
+| oth -> fail "tranexpand" oth
+
+and tranexpandlst exattr lst = Vtlist (List.map (tranexpand exattr) lst)
+
+and tranexpandlst' = function
+| [] -> []
+| stmt :: Vseq_block1 (Vtlist lst) :: tl -> stmt :: tranexpandlst' (lst @ tl)
+| oth :: tl -> oth :: tranexpandlst' tl
+
 and transeq = function
 | [] -> []
-| Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (c, Vempty), Vunqualified_id1 (a, Vempty))) ::
-  Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (c', Vempty), expr)) :: tl when c=c' ->
-  Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (c', Vempty), transubst {prev=c;next=a} expr)) :: transeq tl
+| Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (_, Vempty) as c, a)) ::
+  Vstatement_item6 (Vassignment_statement_no_expr1 (Vunqualified_id1 (_, Vempty) as c', expr)) :: tl when c=c' ->
+  transeq (Vstatement_item6 (Vassignment_statement_no_expr1 (c', transubst {prev=c;next=a} expr)) :: tl)
 | oth :: tl -> oth :: transeq tl
 
 and transign = function
@@ -886,6 +970,12 @@ and tran'' = function
 | Vconditional_statement2 (Vexpression_in_parens1 cond, then_, else_) ->
   Input_types.IF ("", tran'' cond :: tran'' then_ :: tran'' else_ :: [])
 | Vstatement_item6 (Vassignment_statement_no_expr1 (rhs, lhs)) -> ASGN( false, "", tran'' lhs :: tran'' rhs :: [])
+| Vseq_block1 (Vtlist itmlst) -> BGN (None, tranflatten (List.map tran'' itmlst))
+| Vloop_statement1 (ix, Vdec_num lo, Vlt_expr (Vunqualified_id1 (ix', Vempty) as id, Vdec_num hi),
+   Vassignment_statement_no_expr1 (Vunqualified_id1 (ix'', Vempty),
+    Vadd_expr (Vunqualified_id1 (ix''', Vempty), Vdec_num inc)),
+   Vseq_block1 (Vtlist itmlst)) when ix=ix' && ix'=ix'' && ix''=ix''' ->
+   Input_types.BGN(None, List.map tran'' (tranloop id (int_of_string lo) (int_of_string hi) (int_of_string inc) itmlst))
 | Vcase_statement1 (Vempty, sel, Vtlist itmlst) -> CS ("", tran'' sel :: List.map (tran'' ) itmlst)
 | Vcase_item1 (sel, stmt) -> CSITM ("", CNST(32, tran'  sel) :: tran'' stmt :: [])
 | Vnonblocking_assignment1 (lhs, rhs) -> ASGN (true, "", tran'' rhs :: tran'' lhs :: [])
@@ -910,6 +1000,16 @@ and tran'' = function
 | Vexpr_primary_braces2 (Vdec_num repl, reference3) -> let r = tran'' reference3 in CAT ("", List.init (int_of_string repl) (fun _ -> r))
 | oth -> fail "tran''" oth
 
+and tranflatten = function
+  | [] -> []
+  | BGN (None, lst) :: tl -> tranflatten (lst @ tl)
+  | oth :: tl -> oth :: tranflatten tl
+
+and tranloop id lo hi inc lst = let loop = (List.flatten (List.init ((hi-lo)/inc) (fun ix' -> let ix = lo + ix' * inc in
+       print_endline (string_of_int (ix)); List.map (transubst {prev=id;next=Vdec_num (string_of_int ix)}) lst))) in
+       othloop := loop;
+       loop
+       
 and trancnst = function
 | Vdec_num n -> tran'' (Vdec_num n)
 | Vadd_expr (Vdec_num lhs, Vdec_num rhs) -> tran'' (Vdec_num (string_of_int (int_of_string lhs + int_of_string rhs)))

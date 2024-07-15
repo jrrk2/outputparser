@@ -449,7 +449,7 @@ let rec rw' = function
 
 and rw'' = function
 | [] -> []
-| TUPLE5 (STRING "port_declaration_noattr1", Input, EMPTY_TOKEN,
+| TUPLE5 (STRING "port_declaration_noattr1", (Input|Output as dir), EMPTY_TOKEN,
     TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt4",
       TUPLE6 (STRING "decl_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK),
       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id1, EMPTY_TOKEN),
@@ -462,18 +462,46 @@ and rw'' = function
 	EMPTY_TOKEN),
       EMPTY_TOKEN),
     EMPTY_TOKEN) :: tl ->
-  TUPLE5 (STRING "port_declaration_noattr1", Input, EMPTY_TOKEN,
+  TUPLE5 (STRING "port_declaration_noattr1", dir, EMPTY_TOKEN,
     TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt4",
       TUPLE6 (STRING "decl_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK),
       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id1, EMPTY_TOKEN),
       EMPTY_TOKEN),
     EMPTY_TOKEN) ::
   COMMA :: rw'' (
-  TUPLE5 (STRING "port_declaration_noattr1", Input, EMPTY_TOKEN,
+  TUPLE5 (STRING "port_declaration_noattr1", dir, EMPTY_TOKEN,
     TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt4",
       TUPLE6 (STRING "decl_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK),
       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id2, EMPTY_TOKEN),
       EMPTY_TOKEN),
     EMPTY_TOKEN) :: tl)
-    
+| TUPLE5 (STRING "port_declaration_noattr1", (Input|Output as dir), EMPTY_TOKEN,
+    TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt1",
+       TUPLE3 (STRING "data_type_primitive1",
+	 TUPLE3 (STRING "data_type_primitive_scalar1", Logic, EMPTY_TOKEN),
+	 TUPLE6 (STRING "decl_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK)),
+       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier a, EMPTY_TOKEN),
+       EMPTY_TOKEN),
+     EMPTY_TOKEN) ::
+   COMMA ::
+   TUPLE3 (STRING "port1",
+     TUPLE3 (STRING "port_reference1",
+       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier b, EMPTY_TOKEN), EMPTY_TOKEN), EMPTY_TOKEN) :: tl ->
+  TUPLE5 (STRING "port_declaration_noattr1", dir, EMPTY_TOKEN,
+    TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt1",
+       TUPLE3 (STRING "data_type_primitive1",
+	 TUPLE3 (STRING "data_type_primitive_scalar1", Logic, EMPTY_TOKEN),
+	 TUPLE6 (STRING "decl_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK)),
+       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier a, EMPTY_TOKEN),
+       EMPTY_TOKEN),
+     EMPTY_TOKEN) ::
+   COMMA :: rw'' (
+  TUPLE5 (STRING "port_declaration_noattr1", dir, EMPTY_TOKEN,
+    TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt1",
+       TUPLE3 (STRING "data_type_primitive1",
+	 TUPLE3 (STRING "data_type_primitive_scalar1", Logic, EMPTY_TOKEN),
+	 TUPLE6 (STRING "decl_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK)),
+       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier b, EMPTY_TOKEN),
+       EMPTY_TOKEN),
+     EMPTY_TOKEN) :: tl)
 | oth :: tl -> oth :: rw'' tl
