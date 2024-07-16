@@ -271,12 +271,15 @@ let rec rw = function
 | SystemTFIdentifier _ as sym -> sym
 | TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, lst, RBRACE) ->
   TUPLE4 (STRING "assignment_pattern1", QUOTE_LBRACE, TLIST (exp_lst_proper lst), RBRACE)
+| CONS1 (TUPLE3 (STRING "enum_name_list_item_last1", TUPLE3 (STRING "enum_name_list_trailing_comma1", op, COMMA), id)) ->
+  (match rw op with TLIST oth -> TLIST (rw id :: oth) | oth -> othcons := oth; failwith "enum")
+| CONS1 (TUPLE3 (STRING "enum_name_list_item_last1", _, _)) as oth -> othcons := oth; failwith "enum"
 | CONS1 x -> (match rw x with TLIST x -> TLIST x | oth -> TLIST [oth])
 | CONS2 (CONS1 a, b) -> (match rw a with TLIST lst -> TLIST (rw b :: lst) | oth -> TLIST (rw b :: oth :: []))
 | CONS2 (CONS2 (a, b), c) -> (match rw a with TLIST lst -> TLIST (rw c :: rw b :: lst) | oth -> TLIST (rw c :: rw b :: oth :: []))
 | CONS2 (a, b) -> (match rw a with TLIST lst -> TLIST (rw b :: lst) | oth -> TLIST (rw b :: oth :: []))
-| CONS3 (CONS1 a, COMMA, b) -> (match rw a with TLIST lst -> TLIST (rw b :: lst) | oth -> TLIST (rw b :: oth :: []))
-| CONS3 (CONS3 (a, COMMA, b), COMMA, c) -> (match rw a with TLIST lst -> TLIST (rw c :: rw b :: lst) | oth -> TLIST (rw c :: rw b :: oth :: []))
+| CONS3 (CONS1 a, (COMMA|Or), b) -> (match rw a with TLIST lst -> TLIST (rw b :: lst) | oth -> TLIST (rw b :: oth :: []))
+| CONS3 (CONS3 (a, (COMMA|Or), b), (COMMA|Or), c) -> (match rw a with TLIST lst -> TLIST (rw c :: rw b :: lst) | oth -> TLIST (rw c :: rw b :: oth :: []))
 | TLIST lst -> TLIST (List.map rw lst)
 | TUPLE2(arg1,arg2) -> TUPLE2 (rw arg1, rw arg2)
 | TUPLE4(STRING _ as arg0,LPAREN,arg,RPAREN) -> TUPLE4(arg0,LPAREN,rw arg,RPAREN)
@@ -449,7 +452,7 @@ let rec rw' = function
 
 and rw'' = function
 | [] -> []
-| TUPLE5 (STRING "port_declaration_noattr1", (Input|Output as dir), EMPTY_TOKEN,
+| TUPLE5 (STRING "port_declaration_noattr1", (Input|Output as dir), (Wire|EMPTY_TOKEN as kind),
     TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt4",
       TUPLE6 (STRING "decl_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK),
       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id1, EMPTY_TOKEN),
@@ -462,20 +465,20 @@ and rw'' = function
 	EMPTY_TOKEN),
       EMPTY_TOKEN),
     EMPTY_TOKEN) :: tl ->
-  TUPLE5 (STRING "port_declaration_noattr1", dir, EMPTY_TOKEN,
+  TUPLE5 (STRING "port_declaration_noattr1", dir, kind,
     TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt4",
       TUPLE6 (STRING "decl_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK),
       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id1, EMPTY_TOKEN),
       EMPTY_TOKEN),
     EMPTY_TOKEN) ::
   COMMA :: rw'' (
-  TUPLE5 (STRING "port_declaration_noattr1", dir, EMPTY_TOKEN,
+  TUPLE5 (STRING "port_declaration_noattr1", dir, kind,
     TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt4",
       TUPLE6 (STRING "decl_variable_dimension1", LBRACK, hi, COLON, lo, RBRACK),
       TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id2, EMPTY_TOKEN),
       EMPTY_TOKEN),
     EMPTY_TOKEN) :: tl)
-| TUPLE5 (STRING "port_declaration_noattr1", (Input|Output as dir), EMPTY_TOKEN,
+| TUPLE5 (STRING "port_declaration_noattr1", (Input|Output as dir), (Wire|EMPTY_TOKEN as kind),
     TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt1",
        TUPLE3 (STRING "data_type_primitive1",
 	 TUPLE3 (STRING "data_type_primitive_scalar1", Logic, EMPTY_TOKEN),
@@ -487,7 +490,7 @@ and rw'' = function
    TUPLE3 (STRING "port1",
      TUPLE3 (STRING "port_reference1",
        TUPLE3 (STRING "unqualified_id1", SymbolIdentifier b, EMPTY_TOKEN), EMPTY_TOKEN), EMPTY_TOKEN) :: tl ->
-  TUPLE5 (STRING "port_declaration_noattr1", dir, EMPTY_TOKEN,
+  TUPLE5 (STRING "port_declaration_noattr1", dir, kind,
     TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt1",
        TUPLE3 (STRING "data_type_primitive1",
 	 TUPLE3 (STRING "data_type_primitive_scalar1", Logic, EMPTY_TOKEN),
@@ -496,7 +499,7 @@ and rw'' = function
        EMPTY_TOKEN),
      EMPTY_TOKEN) ::
    COMMA :: rw'' (
-  TUPLE5 (STRING "port_declaration_noattr1", dir, EMPTY_TOKEN,
+  TUPLE5 (STRING "port_declaration_noattr1", dir, kind,
     TUPLE4 (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt1",
        TUPLE3 (STRING "data_type_primitive1",
 	 TUPLE3 (STRING "data_type_primitive_scalar1", Logic, EMPTY_TOKEN),
@@ -504,4 +507,26 @@ and rw'' = function
        TUPLE3 (STRING "unqualified_id1", SymbolIdentifier b, EMPTY_TOKEN),
        EMPTY_TOKEN),
      EMPTY_TOKEN) :: tl)
+| TUPLE5 (STRING "port_declaration_noattr1", (Input|Output as dir), (Wire|EMPTY_TOKEN as kind),
+    TUPLE3 (STRING "type_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt4",
+      TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id1,
+	EMPTY_TOKEN),
+      EMPTY_TOKEN),
+    EMPTY_TOKEN) :: COMMA ::
+    TUPLE3 (STRING "port1", TUPLE3 (STRING "port_reference1",
+                TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id2, EMPTY_TOKEN),
+                EMPTY_TOKEN),
+		   EMPTY_TOKEN) :: tl ->
+    TUPLE5 (STRING "port_declaration_noattr1", dir, kind,
+      TUPLE3 (STRING "type_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt4",
+        TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id1,
+	  EMPTY_TOKEN),
+      EMPTY_TOKEN),
+    EMPTY_TOKEN) :: COMMA :: rw'' (
+    TUPLE5 (STRING "port_declaration_noattr1", dir, kind,
+      TUPLE3 (STRING "type_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt4",
+        TUPLE3 (STRING "unqualified_id1", SymbolIdentifier id2,
+	  EMPTY_TOKEN),
+      EMPTY_TOKEN),
+      EMPTY_TOKEN) :: tl)
 | oth :: tl -> oth :: rw'' tl
