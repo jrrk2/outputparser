@@ -28,6 +28,8 @@ type othtran =
           | Vcond_expr of othtran * othtran * othtran
           | Vconditional_generate_construct1 of othtran * othtran * othtran
           | Vconditional_generate_construct2 of othtran * othtran
+          | Vconditional_generate_construct3 of othtran * othtran
+          | Vgenerate_case_items1 of othtran
           | Vconditional_statement1 of othtran * othtran
           | Vconditional_statement2 of othtran * othtran * othtran
           | Vcont_assign1 of othtran * othtran
@@ -82,14 +84,14 @@ type othtran =
           | Vlteq_expr of othtran * othtran
           | Vml_start1 of othtran
           | Vmod_expr of othtran * othtran
-          | Vmodule_or_interface_declaration1 of string * othtran * othtran
-          | Vmodule_parameter_port1
-          | Vmodule_parameter_port2
+          | Vmodule_or_interface_declaration1 of string * othtran * othtran * othtran
+          | Vmodule_parameter_port1 of othtran * othtran
+          | Vmodule_parameter_port2 of othtran * othtran
           | Vmodule_parameter_port_list_item_last1 of othtran
           | Vmodule_port_declaration3 of othtran * othtran * othtran * othtran
           | Vmodule_port_declaration5 of othtran * othtran * othtran
           | Vmodule_port_declaration7_reg of othtran * othtran * string
-          | Vmodule_port_list_opt1 of othtran * othtran * othtran
+          | Vmodule_parameter_port_list_opt1 of othtran
           | Vmul_expr of othtran * othtran
           | Vnet_declaration1
           | Vnet_declaration2
@@ -155,6 +157,7 @@ type othtran =
           | Vunqualified_id1 of string * othtran
           | Vxor_expr of othtran * othtran
           | Vtype_declaration1 of othtran * othtran
+          | Venum_data_type1 of othtran
           | Venum_data_type2 of othtran * othtran
           | Venum_name_list_trailing_comma1 of othtran
           | Venum_name_list_item_last1 of othtran * othtran
@@ -189,6 +192,7 @@ let fail' msg = function
       | Vcond_expr _ -> failwith (msg^": cond_expr")
       | Vconditional_generate_construct1 _ -> failwith (msg^": conditional_generate_construct1")
       | Vconditional_generate_construct2 _ -> failwith (msg^": conditional_generate_construct2")
+      | Vconditional_generate_construct3 _ -> failwith (msg^": conditional_generate_construct3")
       | Vconditional_statement1 _ -> failwith (msg^": conditional_statement1")
       | Vconditional_statement2 _ -> failwith (msg^": conditional_statement2")
       | Vcont_assign1 _ -> failwith (msg^": cont_assign1")
@@ -219,6 +223,7 @@ let fail' msg = function
       | Vfunction_declaration1 -> failwith (msg^": function_declaration1")
       | Vgate_instance_or_register_variable1 othtran -> failwith (msg^": gate_instance_or_register_variable1")
       | Vgenerate_block1 _ -> failwith (msg^": generate_block1")
+      | Vgenerate_case_items1 _ -> failwith (msg^": generate_case_items1")
       | Vgenerate_if1 _ -> failwith (msg^": generate_if1")
       | Vgenerate_region1 _ -> failwith (msg^": generate_region1")
       | Vgt_expr _ -> failwith (msg^": gt_expr")
@@ -244,13 +249,13 @@ let fail' msg = function
       | Vml_start1 _ -> failwith (msg^": ml_start1")
       | Vmod_expr _ -> failwith (msg^": mod_expr")
       | Vmodule_or_interface_declaration1 _ -> failwith (msg^": module_or_interface_declaration1 (string, ")
-      | Vmodule_parameter_port1 -> failwith (msg^": module_parameter_port1")
-      | Vmodule_parameter_port2 -> failwith (msg^": module_parameter_port2")
+      | Vmodule_parameter_port1 _ -> failwith (msg^": module_parameter_port1")
+      | Vmodule_parameter_port2 _ -> failwith (msg^": module_parameter_port2")
       | Vmodule_parameter_port_list_item_last1 _ -> failwith (msg^": module_parameter_port_list_item_last1")
       | Vmodule_port_declaration3 _ -> failwith (msg^": module_port_declaration3")
       | Vmodule_port_declaration5 _ -> failwith (msg^": module_port_declaration5")
       | Vmodule_port_declaration7_reg _ -> failwith (msg^": module_port_declaration7_reg")
-      | Vmodule_port_list_opt1 _ -> failwith (msg^": module_port_list_opt1")
+      | Vmodule_parameter_port_list_opt1 _ -> failwith (msg^": module_parameter_port_list_opt1")
       | Vmul_expr _ -> failwith (msg^": mul_expr")
       | Vnet_declaration1 -> failwith (msg^": net_declaration1")
       | Vnet_declaration2 -> failwith (msg^": net_declaration2")
@@ -316,12 +321,14 @@ let fail' msg = function
       | Vunqualified_id1 _ -> failwith (msg^": unqualified_id1 (string, ")
       | Vxor_expr _ -> failwith (msg^": xor_expr")
       | Vtype_declaration1 _ -> failwith (msg^": type_declaration1")
+      | Venum_data_type1 _ -> failwith (msg^": enum_data_type1")
       | Venum_data_type2 _ -> failwith (msg^": enum_data_type2")
       | Venum_name_list_item_last1 _ -> failwith (msg^": enum_name_list_item_last1")
       | Venum_name_list_trailing_comma1 _ -> failwith (msg^": enum_name_list_trailing_list")
 
 let seqlst = ref []
 let othpat' = ref End_of_file
+let othpar' = ref End_of_file
 let othloop = ref []
 let othpatlst = ref []
 let othtran = ref Vempty
@@ -330,6 +337,10 @@ let othexp' = ref []
 let othseq = ref []
 let othseq' = ref []
 let othcnst = ref (Input_types.CNST (32, ERR ""), Input_types.CNST (32, ERR ""))
+let otha = ref (None, None)
+let othitms' = ref (Input_dump.empty_itms [])
+let othparam = ref None
+let othparamlst = ref None
 let fail msg x = othtran := x; fail' msg x
 
 let rec pat' = function
@@ -368,10 +379,18 @@ let rec pat' = function
    SEMICOLON) -> Vany_param_declaration4 (pat param_type_followed_by_id_and_dimensions_opt2, pat expr')
 | TUPLE5 (STRING "param_type_followed_by_id_and_dimensions_opt3", EMPTY_TOKEN,
          EMPTY_TOKEN, unqualified_id1, EMPTY_TOKEN)  -> (Vparam_type_followed_by_id_and_dimensions_opt3 (pat unqualified_id1))
-| TUPLE5 (STRING "conditional_generate_construct1", expr,
-   generate_block1, Else, conditional_generate_construct1) -> Vconditional_generate_construct1 (pat expr, pat generate_block1, pat conditional_generate_construct1)
-| TUPLE5 (STRING "conditional_statement1", EMPTY_TOKEN, If,
-   expression_in_parens1, seq_block1) -> (Vconditional_statement1 (pat expression_in_parens1, pat seq_block1))
+| TUPLE5 (STRING "conditional_generate_construct1", expr, generate_block1, Else, conditional_generate_construct1) ->
+  Vconditional_generate_construct1 (pat expr, pat generate_block1, pat conditional_generate_construct1)
+| TUPLE3 (STRING "conditional_generate_construct2", expr, generate_block1) -> Vconditional_generate_construct2 (pat expr, pat generate_block1)
+| TUPLE7 (STRING "conditional_generate_construct3", Case, LPAREN, expr, RPAREN, generate_case_items1, Endcase) ->
+  Vconditional_generate_construct3 (pat expr, pat generate_case_items1)
+| TUPLE3 (STRING "generate_case_items1",
+    TUPLE3 (STRING "generate_case_items1",
+		   TUPLE4 (STRING "generate_case_item1", caselbl, COLON, generate_block1), arg3),
+		   TUPLE4 (STRING "generate_case_item2", Default, COLON, generate_dflt)) ->
+  Vgenerate_case_items1 (pat generate_block1)
+| TUPLE5 (STRING "conditional_statement1", EMPTY_TOKEN, If, expression_in_parens1, seq_block1) -> 
+  Vconditional_statement1 (pat expression_in_parens1, pat seq_block1)
 | TUPLE5 (STRING "event_control2", AT, LPAREN, TLIST lst, RPAREN) -> (Vevent_control2 (patlst lst))
 | TUPLE5 (STRING "net_declaration2", Wire,
        TUPLE3
@@ -432,8 +451,6 @@ let rec pat' = function
 | TUPLE4 (STRING "generate_block1", begin1,
   TLIST lst, TUPLE3 (STRING "end1", End, EMPTY_TOKEN)) -> (Vgenerate_block1 (pat begin1, (patlst lst)))
 | TUPLE4 (STRING "generate_region1", Generate, TLIST lst, Endgenerate) -> (Vgenerate_region1 (patlst lst))
-| TUPLE4 (STRING "module_parameter_port1", Parameter, param,
-    TUPLE4 (STRING "trailing_assign1", EQUALS, TK_DecNumber num, EMPTY_TOKEN)) -> Vmodule_parameter_port1
 | TUPLE4 (STRING "net_declaration1", Wire,
       TUPLE4 (STRING "net_decl_assign1", SymbolIdentifier id, EQUALS,
         unary_prefix_expr2),
@@ -475,16 +492,14 @@ let rec pat' = function
    TLIST lst) -> (Vinstantiation_base1_reg (patlst lst))
 | TUPLE3 (STRING "instantiation_base1", unqualified_id1, TLIST lst) -> Vinstantiation_base1 (pat unqualified_id1, patlst' lst)
 | TUPLE3 (STRING "ml_start1", TLIST lst, End_of_file) -> (Vml_start1 (patlst lst))
-   | TUPLE3 (STRING "module_parameter_port_list_item_last1",
-      TUPLE3 (STRING "module_parameter_port_list_trailing_comma1", TLIST lst, COMMA),
-      TUPLE4 (STRING "module_parameter_port1", Parameter,
-        param_type_followed_by_id_and_dimensions_opt4,
-        TUPLE4 (STRING "trailing_assign1", EQUALS,
-          hex_based_number1,
-       EMPTY_TOKEN))) -> (Vmodule_parameter_port_list_item_last1 (patlst lst))
-   | TUPLE3 (STRING "module_parameter_port_list_item_last1",
-      TUPLE3 (STRING "module_parameter_port_list_trailing_comma1", TLIST lst, COMMA),
-   TUPLE4 (STRING "module_parameter_port2", Parameter, Type, type_assignment1)) -> (Vmodule_parameter_port_list_item_last1 (patlst lst))
+| TUPLE3 (STRING "module_parameter_port_list_item_last1",
+TUPLE3 (STRING "module_parameter_port_list_trailing_comma1", TLIST lst, COMMA), nxt) ->
+  Vmodule_parameter_port_list_item_last1 (patlst (nxt :: lst))
+(*
+ | TUPLE3 (STRING "module_parameter_port_list_item_last1",
+      TUPLE3 (STRING "module_parameter_port_list_trailing_comma1", TLIST lst, COMMA), nxt) ->
+  Vmodule_parameter_port_list_item_last1 (patlst (nxt :: lst))
+*)
 | TUPLE3 (STRING "net_variable1", SymbolIdentifier id, EMPTY_TOKEN) -> Vnet_variable1
 | TUPLE3 (STRING "parameter_value_byname_list_item_last2",
       TUPLE3 (STRING "parameter_value_byname_list_trailing_comma1", TLIST lst, COMMA),
@@ -520,20 +535,25 @@ let rec pat' = function
 | TUPLE12 (STRING "module_or_interface_declaration1", Module, EMPTY_TOKEN,
       SymbolIdentifier id, EMPTY_TOKEN, EMPTY_TOKEN,
       TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst, RPAREN),
-   EMPTY_TOKEN, SEMICOLON, EMPTY_TOKEN, Endmodule, EMPTY_TOKEN) -> (Vmodule_or_interface_declaration1 (id, patlst lst, Vtlist []))
+   EMPTY_TOKEN, SEMICOLON, EMPTY_TOKEN, Endmodule, EMPTY_TOKEN) -> (Vmodule_or_interface_declaration1 (id, Vempty, patlst lst, Vtlist []))
 | TUPLE12 (STRING "module_or_interface_declaration1", Module, EMPTY_TOKEN,
       SymbolIdentifier id, EMPTY_TOKEN, EMPTY_TOKEN,
       TUPLE4 (STRING "module_port_list_opt1", LPAREN, EMPTY_TOKEN, RPAREN),
-   EMPTY_TOKEN, SEMICOLON, TLIST lst', Endmodule, EMPTY_TOKEN) -> (Vmodule_or_interface_declaration1 (id, Vtlist [], patlst lst'))
+   EMPTY_TOKEN, SEMICOLON, TLIST lst', Endmodule, EMPTY_TOKEN) -> Vmodule_or_interface_declaration1 (id, Vempty, Vtlist [], patlst lst')
 | TUPLE12 (STRING "module_or_interface_declaration1", Module, EMPTY_TOKEN,
       SymbolIdentifier id, EMPTY_TOKEN, EMPTY_TOKEN,
       TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst, RPAREN),
-   EMPTY_TOKEN, SEMICOLON, TLIST lst', Endmodule, EMPTY_TOKEN) -> (Vmodule_or_interface_declaration1 (id, patlst lst, patlst lst'))
+   EMPTY_TOKEN, SEMICOLON, TLIST lst', Endmodule, EMPTY_TOKEN) -> Vmodule_or_interface_declaration1 (id, Vempty, patlst lst, patlst lst')
 | TUPLE12 (STRING "module_or_interface_declaration1", Module, EMPTY_TOKEN,
-      SymbolIdentifier id, EMPTY_TOKEN,
-      TUPLE5 (STRING "module_parameter_port_list_opt1", HASH, LPAREN, TLIST lst, RPAREN),
-      TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst', RPAREN),
-   EMPTY_TOKEN, SEMICOLON, TLIST lst'', Endmodule, EMPTY_TOKEN) -> (Vmodule_port_list_opt1 (patlst lst, patlst lst', patlst lst''))
+      SymbolIdentifier id, EMPTY_TOKEN, param,
+      TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst, RPAREN),
+   EMPTY_TOKEN, SEMICOLON, TLIST lst', Endmodule, EMPTY_TOKEN) ->
+  othpar' := param;
+  Vmodule_or_interface_declaration1 (id, pat param, patlst lst, patlst lst')
+| TUPLE5 (STRING "module_parameter_port_list_opt1", HASH, LPAREN, TLIST lst, RPAREN) ->
+  let lst' = patlst lst in
+  othparamlst := Some lst';
+  Vmodule_parameter_port_list_opt1 (lst')
 | TUPLE6 (STRING "cast1", data_type_primitive1, QUOTE, LPAREN, reference3, RPAREN) -> Vcast1
 | TK_DecNumber num -> Vdec_num num
 | SymbolIdentifier id -> Vident id
@@ -600,22 +620,12 @@ let rec pat' = function
 		 Vtype_identifier_or_implicit_basic_followed_by_id_and_dimensions_opt2 (pat unqualified_id1, pat unqualified_id2)
 | TUPLE4 (STRING "generate_block1", begin1, EMPTY_TOKEN,
    TUPLE3 (STRING "end1", End, EMPTY_TOKEN)) -> (Vgenerate_block1 (pat begin1, Vtlist []))
-   | TUPLE4 (STRING "jump_statement4", Return, unqualified_id1, SEMICOLON) -> Vjump_statement4
-   | TUPLE4 (STRING "module_parameter_port1", Parameter,
-      TUPLE6 (STRING "param_type_followed_by_id_and_dimensions_opt5", Int,
-        EMPTY_TOKEN, EMPTY_TOKEN, SymbolIdentifier _, EMPTY_TOKEN),
-      TUPLE4 (STRING "trailing_assign1", EQUALS, unary_prefix_expr2,
-     EMPTY_TOKEN)) -> Vmodule_parameter_port1
-   | TUPLE4 (STRING "module_parameter_port1", Parameter,
-      param_type_followed_by_id_and_dimensions_opt4,
-      TUPLE4 (STRING "trailing_assign1", EQUALS, bin_based_number1,
-     EMPTY_TOKEN)) -> Vmodule_parameter_port1
-   | TUPLE4 (STRING "module_parameter_port2", Parameter, Type,
-      TUPLE4 (STRING "type_assignment1", SymbolIdentifier _, EQUALS,
-        TUPLE3 (STRING "data_type_primitive1",
-          TUPLE3 (STRING "data_type_primitive_scalar1", Logic, EMPTY_TOKEN),
-       EMPTY_TOKEN))) -> Vmodule_parameter_port2
-   | TUPLE4 (STRING "port_declaration_noattr4",
+| TUPLE4 (STRING "jump_statement4", Return, unqualified_id1, SEMICOLON) -> Vjump_statement4
+| TUPLE4 (STRING "module_parameter_port1", Parameter, param,
+    TUPLE4 (STRING "trailing_assign1", EQUALS, rhs, EMPTY_TOKEN)) -> Vmodule_parameter_port1 (pat param, pat rhs)
+| TUPLE4 (STRING "module_parameter_port2", Parameter, Type,
+      TUPLE4 (STRING "type_assignment1", lhs, EQUALS, rhs)) -> Vmodule_parameter_port2 (pat lhs, pat rhs)
+| TUPLE4 (STRING "port_declaration_noattr4",
       TUPLE6 (STRING "type_identifier_followed_by_id3", unqualified_id1, DOT,
         SymbolIdentifier _, EMPTY_TOKEN, SymbolIdentifier _),
    EMPTY_TOKEN, EMPTY_TOKEN) -> Vport_declaration_noattr4
@@ -648,10 +658,11 @@ let rec pat' = function
 | TUPLE3 (STRING "label_opt1", COLON, SymbolIdentifier id) -> Vlabel_opt1 id
 | TUPLE3 (STRING "begin1", Begin, label) -> Vbegin1 (pat label)
 | TUPLE3 (STRING "generate_if1", If, expression_in_parens1) -> Vgenerate_if1 (pat expression_in_parens1)
-| TUPLE3 (STRING "conditional_generate_construct2", expr, generate_block1) -> Vconditional_generate_construct2 (pat expr, pat generate_block1)
 | TUPLE3 (STRING "data_type_primitive_scalar1", Reg, EMPTY_TOKEN) -> Vdata_type_primitive_scalar1_reg
 | TUPLE3 (STRING "data_type_primitive_scalar1", Logic, EMPTY_TOKEN) -> Vdata_type_primitive_scalar1_logic
 | TUPLE3 (STRING "data_type_primitive1", prim, dim) -> Vdata_type_primitive1 (pat prim, pat dim)
+| TUPLE5 (STRING "enum_data_type1", Enum, LBRACE, TLIST enum_name_list_item, RBRACE) ->
+  Venum_data_type1 (patlst enum_name_list_item)
 | TUPLE6 (STRING "enum_data_type2", Enum, data_type_primitive1, LBRACE, TLIST enum_name_list_item, RBRACE) ->
   Venum_data_type2 (pat data_type_primitive1, patlst enum_name_list_item)
 | TUPLE3 (STRING "enum_name_list_item_last1", enum_name_list_trailing_comma1, id) ->
@@ -665,16 +676,14 @@ let rec pat' = function
 | TUPLE3 (STRING "hierarchy_extension1", DOT, unqualified_id2) -> Vhierarchy_extension1 (pat unqualified_id2)
 | TUPLE3 (STRING "reference3", unqualified_id1, dim) -> Vreference3 (pat unqualified_id1, pat dim)
 | TUPLE12 (STRING "module_or_interface_declaration1", Module, EMPTY_TOKEN,
-      SymbolIdentifier id, EMPTY_TOKEN,
-      TUPLE5 (STRING "module_parameter_port_list_opt1", HASH, LPAREN, TLIST lst, RPAREN),
-      TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst', RPAREN),
-      EMPTY_TOKEN, SEMICOLON, TLIST lst'', Endmodule,
-   TUPLE3 (STRING "label_opt1", COLON, SymbolIdentifier _)) -> (Vmodule_or_interface_declaration1 (id, patlst lst, patlst lst'))
+      SymbolIdentifier id, EMPTY_TOKEN, params,
+      TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst, RPAREN),
+      EMPTY_TOKEN, SEMICOLON, TLIST lst', Endmodule,
+   TUPLE3 (STRING "label_opt1", COLON, SymbolIdentifier _)) -> Vmodule_or_interface_declaration1 (id, pat params, patlst lst, patlst lst')
 | TUPLE12 (STRING "module_or_interface_declaration1", Interface, EMPTY_TOKEN,
-      SymbolIdentifier id, EMPTY_TOKEN,
-      TUPLE5 (STRING "module_parameter_port_list_opt1", HASH, LPAREN, TLIST lst, RPAREN),
-      TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst', RPAREN),
-   EMPTY_TOKEN, SEMICOLON, EMPTY_TOKEN, Endinterface, EMPTY_TOKEN) -> (Vmodule_or_interface_declaration1 (id, patlst lst, patlst lst'))
+      SymbolIdentifier id, EMPTY_TOKEN, params,
+      TUPLE4 (STRING "module_port_list_opt1", LPAREN, TLIST lst, RPAREN),
+   EMPTY_TOKEN, SEMICOLON, EMPTY_TOKEN, Endinterface, EMPTY_TOKEN) -> Vmodule_or_interface_declaration1 (id, pat params, patlst lst, patlst [])
 | TUPLE11 (STRING "function_declaration1", Function, EMPTY_TOKEN,
       TUPLE4
        (STRING "data_type_or_implicit_basic_followed_by_id_and_dimensions_opt5",
@@ -760,6 +769,8 @@ and patlst lst = Vtlist (List.map pat lst)
 
 and patlst' lst = Vtlist (List.map (function
   | TUPLE4 (STRING "non_anonymous_gate_instance_or_register_variable1", SymbolIdentifier s, EMPTY_TOKEN, EMPTY_TOKEN) -> Vident s
+  | TUPLE4 (STRING "non_anonymous_gate_instance_or_register_variable1", SymbolIdentifier mem, decl_variable_dimension1, EMPTY_TOKEN) ->
+    Vident mem
   | TUPLE4 (STRING "gate_instance_or_register_variable1", SymbolIdentifier s, EMPTY_TOKEN, EMPTY_TOKEN) -> Vident s
   | oth -> othpat' := oth; failwith "patlst'") lst)
 
@@ -776,6 +787,13 @@ let trandir  = function
 | oth -> fail "trandir" oth
 
 let addio (itms:Input_types.itms) (id, itm) = if not (List.mem_assoc id !(itms.io)) then itms.io := (id, itm) :: !(itms.io)
+
+let param' (itms:Input_types.itms) id =
+let eval = ref None in
+  List.iter (function (id_t, (_, (w, Dump_types.HEX n))) ->
+    if id = id_t then eval := Some (w, Dump_types.HEX n)
+   | oth -> ()) !(itms.cnst);
+  !eval
 
 let enum' (itms:Input_types.itms) id =
 let eval = ref None in
@@ -796,7 +814,9 @@ let enum'' itms id = match enum' itms id with
 
 let rec tran (itms:Input_types.itms) modnam = function
 | Vml_start1 (Vtlist modlst) -> List.iter (tran itms modnam) modlst 
-| Vmodule_or_interface_declaration1 (modnam', Vtlist declst, Vtlist bodylst) ->
+| Vmodule_or_interface_declaration1 (modnam', params, Vtlist declst, Vtlist bodylst) ->
+    othparam := Some params;
+    if params <> Vempty then tran itms modnam params;
     modnam := modnam';
     List.iter (tran itms modnam) (List.rev declst);
     List.iter (tran itms modnam) bodylst
@@ -813,7 +833,11 @@ let rec tran (itms:Input_types.itms) modnam = function
 | Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control2 (Vtlist
              [Vevent_expression_posedge (Vunqualified_id1 (clk, Vempty))]), body)) -> 
     itms.alwys := ("", Input_types.POSEDGE clk, tranlst'' itms body) :: !(itms.alwys)
-    | Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control4, Vseq_block1 (Vtlist seq))) ->
+| Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control2 (Vtlist
+             (Vevent_expression_posedge (Vunqualified_id1 (clk, Vempty)) ::
+              Vevent_expression_posedge (Vunqualified_id1 (rst, Vempty)) :: [])), body)) -> 
+    itms.alwys := ("", Input_types.POSPOS (clk, rst), tranlst'' itms body) :: !(itms.alwys)
+| Valways_construct1 (Vprocedural_timing_control_statement2 (Vevent_control4, Vseq_block1 (Vtlist seq))) ->
     
     itms.alwys := ("", Input_types.COMB, (SNTRE [] :: List.map (tran'' itms) (transeqlst seq))) :: !(itms.alwys)
 | Valways_construct1 (Vseq_block1 (Vtlist seq)) ->
@@ -836,6 +860,8 @@ let rec tran (itms:Input_types.itms) modnam = function
 | Vcontinuous_assign1 (Vtlist lst) -> List.iter (function
     | Vcont_assign1 (lhs, rhs) -> itms.ca := ("", (tran'' itms) lhs, (tran'' itms) rhs) :: !(itms.ca)
     | oth -> fail "cont_assign" oth) lst
+| Vtype_declaration1 (Vdata_type_primitive1 (Venum_data_type1 (Vtlist lst), Vempty), Vident id_t) ->
+  itms.iv := (id_t, ("", (BASDTYP, "logic", TYPNONE, []), List.map tranenum lst, List.length lst)) :: !(itms.iv)
 | Vtype_declaration1 (Vdata_type_primitive1 (Venum_data_type2
        (Vdata_type_primitive1 (Vdata_type_primitive_scalar1_logic, decl_variable_dimension1), Vtlist lst), Vempty),
    Vident id_t) -> itms.iv := (id_t, ("", (BASDTYP, "logic", trantyp itms decl_variable_dimension1, []), List.map tranenum lst, List.length lst)) :: !(itms.iv)
@@ -844,6 +870,18 @@ let (_, typ, _, _) = List.assoc id_t !(itms.iv) in
 List.iter (function 
   | Vident nam ->  itms.v := (nam, ("", typ, id_t, (UNKDTYP, "", TYPNONE, []))) :: !(itms.v)
   | oth -> fail "tran'" oth) lst
+| Vdata_declaration_or_module_instantiation1
+   (Vinstantiation_base1 (Vdata_type_primitive1 (Vdata_type_primitive_scalar1_logic, typ), Vtlist lst)) ->
+List.iter (function 
+  | Vident nam ->  itms.v := (nam, ("", (BASDTYP, "logic", trantyp itms typ, []), nam, (UNKDTYP, "", TYPNONE, []))) :: !(itms.v)
+  | oth -> fail "tran'" oth) lst
+| Vmodule_parameter_port_list_opt1 (Vtlist lst) -> List.iter (tran itms modnam) lst
+| Vmodule_parameter_port_list_item_last1 (Vtlist lst) -> List.iter (tran itms modnam) lst
+| Vmodule_parameter_port1 (Vparam_type_followed_by_id_and_dimensions_opt3 (Vunqualified_id1 (id, Vempty)), rhs) ->
+  print_endline ("param: "^id);
+  itms.cnst := (id, (false, tranp' itms rhs)) :: !(itms.cnst);
+  othitms' := itms;
+| Vconditional_generate_construct3 (expr, generate_case_items1) -> print_endline "conditional_generate_construct3"
 | oth -> fail "tran" oth
 
 and transubst subst = function
@@ -870,6 +908,7 @@ and transubst subst = function
 | Vlteq_expr (lhs, rhs) -> Vlteq_expr (transubst subst lhs, transubst subst rhs)
 | Vplingeq_expr (lhs, rhs) -> Vplingeq_expr (transubst subst lhs, transubst subst rhs)
 | Vunqualified_id1 (_, Vempty) as id -> if Hashtbl.mem subst id then Hashtbl.find subst id else id
+| Vconditional_statement1 (cond, then_) -> Vconditional_statement1 (transubst subst cond, transubst subst then_)
 | Vconditional_statement2 (cond, then_, else_) -> Vconditional_statement2 (transubst subst cond, transubst subst then_, transubst subst else_)
 | Vstatement_item6 stmt -> Vstatement_item6 (transubst subst stmt)
 | Vassignment_statement_no_expr1 (rhs, lhs) -> Vassignment_statement_no_expr1 (transubst subst rhs, transubst subst lhs)
@@ -925,6 +964,7 @@ and tranexpand exattr = function
 | Vlteq_expr (lhs, rhs) -> Vlteq_expr (tranexpand exattr lhs, tranexpand exattr rhs)
 | Vplingeq_expr (lhs, rhs) -> Vplingeq_expr (tranexpand exattr lhs, tranexpand exattr rhs)
 | Vunqualified_id1 (id, Vempty) -> Vunqualified_id1 (id, Vempty)
+| Vconditional_statement1 (cond, then_) -> Vconditional_statement1 (tranexpand exattr cond, tranexpand exattr then_)
 | Vconditional_statement2 (cond, then_, else_) -> Vconditional_statement2 (tranexpand exattr cond, tranexpand exattr then_, tranexpand exattr else_)
 | Vstatement_item6 stmt -> Vstatement_item6 (tranexpand exattr stmt)
 | Vassignment_statement_no_expr1 (rhs, lhs) -> Vassignment_statement_no_expr1 (tranexpand exattr rhs, tranexpand exattr lhs)
@@ -999,10 +1039,19 @@ and tranenum = function
 | Vident id -> SCOPE id
 | oth -> fail "trantyp" oth
 
-and tran' itms = function
-| Vdec_num s -> HEX (int_of_string s)
-| Vunqualified_id1 (id, Vempty) -> (match enum' itms id with None -> failwith ("tran': "^id) | Some (_,x) -> x)
+and tranp' itms = function
+| Vdec_num s -> 32, HEX (int_of_string s)
+| Vunqualified_id1 (id, Vempty) -> (match enum' itms id, param' itms id with
+    | None, None -> failwith ("tranp': None "^id)
+    | Some (TYPRNG(HEX hi,HEX lo),x), _ -> hi-lo+1, x
+    | _, Some (w, n) -> w, n
+    | _ -> failwith ("tranp': oth "^id))
+| Vsub_expr (lhs, rhs) -> (match tranp' itms lhs, tranp' itms rhs with
+  | (wlhs, HEX lhs), (wrhs, HEX rhs) -> max wlhs wrhs, HEX (lhs-rhs)
+  | lhs, rhs -> otha := (Some lhs, Some rhs); failwith "tranp' expr")
 | oth -> fail "tran'" oth
+
+and tran' itms x = snd (tranp' itms x)
 
 and tranw' itms = function
 | Vdec_num s -> Input_types.CNST(32, HEX (int_of_string s))
@@ -1035,9 +1084,13 @@ and tran'' itms = function
 | Vlteq_expr (lhs, rhs) -> CMP (Clte, (tran'' itms) lhs :: (tran'' itms) rhs :: [])
 | Vplingeq_expr (lhs, rhs) -> CMP (Cneq, (tran'' itms) lhs :: (tran'' itms) rhs :: [])
 | Vunqualified_id1 (id, Vempty) ->
-  (match enum'' itms id with
-    | None -> VRF (id, (BASDTYP, "wire", TYPNONE, []), [])
-    | Some x -> x)
+  (match enum' itms id, param' itms id with
+    | None, None -> VRF (id, (BASDTYP, "wire", TYPNONE, []), [])
+    | Some (TYPRNG(HEX hi,HEX lo),x), _ -> CNST(hi-lo+1, x)
+    | _, Some (w, n) -> CNST(w, n)
+    | _ -> failwith ("tran'': oth "^id))
+| Vconditional_statement1 (Vexpression_in_parens1 cond, then_) ->
+  Input_types.IF ("", (tran'' itms) cond :: (tran'' itms) then_ :: [])
 | Vconditional_statement2 (Vexpression_in_parens1 cond, then_, else_) ->
   Input_types.IF ("", (tran'' itms) cond :: (tran'' itms) then_ :: (tran'' itms) else_ :: [])
 | Vstatement_item6 (Vassignment_statement_no_expr1 (rhs, lhs)) -> ASGN( false, "", (tran'' itms) lhs :: (tran'' itms) rhs :: [])
@@ -1095,7 +1148,8 @@ and trancnst itms = function
 | Vsub_expr (lft, rght) -> (match trancnst itms lft, trancnst itms rght with
     | CNST (wlhs, HEX lhs), CNST (wrhs, HEX rhs) -> CNST (max wlhs wrhs, HEX (lhs-rhs))
     | lft', rght' -> othcnst := (lft', rght'); failwith "subtrancnst'")
-| oth -> fail "trancnst" oth
+| Vunqualified_id1 _ as v -> let w,x = tranp' itms v in CNST (w, x)
+| oth -> othtran := oth; fail "trancnst" oth
 
 and tranlst'' itms = function
 | Vseq_block1 (Vtlist lst) -> List.map ((tran'' itms) ) lst
