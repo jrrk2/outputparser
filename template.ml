@@ -186,7 +186,7 @@ let template toklst gramlst =
       let itm = str^string_of_int i in
       Hashtbl.add termhash itm (true, (String.concat "*" (Array.to_list (Array.make i "token"))));
       if not (List.mem itm !toklst') then toklst' := itm :: !toklst'
-    done) ["TUPLE",2,1 + !maxlen;"CONS",1,5];
+    done) ["TUPLE",2,1 + !maxlen;"CONS",1,9];
     List.iter (fun (typ,itm) -> Hashtbl.add termhash itm (true, typ);
                if not (List.mem itm !toklst') then toklst' := itm :: !toklst')
       [

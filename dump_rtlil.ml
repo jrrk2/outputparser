@@ -1,7 +1,10 @@
-open Source_text_rewrite_types
-open Input_rewrite_types
+(*
 open Source_text_lex
 open Source_text
+*)
+open Input_types
+open Rtlil_input_rewrite_types
+open Source_text_verible_rewrite_types
 open Printf
 
 type mem_opts = {off:int list; siz:int list; wid:int; tot:int}
@@ -37,6 +40,8 @@ type dead =
 | Undecidable
 | Always_false
 | Always_true
+
+let verbose = try int_of_string (Sys.getenv "DUMP_RTLIL_VERBOSE") > 0 with _ -> false
 
 let logf = open_out "logfile.txt"
 
@@ -75,7 +80,7 @@ let print_endline = backtrace
 
 let update typhash id expr = match id with
   | Id id -> (* print_endline id; *) Hashtbl.replace typhash id expr
-  | oth -> failwith ("Argument "^(Source_text_rewrite.getstr oth)^" of update must be Id")
+  | oth -> failwith ("Argument of update must be Id")
   
 let is_mem typhash id = match Hashtbl.find_opt typhash id with Some (Vmem _) -> true | _ -> false
 let mem_opt typhash id = match Hashtbl.find_opt typhash id with Some (Vmem opt) -> opt | _ -> failwith "mem_opt"
@@ -371,7 +376,526 @@ let dbgmem = ref None
 let dbgpar = ref []
 let dbgatom = ref ""
 
-let rec recurs1 (attr: Source_text_rewrite.attr) = function
+type attr = {subst: (rw,rw)Hashtbl.t; fn: attr -> rw -> rw; pth: string}
+
+let getstr = function
+  | Add _ -> "Add"
+  | AlwaysComb _ -> "AlwaysComb"
+  | AlwaysComb2 _ -> "AlwaysComb2"
+  | AlwaysFF _ -> "AlwaysFF"
+  | AlwaysLatch _ -> "AlwaysLatch"
+  | AlwaysLegacy _ -> "AlwaysLegacy"
+  | AlwaysSync -> "AlwaysSync"
+  | And _ -> "And"
+  | And2 _ -> "And2"
+  | And3 _ -> "And3"
+  | AnyRange _ -> "AnyRange"
+  | Asgn1 _ -> "Asgn1"
+  | AsgnPat _ -> "AsgnPat"
+  | Assert -> "Assert"
+  | AssertProperty -> "AssertProperty"
+  | At _ -> "At"
+  | AtStar
+  | Atom _ -> "Atom"
+  | AutoFunDecl _ -> "AutoFunDecl"
+  | BeginBlock _ -> "BeginBlock"
+  | Bitlst _ -> "Bitlst"
+  | BlockItem _ -> "BlockItem"
+  | BreakSemi -> "BreakSemi"
+  | CaretTilde _ -> "CaretTilde"
+  | CaseItm _ -> "CaseItm"
+  | CaseStart _ -> "CaseStart"
+  | CaseStart1 _ -> "CaseStart1"
+  | CaseStartInside _ -> "CaseStartInside"
+  | CaseStartUniq _ -> "CaseStartUniq"
+  | CaseStartUniqInside _ -> "CaseStartUniqInside"
+  | CaseStmt _ -> "CaseStmt"
+  | Cast _ -> "Cast"
+  | CellParamItem2 _ -> "CellParamItem2"
+  | CellParamItem3 _ -> "CellParamItem3"
+  | CellPinItem2 _ -> "CellPinItem2"
+  | CellPinItemImplied _ -> "CellPinItemImplied"
+  | CellPinItemNC _ -> "CellPinItemNC"
+  | Concat _ -> "Concat"
+  | CondGen1 _ -> "CondGen1"
+  | ContAsgn _ -> "ContAsgn"
+  | DeclAsgn _ -> "DeclAsgn"
+  | DeclData _ -> "DeclData"
+  | DeclInt2 _ -> "DeclInt2"
+  | DeclLogic _ -> "DeclLogic"
+  | DeclLogic2 _ -> "DeclLogic2"
+  | DeclModPort _ -> "DeclModPort"
+  | DeclReg _ -> "DeclReg"
+  | Deflt
+  | Div _ -> "Div"
+  | Dot1 _ -> "Dot1"
+  | Dot3 _ -> "Dot3"
+  | DotBus _ -> "DotBus"
+  | Edge _ -> "Edge"
+  | ElabTask _ -> "ElabTask"
+  | ElseStmt _ -> "ElseStmt"
+  | EnumInit _ -> "EnumInit"
+  | Equals _ -> "Equals"
+  | Equals3 _ -> "Equals3"
+  | EqualsQuery _ -> "EqualsQuery"
+  | Equate _ -> "Equate"
+  | EquateArrayField _ -> "EquateArrayField"
+  | EquateConcat _ -> "EquateConcat"
+  | EquateField _ -> "EquateField"
+  | EquateSelect _ -> "EquateSelect"
+  | EquateSelect2 _ -> "EquateSelect2"
+  | EquateSlice _ -> "EquateSlice"
+  | EquateSlicePlus _ -> "EquateSlicePlus"
+  | EventOr _ -> "EventOr"
+  | ExprOKL _ -> "ExprOKL"
+  | ExprQuote1 _ -> "ExprQuote1"
+  | Expression _ -> "Expression"
+  | Final _ -> "Final"
+  | Float _ -> "Float"
+  | FopAsgn _ -> "FopAsgn"
+  | FopAsgn1 _ -> "FopAsgn1"
+  | FopAsgnArrayField _ -> "FopAsgnArrayField"
+  | FopAsgnArrayField2 _ -> "FopAsgnArrayField2"
+  | FopAsgnArrayField3 _ -> "FopAsgnArrayField3"
+  | FopAsgnArrayField4 _ -> "FopAsgnArrayField4"
+  | FopAsgnArrayField5 _ -> "FopAsgnArrayField5"
+  | FopAsgnArrayField6 _ -> "FopAsgnArrayField6"
+  | FopAsgnArrayField7 _ -> "FopAsgnArrayField7"
+  | FopAsgnArrayField8 _ -> "FopAsgnArrayField8"
+  | FopAsgnArrayField9 _ -> "FopAsgnArrayField9"
+  | FopAsgnArrayMemSel _ -> "FopAsgnArrayMemSel"
+  | FopAsgnArrayRange _ -> "FopAsgnArrayRange"
+  | FopAsgnArrayRange2 _ -> "FopAsgnArrayRange2"
+  | FopAsgnArraySel _ -> "FopAsgnArraySel"
+  | FopAsgnArrayWid _ -> "FopAsgnArrayWid"
+  | FopAsgnConcat _ -> "FopAsgnConcat"
+  | ForEach _ -> "ForEach"
+  | ForLoop _ -> "ForLoop"
+  | FunDecl _ -> "FunDecl"
+  | FunGuts _ -> "FunGuts"
+  | FunRef _ -> "FunRef"
+  | FunRef2 _ -> "FunRef2"
+  | GenBlock _ -> "GenBlock"
+  | GenItem _ -> "GenItem"
+  | Genvar _ -> "GenItem"
+  | Greater _ -> "Greater"
+  | GtEq _ -> "GtEq"
+  | HyphenGt _ -> "HyphenGt"
+  | Id _ -> "Id"
+  | IdArrayed1 _ -> "IdArrayed1"
+  | IdArrayed2 _ -> "IdArrayed2"
+  | IdArrayed3 _ -> "IdArrayed3"
+  | IdArrayedColon _ -> "IdArrayedColon"
+  | IdArrayedHyphenColon _ -> "IdArrayedHyphenColon"
+  | IdArrayedPlusColon _ -> "IdArrayedPlusColon"
+  | If1 _ -> "If1"
+  | If2 _ -> "If2"
+  | Iff _ -> "Iff"
+  | Import _ -> "Import"
+  | In
+  | Inc _ -> "Inc"
+  | InitPair _ -> "InitPair"
+  | InitPat _ -> "InitPat"
+  | InitSig _ -> "InitSig"
+  | Initial _ -> "Initial"
+  | Inout
+  | InsideCase _ -> "InsideCase"
+  | InsideRange _ -> "InsideRange"
+  | InstArrayDecl _ -> "InstArrayDecl"
+  | InstDecl _ -> "InstDecl"
+  | InstNameParen1 _ -> "InstNameParen1"
+  | InstNameParen2 _ -> "InstNameParen2"
+  | InstRange _ -> "InstRange"
+  | IntfDecl _ -> "IntfDecl"
+  | Intgr _ -> "Intgr"
+  | ItemAsgn _ -> "ItemAsgn"
+  | Itmlst _ -> "Itmlst"
+  | Less _ -> "Less"
+  | LocalParamTyp _ -> "LocalParamTyp"
+  | Logic _ -> "Logic"
+  | LoopGen1 _ -> "LoopGen1"
+  | LtEq _ -> "LtEq"
+  | LtGt _ -> "LtGt"
+  | Mod _ -> "Mod"
+  | ModPortItm _ -> "ModPortItm"
+  | Modul _ -> "Modul"
+  | Mult _ -> "Mult"
+  | Nand _ -> "Nand"
+  | Neg _ -> "Neg"
+  | NetDecl _ -> "NetDecl"
+  | NonBlocking _ -> "NonBlocking"
+  | Nor _ -> "Nor"
+  | NotEq _ -> "NotEq"
+  | NotEq3 _ -> "NotEq3"
+  | NotEqQuery _ -> "NotEqQuery"
+  | Number _ -> "Number"
+  | OpenRange _ -> "OpenRange"
+  | Or _ -> "Or"
+  | Or2 _ -> "Or2"
+  | Out
+  | PackageBody _ -> "PackageBody"
+  | PackageParam _ -> "PackageParam"
+  | PackageParam2 _ -> "PackageParam2"
+  | Param _ -> "Param"
+  | ParamAsgn1 _ -> "ParamAsgn1"
+  | ParamAsgn2 _ -> "ParamAsgn2"
+  | ParamDecl _ -> "ParamDecl"
+  | ParamPort _ -> "ParamPort"
+  | PatMember1 _ -> "PatMember1"
+  | PatMemberDflt _ -> "PatMemberDflt"
+  | PkgImport _ -> "PkgImport"
+  | PkgImportItm _ -> "PkgImportItm"
+  | Pling _ -> "Pling"
+  | Port _ -> "Port"
+  | PortDir _ -> "PortDir"
+  | PortFront _ -> "PortFront"
+  | PortItem _ -> "PortItem"
+  | PortItemFront _ -> "PortItemFront"
+  | PortItemFront2 _ -> "PortItemFront2"
+  | PortsStar _ -> "PortsStar"
+  | Pos _ -> "Pos"
+  | PropertySpec -> "PropertySpec"
+  | Query _ -> "Query"
+  | RedAnd _ -> "RedAnd"
+  | RedOr _ -> "RedOr"
+  | RedXor _ -> "RedXor"
+  | Repl _ -> "Repl"
+  | Return _ -> "Return"
+  | SUDecl _ -> "SUDecl"
+  | SUMember _ -> "SUMember"
+  | Seq _ -> "Seq"
+  | Shiftl _ -> "Shiftl"
+  | Shiftr _ -> "Shiftr"
+  | Shiftr3 _ -> "Shiftr3"
+  | SideEffect _ -> "SideEffect"
+  | Signed _ -> "Signed"
+  | StarStar _ -> "StarStar"
+  | Blocking _ -> "Blocking"
+  | String _ -> "String"
+  | Sub _ -> "Sub"
+  | Sys _ -> "Sys"
+  | SysFuncCall _ -> "SysFuncCall"
+  | SysTaskCall _ -> "SysTaskCall"
+  | TFBody _ -> "TFBody"
+  | TF_port_decl _ -> "TF_port_decl"
+  | TF_variable _ -> "TF_variable"
+  | TaskDecl _ -> "TaskDecl"
+  | TaskRef _ -> "TaskRef"
+  | SysTaskRef _ -> "SysTaskRef"
+  | Tilde _ -> "Tilde"
+  | TildeAnd _ -> "TildeAnd"
+  | TildeOr _ -> "TildeOr"
+  | Typ1 _ -> "Typ1"
+  | Typ2 _ -> "Typ2"
+  | Typ3 _ -> "Typ3"
+  | Typ4 _ -> "Typ4"
+  | Typ5 _ -> "Typ5"
+  | Typ6 _ -> "Typ6"
+  | Typ7 _ -> "Typ7"
+  | Typ8 _ -> "Typ8"
+  | Typ9 _ -> "Typ9"
+  | Typ10 _ -> "Typ10"
+  | TypEnum3 _ -> "TypEnum3"
+  | TypEnum4 _ -> "TypEnum4"
+  | TypEnum5 _ -> "TypEnum5"
+  | TypEnum6 _ -> "TypEnum6"
+  | TypParam _ -> "TypParam"
+  | UMinus _ -> "UMinus"
+  | UPlus _ -> "UPlus"
+  | Unimplemented _ -> "Unimplemented"
+  | Union _ -> "Union"
+  | Unknown _ -> "Unknown"
+  | Unsigned _ -> "Unsigned"
+  | VNum _ -> "VNum"
+  | ValueRange _ -> "ValueRange"
+  | VarDeclAsgn _ -> "VarDeclAsgn"
+  | VarDim _ -> "VarDim"
+  | While _ -> "While"
+  | WireExpr _ -> "WireExpr"
+  | Xnor _ -> "Xnor"
+  | Xor _ -> "Xor"
+
+let widthnum (str:string) =
+let base = ref 10
+and width = ref 0
+and value = ref 0
+and basing = ref 0
+and converting = ref true in
+for idx = 0 to String.length(str)-1 do let ch = Char.lowercase_ascii(str.[idx]) in begin
+match ch with
+| ' ' -> ()
+| '_' -> ()
+| '?' -> value := !value * !base
+| '\'' -> converting := false; basing := idx+1;
+| '0'..'9' -> if (!converting) then
+    width := (!width * !base) + int_of_char(ch) - int_of_char('0')
+else
+    value := (!value * !base) + int_of_char(ch) - int_of_char('0')
+| 'a'..'z' ->  if (!converting) then
+    width := (!width * !base) + int_of_char(ch) - int_of_char('a') + 10
+else if (!basing==idx) then begin match ch with
+  | 'b' -> base := 2
+  | 'd' -> base := 10
+  | 'o' -> base := 8
+  | 'h' -> base := 16
+  | _ -> value := int_of_char(ch) - int_of_char('a') + 10
+end else
+    value := (!value * !base) + int_of_char(ch) - int_of_char('a') + 10;
+| _ -> converting := false; width := 0
+end
+done;
+if (!basing == 0) then begin
+  value := !width;
+  width := 32;
+end;
+Number (!base, !width, !value, (String.sub str (1 + !basing) (String.length str - 1 - !basing)))
+
+let rec descend' (attr:attr) = function
+  | Add(rw1, rw2) -> Add(descend_itm attr rw1, descend_itm attr rw2)
+  | AlwaysComb(rw_lst1) -> AlwaysComb(descend_lst attr rw_lst1)
+  | AlwaysComb2(rw1) -> AlwaysComb2(descend_itm attr rw1)
+  | AlwaysFF(rw1, rw2) -> AlwaysFF(descend_itm attr rw1, descend_itm attr rw2)
+  | AlwaysLatch(rw1) -> AlwaysLatch(descend_itm attr rw1)
+  | AlwaysLegacy(rw1, rw2) -> AlwaysLegacy(descend_itm attr rw1, descend_itm attr rw2)
+  | AlwaysSync -> AlwaysSync
+  | And(rw1, rw2) -> And(descend_itm attr rw1, descend_itm attr rw2)
+  | And2(rw1, rw2) -> And2(descend_itm attr rw1, descend_itm attr rw2)
+  | And3(rw1, rw2) -> And3(descend_itm attr rw1, descend_itm attr rw2)
+  | AnyRange(rw1, rw2) -> AnyRange(descend_itm attr rw1, descend_itm attr rw2)
+  | Asgn1(rw1, rw2) -> Asgn1(descend_itm attr rw1, descend_itm attr rw2)
+  | AsgnPat(rw_lst1) -> AsgnPat(descend_lst attr rw_lst1)
+  | Assert -> Assert
+  | AssertProperty -> AssertProperty
+  | At(rw1) -> At(descend_itm attr rw1)
+  | AtStar -> AtStar
+  | Atom(string1) -> Atom(string1)
+  | AutoFunDecl(string1, rw2, rw3) -> AutoFunDecl(string1, descend_itm attr rw2, descend_itm attr rw3)
+  | BeginBlock(rw_lst1) -> BeginBlock(descend_lst attr rw_lst1)
+  | Bitlst(rw_lst1) -> Bitlst(descend_lst attr rw_lst1)
+  | BlockItem(rw1) -> BlockItem(descend_itm attr rw1)
+  | Blocking(rw1) -> Blocking(descend_itm attr rw1)
+  | BreakSemi -> BreakSemi
+  | CaretTilde(rw1) -> CaretTilde(descend_itm attr rw1)
+  | CaseItm(rw_lst1) -> CaseItm(descend_lst attr rw_lst1)
+  | CaseStart(rw1, rw_lst2) -> CaseStart(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | CaseStart1(rw1) -> CaseStart1(descend_itm attr rw1)
+  | CaseStartInside(rw1, rw_lst2) -> CaseStartInside(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | CaseStartUniq(rw1, rw_lst2) -> CaseStartUniq(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | CaseStartUniqInside(rw1, rw_lst2) -> CaseStartUniqInside(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | CaseStmt(rw_lst1, rw_lst2) -> CaseStmt(descend_lst attr rw_lst1, descend_lst attr rw_lst2)
+  | Cast(rw1, rw2) -> Cast(descend_itm attr rw1, descend_itm attr rw2)
+  | CellParamItem2(string1, rw2) -> CellParamItem2(string1, descend_itm attr rw2)
+  | CellParamItem3(string1, rw2) -> CellParamItem3(string1, descend_itm attr rw2)
+  | CellPinItem2(string1, rw2) -> CellPinItem2(string1, descend_itm attr rw2)
+  | CellPinItemImplied(string1) -> CellPinItemImplied(string1)
+  | CellPinItemNC(string1) -> CellPinItemNC(string1)
+  | Concat(rw_lst1) -> Concat(descend_lst attr rw_lst1)
+  | CondGen1(rw1, rw2, rw3) -> CondGen1(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | ContAsgn(rw_lst1) -> ContAsgn(descend_lst attr rw_lst1)
+  | DeclAsgn(rw1, rw_lst2) -> DeclAsgn(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | DeclData(rw1, rw_lst2) -> DeclData(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | DeclInt2(rw_lst1) -> DeclInt2(descend_lst attr rw_lst1)
+  | DeclLogic(rw_lst1) -> DeclLogic(descend_lst attr rw_lst1)
+  | DeclLogic2(rw_lst1, rw_lst2) -> DeclLogic2(descend_lst attr rw_lst1, descend_lst attr rw_lst2)
+  | DeclModPort(rw_lst1) -> DeclModPort(descend_lst attr rw_lst1)
+  | DeclReg(rw_lst1, rw_lst2, rw3) -> DeclReg(descend_lst attr rw_lst1, descend_lst attr rw_lst2, descend_itm attr rw3)
+  | Deflt -> Deflt
+  | Div(rw1, rw2) -> Div(descend_itm attr rw1, descend_itm attr rw2)
+  | Dot1(rw1, rw2) -> Dot1(descend_itm attr rw1, descend_itm attr rw2)
+  | Dot3(rw1, rw2, rw3) -> Dot3(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | DotBus(rw1, rw2, rw3, rw_lst4) -> DotBus(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_lst attr rw_lst4)
+  | Edge(rw1, rw2) -> Edge(descend_itm attr rw1, descend_itm attr rw2)
+  | ElabTask(rw1) -> ElabTask(descend_itm attr rw1)
+  | ElseStmt(rw1) -> ElseStmt(descend_itm attr rw1)
+  | EnumInit(string1, rw2) -> EnumInit(string1, descend_itm attr rw2)
+  | Equals(rw1, rw2) -> Equals(descend_itm attr rw1, descend_itm attr rw2)
+  | Equals3(rw1, rw2) -> Equals3(descend_itm attr rw1, descend_itm attr rw2)
+  | EqualsQuery(rw1, rw2) -> EqualsQuery(descend_itm attr rw1, descend_itm attr rw2)
+  | Equate(rw1, rw2) -> Equate(descend_itm attr rw1, descend_itm attr rw2)
+  | EquateArrayField(rw1, rw2, rw3, rw4, rw5) -> EquateArrayField(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5)
+  | EquateConcat(rw_lst1, rw2) -> EquateConcat(descend_lst attr rw_lst1, descend_itm attr rw2)
+  | EquateField(rw1, rw2, rw3) -> EquateField(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | EquateSelect(rw1, rw2, rw3) -> EquateSelect(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | EquateSelect2(rw1, rw2, rw3) -> EquateSelect2(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | EquateSlice(rw1, rw2, rw3, rw4) -> EquateSlice(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | EquateSlicePlus(rw1, rw2, rw3, rw4) -> EquateSlicePlus(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | EventOr(rw_lst1) -> EventOr(descend_lst attr rw_lst1)
+  | ExprOKL(rw_lst1) -> ExprOKL(descend_lst attr rw_lst1)
+  | ExprQuote1(rw1, rw2) -> ExprQuote1(descend_itm attr rw1, descend_itm attr rw2)
+  | Expression(rw1) -> Expression(descend_itm attr rw1)
+  | Final(rw_lst1) -> Final(descend_lst attr rw_lst1)
+  | Float(float1) -> Float(float1)
+  | FopAsgn(rw1, rw2) -> FopAsgn(descend_itm attr rw1, descend_itm attr rw2)
+  | FopAsgn1(rw1, rw2, rw3, rw4) -> FopAsgn1(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | FopAsgnArrayField(rw1, rw2, rw3) -> FopAsgnArrayField(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | FopAsgnArrayField2(rw1, rw2, rw3) -> FopAsgnArrayField2(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | FopAsgnArrayField3(rw1, rw2, rw3, rw4) -> FopAsgnArrayField3(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | FopAsgnArrayField4(rw1, rw2, rw3, rw4, rw5, rw6) -> FopAsgnArrayField4(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5, descend_itm attr rw6)
+  | FopAsgnArrayField5(rw1, rw2, rw3, rw4, rw5) -> FopAsgnArrayField5(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5)
+  | FopAsgnArrayField6(rw1, rw2, rw3, rw4, rw5) -> FopAsgnArrayField6(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5)
+  | FopAsgnArrayField7(rw1, rw2, rw3, rw4, rw5) -> FopAsgnArrayField7(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5)
+  | FopAsgnArrayField8(rw1, rw2, rw3, rw4, rw5) -> FopAsgnArrayField8(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5)
+  | FopAsgnArrayField9(rw1, rw2, rw3, rw4, rw5, rw6) -> FopAsgnArrayField9(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5, descend_itm attr rw6)
+  | FopAsgnArrayMemSel(rw1, rw2, rw3, rw4) -> FopAsgnArrayMemSel(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | FopAsgnArrayRange(rw1, rw2, rw3, rw4) -> FopAsgnArrayRange(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | FopAsgnArrayRange2(rw1, rw2, rw3, rw4) -> FopAsgnArrayRange2(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | FopAsgnArraySel(rw1, rw2, rw3) -> FopAsgnArraySel(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | FopAsgnArrayWid(rw1, rw2, rw3, rw4) -> FopAsgnArrayWid(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | FopAsgnConcat(rw_lst1, rw2) -> FopAsgnConcat(descend_lst attr rw_lst1, descend_itm attr rw2)
+  | ForEach(rw1, rw_lst2) -> ForEach(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | ForLoop(rw_lst1, rw2, rw3, rw4) -> ForLoop(descend_lst attr rw_lst1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | FunDecl(string1, rw2, rw3) -> FunDecl(string1, descend_itm attr rw2, descend_itm attr rw3)
+  | FunGuts(rw_lst1, rw_lst2) -> FunGuts(descend_lst attr rw_lst1, descend_lst attr rw_lst2)
+  | FunRef(string1, rw_lst2) -> FunRef(string1, descend_lst attr rw_lst2)
+  | FunRef2(string1, rw_lst2, rw_lst3) -> FunRef2(string1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
+  | GenBlock(rw_lst1) -> GenBlock(descend_lst attr rw_lst1)
+  | GenItem(string1, rw_lst2) -> GenItem(string1, descend_lst attr rw_lst2)
+  | Genvar(rw_lst1) -> Genvar(descend_lst attr rw_lst1)
+  | Greater(rw1, rw2) -> Greater(descend_itm attr rw1, descend_itm attr rw2)
+  | GtEq(rw1, rw2) -> GtEq(descend_itm attr rw1, descend_itm attr rw2)
+  | HyphenGt(rw1, rw2) -> HyphenGt(descend_itm attr rw1, descend_itm attr rw2)
+  | Id(string1) -> Id(string1)
+  | IdArrayed1(rw1, rw2, rw3) -> IdArrayed1(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | IdArrayed2(rw1, rw2) -> IdArrayed2(descend_itm attr rw1, descend_itm attr rw2)
+  | IdArrayed3(rw_lst1, rw2) -> IdArrayed3(descend_lst attr rw_lst1, descend_itm attr rw2)
+  | IdArrayedColon(rw1, rw2, rw3) -> IdArrayedColon(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | IdArrayedHyphenColon(rw1, rw2, rw3) -> IdArrayedHyphenColon(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | IdArrayedPlusColon(rw1, rw2, rw3) -> IdArrayedPlusColon(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | If1(rw1, rw2) -> If1(descend_itm attr rw1, descend_itm attr rw2)
+  | If2(rw1, rw2, rw3) -> If2(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | Iff(rw1, rw2) -> Iff(descend_itm attr rw1, descend_itm attr rw2)
+  | Import(rw_lst1) -> Import(descend_lst attr rw_lst1)
+  | In -> In
+  | Inc(rw1) -> Inc(descend_itm attr rw1)
+  | InitPair(rw1, rw2) -> InitPair(descend_itm attr rw1, descend_itm attr rw2)
+  | InitPat(rw_lst1) -> InitPat(descend_lst attr rw_lst1)
+  | InitSig(rw1, rw2) -> InitSig(descend_itm attr rw1, descend_itm attr rw2)
+  | Initial(rw_lst1) -> Initial(descend_lst attr rw_lst1)
+  | Inout -> Inout
+  | InsideCase(rw1, rw2) -> InsideCase(descend_itm attr rw1, descend_itm attr rw2)
+  | InsideRange(rw1, rw2) -> InsideRange(descend_itm attr rw1, descend_itm attr rw2)
+  | InstArrayDecl(rw1, rw_lst2, rw3, rw_lst4, rw_lst5) -> InstArrayDecl(descend_itm attr rw1, descend_lst attr rw_lst2, descend_itm attr rw3, descend_lst attr rw_lst4, descend_lst attr rw_lst5)
+  | InstDecl(rw1, rw_lst2, rw_lst3) -> InstDecl(descend_itm attr rw1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
+  | InstNameParen1(string1, rw_lst2) -> InstNameParen1(string1, descend_lst attr rw_lst2)
+  | InstNameParen2(string1, rw_lst2) -> InstNameParen2(string1, descend_lst attr rw_lst2)
+  | InstRange(rw1, rw2) -> InstRange(descend_itm attr rw1, descend_itm attr rw2)
+  | IntfDecl(string1, rw2, rw3, rw4) -> IntfDecl(string1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | Intgr(int1) -> Intgr(int1)
+  | ItemAsgn(rw1) -> ItemAsgn(descend_itm attr rw1)
+  | Itmlst(rw_lst1) -> Itmlst(descend_lst attr rw_lst1)
+  | Less(rw1, rw2) -> Less(descend_itm attr rw1, descend_itm attr rw2)
+  | LocalParamTyp(rw1) -> LocalParamTyp(descend_itm attr rw1)
+  | Logic(rw_lst1, rw_lst2) -> Logic(descend_lst attr rw_lst1, descend_lst attr rw_lst2)
+  | LoopGen1(rw1, string2, rw3, rw4, rw5, rw_lst6) -> LoopGen1(descend_itm attr rw1, string2, descend_itm attr rw3, descend_itm attr rw4, descend_itm attr rw5, descend_lst attr rw_lst6)
+  | LtEq(rw1, rw2) -> LtEq(descend_itm attr rw1, descend_itm attr rw2)
+  | LtGt(rw1, rw2) -> LtGt(descend_itm attr rw1, descend_itm attr rw2)
+  | Mod(rw1, rw2) -> Mod(descend_itm attr rw1, descend_itm attr rw2)
+  | ModPortItm(string1, rw_lst2) -> ModPortItm(string1, descend_lst attr rw_lst2)
+  | Modul(string1, rw_lst2, rw_lst3, rw_lst4) -> Modul(string1, descend_lst attr rw_lst2, descend_lst attr rw_lst3, descend_lst attr rw_lst4)
+  | Mult(rw1, rw2) -> Mult(descend_itm attr rw1, descend_itm attr rw2)
+  | Nand(rw1, rw2) -> Nand(descend_itm attr rw1, descend_itm attr rw2)
+  | Neg(rw1) -> Neg(descend_itm attr rw1)
+  | NetDecl(rw_lst1, rw_lst2) -> NetDecl(descend_lst attr rw_lst1, descend_lst attr rw_lst2)
+  | NonBlocking(rw1, rw2) -> NonBlocking(descend_itm attr rw1, descend_itm attr rw2)
+  | Nor(rw1, rw2) -> Nor(descend_itm attr rw1, descend_itm attr rw2)
+  | NotEq(rw1, rw2) -> NotEq(descend_itm attr rw1, descend_itm attr rw2)
+  | NotEq3(rw1, rw2) -> NotEq3(descend_itm attr rw1, descend_itm attr rw2)
+  | NotEqQuery(rw1, rw2) -> NotEqQuery(descend_itm attr rw1, descend_itm attr rw2)
+  | Number(int1, int2, int3, string4) -> Number(int1, int2, int3, string4)
+  | OpenRange(rw_lst1) -> OpenRange(descend_lst attr rw_lst1)
+  | Or(rw1, rw2) -> Or(descend_itm attr rw1, descend_itm attr rw2)
+  | Or2(rw1, rw2) -> Or2(descend_itm attr rw1, descend_itm attr rw2)
+  | Out -> Out
+  | PackageBody(string1, rw_lst2) -> PackageBody(string1, descend_lst attr rw_lst2)
+  | PackageParam(rw_lst1, rw2) -> PackageParam(descend_lst attr rw_lst1, descend_itm attr rw2)
+  | PackageParam2(string1, string2, rw_lst3, rw4) -> PackageParam2(string1, string2, descend_lst attr rw_lst3, descend_itm attr rw4)
+  | Param(string1, rw2, rw_lst3) -> Param(string1, descend_itm attr rw2, descend_lst attr rw_lst3)
+  | ParamAsgn1(string1, rw2) -> ParamAsgn1(string1, descend_itm attr rw2)
+  | ParamAsgn2(string1, rw_lst2, rw3) -> ParamAsgn2(string1, descend_lst attr rw_lst2, descend_itm attr rw3)
+  | ParamDecl(rw1, rw_lst2) -> ParamDecl(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | ParamPort(rw_lst1) -> ParamPort(descend_lst attr rw_lst1)
+  | PatMember1(rw1, rw2) -> PatMember1(descend_itm attr rw1, descend_itm attr rw2)
+  | PatMemberDflt(rw1) -> PatMemberDflt(descend_itm attr rw1)
+  | PkgImport(rw1) -> PkgImport(descend_itm attr rw1)
+  | PkgImportItm(string1, rw2) -> PkgImportItm(string1, descend_itm attr rw2)
+  | Pling(rw1) -> Pling(descend_itm attr rw1)
+  | Port(rw1, string2, rw_lst3, rw4) -> Port(descend_itm attr rw1, string2, descend_lst attr rw_lst3, descend_itm attr rw4)
+  | PortDir(rw1, rw2) -> PortDir(descend_itm attr rw1, descend_itm attr rw2)
+  | PortFront(rw1, rw2) -> PortFront(descend_itm attr rw1, descend_itm attr rw2)
+  | PortItem(rw1, rw2) -> PortItem(descend_itm attr rw1, descend_itm attr rw2)
+  | PortItemFront(rw1, rw2) -> PortItemFront(descend_itm attr rw1, descend_itm attr rw2)
+  | PortItemFront2(rw1, rw2, rw_lst3) -> PortItemFront2(descend_itm attr rw1, descend_itm attr rw2, descend_lst attr rw_lst3)
+  | PortsStar(rw_lst1) -> PortsStar(descend_lst attr rw_lst1)
+  | Pos(rw1) -> Pos(descend_itm attr rw1)
+  | PropertySpec -> PropertySpec
+  | Query(rw1, rw2, rw3) -> Query(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3)
+  | RedAnd(rw1) -> RedAnd(descend_itm attr rw1)
+  | RedOr(rw1) -> RedOr(descend_itm attr rw1)
+  | RedXor(rw1) -> RedXor(descend_itm attr rw1)
+  | Repl(rw1, rw_lst2) -> Repl(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | Return(rw1) -> Return(descend_itm attr rw1)
+  | SUDecl(rw1, rw_lst2) -> SUDecl(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | SUMember(rw1, rw_lst2) -> SUMember(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | Seq(string1, rw_lst2) -> Seq(string1, descend_lst attr rw_lst2)
+  | Shiftl(rw1, rw2) -> Shiftl(descend_itm attr rw1, descend_itm attr rw2)
+  | Shiftr(rw1, rw2) -> Shiftr(descend_itm attr rw1, descend_itm attr rw2)
+  | Shiftr3(rw1, rw2) -> Shiftr3(descend_itm attr rw1, descend_itm attr rw2)
+  | SideEffect(rw1, rw2) -> SideEffect(descend_itm attr rw1, descend_itm attr rw2)
+  | Signed(rw1) -> Signed(descend_itm attr rw1)
+  | StarStar(rw1, rw2) -> StarStar(descend_itm attr rw1, descend_itm attr rw2)
+  | String(string1) -> String(string1)
+  | Sub(rw1, rw2) -> Sub(descend_itm attr rw1, descend_itm attr rw2)
+  | Sys(string1, rw2) -> Sys(string1, descend_itm attr rw2)
+  | SysFuncCall(string1, rw_lst2) -> SysFuncCall(string1, descend_lst attr rw_lst2)
+  | SysTaskCall(string1, rw_lst2) -> SysTaskCall(string1, descend_lst attr rw_lst2)
+  | SysTaskRef(rw1, rw_lst2) -> SysTaskRef(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | TFBody(rw_lst1, rw_lst2) -> TFBody(descend_lst attr rw_lst1, descend_lst attr rw_lst2)
+  | TF_port_decl(rw1, rw_lst2, rw_lst3) -> TF_port_decl(descend_itm attr rw1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
+  | TF_variable(rw1, rw2, rw3, rw4) -> TF_variable(descend_itm attr rw1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | TaskDecl(string1, rw2, rw3, rw4) -> TaskDecl(string1, descend_itm attr rw2, descend_itm attr rw3, descend_itm attr rw4)
+  | TaskRef(string1, rw_lst2) -> TaskRef(string1, descend_lst attr rw_lst2)
+  | Tilde(rw1) -> Tilde(descend_itm attr rw1)
+  | TildeAnd(rw1) -> TildeAnd(descend_itm attr rw1)
+  | TildeOr(rw1) -> TildeOr(descend_itm attr rw1)
+  | Typ1(string1) -> Typ1(string1)
+  | Typ10(string1, rw_lst2, string3) -> Typ10(string1, descend_lst attr rw_lst2, string3)
+  | Typ2(string1, rw_lst2, rw_lst3) -> Typ2(string1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
+  | Typ3(string1, rw_lst2) -> Typ3(string1, descend_lst attr rw_lst2)
+  | Typ4(string1, rw_lst2, rw_lst3, rw_lst4) -> Typ4(string1, descend_lst attr rw_lst2, descend_lst attr rw_lst3, descend_lst attr rw_lst4)
+  | Typ5(rw1, rw_lst2) -> Typ5(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | Typ6(rw1) -> Typ6(descend_itm attr rw1)
+  | Typ7(string1, rw2) -> Typ7(string1, descend_itm attr rw2)
+  | Typ8(rw1, rw2) -> Typ8(descend_itm attr rw1, descend_itm attr rw2)
+  | Typ9(string1, rw_lst2, rw3) -> Typ9(string1, descend_lst attr rw_lst2, descend_itm attr rw3)
+  | TypEnum3(rw_lst1) -> TypEnum3(descend_lst attr rw_lst1)
+  | TypEnum4(rw1, rw_lst2, rw_lst3) -> TypEnum4(descend_itm attr rw1, descend_lst attr rw_lst2, descend_lst attr rw_lst3)
+  | TypEnum5(rw1) -> TypEnum5(descend_itm attr rw1)
+  | TypEnum6(string1, rw2, rw_lst3) -> TypEnum6(string1, descend_itm attr rw2, descend_lst attr rw_lst3)
+  | TypParam(string1, rw2, rw_lst3) -> TypParam(string1, descend_itm attr rw2, descend_lst attr rw_lst3)
+  | UMinus(rw1) -> UMinus(descend_itm attr rw1)
+  | UPlus(rw1) -> UPlus(descend_itm attr rw1)
+  | Unimplemented(string1, rw_lst2) -> Unimplemented(string1, descend_lst attr rw_lst2)
+  | Union(rw1, rw_lst2) -> Union(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | Unknown(string1, rw_lst2) -> Unknown(string1, descend_lst attr rw_lst2)
+  | Unsigned(rw1) -> Unsigned(descend_itm attr rw1)
+  | VNum(string1) -> VNum(string1)
+  | ValueRange(rw1, rw2) -> ValueRange(descend_itm attr rw1, descend_itm attr rw2)
+  | VarDeclAsgn(rw1, rw2) -> VarDeclAsgn(descend_itm attr rw1, descend_itm attr rw2)
+  | VarDim(rw1) -> VarDim(descend_itm attr rw1)
+  | While(rw1, rw_lst2) -> While(descend_itm attr rw1, descend_lst attr rw_lst2)
+  | WireExpr(rw1, rw2) -> WireExpr(descend_itm attr rw1, descend_itm attr rw2)
+  | Xnor(rw1, rw2) -> Xnor(descend_itm attr rw1, descend_itm attr rw2)
+  | Xor(rw1, rw2) -> Xor(descend_itm attr rw1, descend_itm attr rw2)
+  
+and descend_lst attr x = List.map (fun x -> if verbose then print_endline (getstr x); attr.fn attr x) x
+
+and descend_itm attr x = if verbose then print_endline (getstr x); attr.fn attr x
+
+let rec descend (attr:attr) = function
+  | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> exp)
+  | oth -> descend' {attr with fn=descend} oth
+
+let rec recurs1 (attr: attr) = function
   | Modul (nam, params, args, body) -> Modul (nam, List.map (recurs1 attr) params, (let _ = Hashtbl.remove attr.subst Deflt in List.map (recurs1 attr) args), List.map (recurs1 attr) body)
 (*
   | Itmlst lst -> Itmlst (List.map (recurs1 attr) lst)
@@ -391,10 +915,10 @@ let rec recurs1 (attr: Source_text_rewrite.attr) = function
   | ParamDecl (Param ("localparam", Deflt, [AnyRange _]), lst) as x ->
       List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl3") lst; x
   | ParamDecl _ as x -> othx := Some x; failwith "recurs1"
-  | Param (nam, expr, _) as x -> Hashtbl.add attr.Source_text_rewrite.subst (Id nam) expr; x
-  | oth -> Source_text_rewrite.descend' {attr with fn=recurs1} oth
+  | Param (nam, expr, _) as x -> Hashtbl.add attr.subst (Id nam) expr; x
+  | oth -> descend' {attr with fn=recurs1} oth
 
-let rec recurs2 (attr: Source_text_rewrite.attr) = function
+let rec recurs2 (attr: attr) = function
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs2 attr exp)
   | ForLoop ([Asgn1 (Id ix, strt)], stop, Asgn1 (Id ix'', Add (Id ix''', inc)), body) ->
       recurs2 attr (iter attr ix ("ForLoop_"^ix) (elabeval attr strt) stop (elabeval attr inc) body)
@@ -428,7 +952,7 @@ let rec recurs2 (attr: Source_text_rewrite.attr) = function
         | FopAsgnConcat (idlst, expr) -> recurs2 attr (EquateConcat (idlst, expr))
 	| oth -> unhand := Some oth; failwith "blocking not replaced")
 *)
-  | oth -> Source_text_rewrite.descend' {attr with fn=recurs2} (simplify oth)
+  | oth -> descend' {attr with fn=recurs2} (simplify oth)
 
 and iter attr ix lbl strt stop inc stmts =
     print_endline ("iter: "^lbl);
@@ -441,7 +965,7 @@ and iter attr ix lbl strt stop inc stmts =
     dbgloop := Some (strt, stop, !loopvar);
     while continue !loopvar do
       begin
-        Hashtbl.replace attr.Source_text_rewrite.subst (Id ix) (Intgr !loopvar);
+        Hashtbl.replace attr.subst (Id ix) (Intgr !loopvar);
         if verbose then print_endline (string_of_int !loopvar);
 	let repl = recurs2 attr stmts in
 	block := Seq(lbl^"["^string_of_int !loopvar^"]", match recurs2 attr repl with Itmlst lst -> lst | oth -> oth :: []) :: !block;
@@ -463,7 +987,7 @@ and fsubst' attr arglst = function
           | TF_variable (Id _ as formal, Deflt, Deflt, Deflt) -> formal
           | oth -> unhand := Some oth; failwith "param2") formlst
     | BlockItem (ParamDecl (Atom "Parameter", lst)) -> List.iter (function
-	  | ParamAsgn1 (id, expr) -> Hashtbl.add attr.Source_text_rewrite.subst (Id id) expr
+	  | ParamAsgn1 (id, expr) -> Hashtbl.add attr.subst (Id id) expr
           | oth -> unhand := Some oth; failwith "param") lst; []
     | DeclInt2 formlst -> List.map (function
 	  | Id _ as formal -> formal
@@ -473,7 +997,7 @@ and fsubst' attr arglst = function
   dbgact := arglst;
   dbgform := formlst;
   List.iter2 (fun actual -> function
-    | Id _ as formal -> Hashtbl.add attr.Source_text_rewrite.subst formal actual
+    | Id _ as formal -> Hashtbl.add attr.subst formal actual
     | oth -> unhand := Some oth; failwith "fsubst''") arglst formlst;
     (match body with
 	   | Blocking (FopAsgn (nam', funexpr)) :: [] -> funexpr
@@ -509,8 +1033,8 @@ and tsubst' attr arglst = function
   dbgact := arglst;
   dbgform := formlst;
   List.iter2 (fun actual -> function
-		  | TF_port_decl ((In|Out), [AnyRange (hi, lo)], [TF_variable (Id _ as formal, Deflt, Deflt, Deflt)]) -> Hashtbl.add attr.Source_text_rewrite.subst formal actual
-		  | TF_port_decl ((In|Out), [], [TF_variable (Id _ as formal, Deflt, Deflt, Deflt)]) -> Hashtbl.add attr.Source_text_rewrite.subst formal actual
+		  | TF_port_decl ((In|Out), [AnyRange (hi, lo)], [TF_variable (Id _ as formal, Deflt, Deflt, Deflt)]) -> Hashtbl.add attr.subst formal actual
+		  | TF_port_decl ((In|Out), [], [TF_variable (Id _ as formal, Deflt, Deflt, Deflt)]) -> Hashtbl.add attr.subst formal actual
     | oth -> unhand := Some oth; failwith "tsubst'") arglst formlst;
     Seq(nam, body)
 | TaskDecl (nam, Deflt, FunGuts (formlst', body), Deflt) ->
@@ -539,7 +1063,7 @@ and dead_code attr = function
 | Greater (Intgr n, Intgr m) -> if n > m then Always_true else Always_false
 | Or2 (lhs, rhs) -> dead_code_or attr (dead_code attr lhs, dead_code attr rhs)
 | And2 (lhs, rhs) -> dead_code_and attr (dead_code attr lhs, dead_code attr rhs)
-| Id _ as id -> (match Hashtbl.find_opt attr.Source_text_rewrite.subst id with Some x -> dead_code_id attr x | None -> Undecidable)
+| Id _ as id -> (match Hashtbl.find_opt attr.subst id with Some x -> dead_code_id attr x | None -> Undecidable)
 | Intgr n -> if n <> 0 then Always_true else Always_false
 | (TildeAnd _ | RedAnd _ | RedOr _ | IdArrayed2 _ | GtEq _ | Equals _ | Less _ | LtEq _ | NotEq _ | Greater _) -> Undecidable
 (*
@@ -606,12 +1130,12 @@ let dot = function
   | (old, nam) -> old^"."^nam
 
 let npth attr nam =
-  let pth = attr.Source_text_rewrite.pth in
+  let pth = attr.pth in
   let npth' = dot (pth, nam) in
-  if pth <> "" then Hashtbl.replace attr.Source_text_rewrite.subst (Id nam) (Id npth');
+  if pth <> "" then Hashtbl.replace attr.subst (Id nam) (Id npth');
   npth'
 
-let rec recurs3 (attr: Source_text_rewrite.attr) = function
+let rec recurs3 (attr: attr) = function
   | If2(cond, if_clause, else_clause) -> (match dead_code attr cond with
      | Always_true -> recurs3 attr if_clause
      | Always_false -> recurs3 attr else_clause
@@ -631,15 +1155,15 @@ let rec recurs3 (attr: Source_text_rewrite.attr) = function
   | NetDecl (arg1, lst) -> NetDecl (arg1, List.map (function
 				     | InitSig (Id nam, arg2) -> let nam = npth attr nam in InitSig(Id nam, recurs3 attr arg2)
                                      | Id nam -> let nam = npth attr nam in Id nam
-				     | oth' -> failwith (Source_text_rewrite.getstr oth')) lst)
+				     | oth' -> failwith (getstr oth')) lst)
   | Id _ as id -> (match Hashtbl.find_opt attr.subst id with None -> id | Some exp -> recurs3 attr exp)
   | (Query _ | Add _ | Sub _ | Mult _ | Div _ | And _ | Or _) as x -> simplify (simplify (simplify (simplify (simplify x))))
 (*
   | ParamDecl (Atom "Parameter", lst) as x ->
       List.iter (function ParamAsgn1 (p, n) -> Hashtbl.replace attr.subst (Id p) n | oth -> failwith "ParamDecl") lst; x
-  | oth' -> failwith (Source_text_rewrite.getstr oth')
+  | oth' -> failwith (getstr oth')
 *)
-  | oth -> Source_text_rewrite.descend' {attr with fn=recurs3} oth
+  | oth -> descend' {attr with fn=recurs3} oth
 
 and simplify = function
 | Add(Intgr lft, Intgr rght) -> Intgr (lft+rght)
@@ -731,7 +1255,7 @@ let addwire bufh typhash = function
 | (options, Id nam, (Vlocal _ as typ)) ->
   output_string logf ("add localparam: "^nam^", "^vtyp typ^"\n");
   exists_wire bufh typhash options nam typ;
-| (_, oth, _) -> failwith ("Argument "^(Source_text_rewrite.getstr oth)^" of addwire must be wire Id")
+| (_, oth, _) -> failwith ("Argument "^(getstr oth)^" of addwire must be wire Id")
 
 let rec memsiz typhash = function
 | [] -> []
@@ -751,7 +1275,7 @@ let addmem bufh typhash first_last_lst wid' = function
     update typhash (Id mem) (Vmem {off=off';siz=siz';wid=wid';tot=tot'});
     bufh.w := Memory_stmt39 (options, mem) :: !(bufh.w)
     end
-| oth -> failwith ("Argument "^(Source_text_rewrite.getstr oth)^" of addmem must be memory Id")
+| oth -> failwith ("Argument "^(getstr oth)^" of addmem must be memory Id")
 
 let vsel' n = function Id lhs -> [Sigspec90 (lhs, n)] | oth -> unhand := Some oth; failwith "vsel'"
 
@@ -1737,8 +2261,8 @@ let rec restrict typhash wid = function
   | Atom "default" as x -> x
   | Intgr n -> Number(2,wid,n mod (1 lsl wid),"")
   | ExprOKL lst -> ExprOKL (List.rev (restrict_lst typhash wid (List.rev lst)))
-  | String s -> let sz, b = str_to_bin s in Matchmly.widthnum (string_of_int wid^"'b"^String.sub b (sz-wid) wid)
-  | oth -> unhand := Some oth; failwith (sprintf "restrict (%d) %s (%d)" wid (Source_text_rewrite.getstr oth) (width typhash oth))
+  | String s -> let sz, b = str_to_bin s in widthnum (string_of_int wid^"'b"^String.sub b (sz-wid) wid)
+  | oth -> unhand := Some oth; failwith (sprintf "restrict (%d) %s (%d)" wid (getstr oth) (width typhash oth))
 
 and restrict_lst typhash wid = function
   | [] -> []

@@ -1,5 +1,5 @@
 open Input
-open Input_rewrite_types
+open Rtlil_input_rewrite_types
 
 let esc string = (if string.[0] <> '\\'  && string.[0] <> '$' then "\\" else "")^string
 

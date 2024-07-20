@@ -132,3 +132,5 @@ rtl_parser.mli
 synth
 verible_pat.ml-e
 *#
+Rtlil_input_lex.ml
+Rtlil_input_old.mly
