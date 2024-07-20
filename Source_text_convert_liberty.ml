@@ -366,4 +366,4 @@ let rewrite_sat v fil =
   close_out fd;
   modlst
 
-let modlst = try rewrite_sat "../yosys/share/simcells.v" "simcells.lib" with err -> print_endline (Printexc.to_string err); []
+let modlst = try rewrite_sat "../../yosys/share/simcells.v" "simcells.lib" with err -> print_endline (Printexc.to_string err); []

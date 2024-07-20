@@ -242,6 +242,6 @@ module F = Msat_tseitin.MakeCNF
 type ind = {
   wires:(E.signal, F.t option) Hashtbl.t;
   inffop:(E.signal, unit) Hashtbl.t;
-  stash:(E.signal, string * string * Input_rewrite_types.ilang list) Hashtbl.t;
+  stash:(E.signal, string * string * Rtlil_input_rewrite_types.ilang list) Hashtbl.t;
   wid:(string, int) Hashtbl.t;
 }

@@ -86,7 +86,6 @@ Source_text.mli
 Source_text.mly.orig
 Source_text_lex.ml
 Source_text_top
-Source_text_types.ml
 Source_text.mly.edited
 Source_text_convert
 Source_text_convert_top
@@ -133,4 +132,6 @@ synth
 verible_pat.ml-e
 *#
 Rtlil_input_lex.ml
+Rtlil_input.mly
 Rtlil_input_old.mly
+Source_text_convert_liberty_top
