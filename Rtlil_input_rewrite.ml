@@ -160,7 +160,21 @@ let rec rw' = function
 
 and rw'' lst = List.rev (rw' lst)
 
-let parse_output_ast_from_chan ch =
+let parse_output_ast_from_file arg =
+  let ch = open_in arg in
+  let lb = Lexing.from_channel ch in
+  let output = try
+      Rtlil_input.ml_start token lb
+  with
+    | Parsing.Parse_error ->
+      let n = Lexing.lexeme_start lb in
+      failwith (Printf.sprintf "Output.parse: parse error at character %d" n);
+  in
+  close_in ch;
+  output
+
+let parse_output_ast_from_pipe v =
+  let ch = Unix.open_process_in ("yosys -q -q -p 'read_verilog -sv "^v^"; synth; write_ilang'") in
   let lb = Lexing.from_channel ch in
   let output = try
       Rtlil_input.ml_start token lb
@@ -171,10 +185,18 @@ let parse_output_ast_from_chan ch =
   in
   output
 
-let parse arg =
-  let ch = open_in arg in
-  let p = parse_output_ast_from_chan ch in
-  close_in ch;
+let parse_output_ast_from_string s =
+  let lb = Lexing.from_string s in
+  let output = try
+      Rtlil_input.ml_start token lb
+  with
+    | Parsing.Parse_error ->
+      let n = Lexing.lexeme_start lb in
+      failwith (Printf.sprintf "Output.parse: parse error at character %d" n);
+  in
+  output
+  
+let parse p =
   let p' = List.rev (rw' (rw p)) in
   let mods = Hashtbl.create 255 in
   let nam = ref "" in

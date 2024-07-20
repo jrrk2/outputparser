@@ -22,7 +22,7 @@ let getstr = function
 | EMPTY_TOKEN -> uppercase_ascii("EMPTY_TOKEN") 
 | END -> uppercase_ascii("END") 
 | EOF_TOKEN -> uppercase_ascii("EOF_TOKEN") 
-| ERROR -> uppercase_ascii("ERROR") 
+| Error -> uppercase_ascii("ERROR") 
 | ERROR_TOKEN -> uppercase_ascii("ERROR_TOKEN") 
 | GREATER -> uppercase_ascii("GREATER") 
 | HASH -> uppercase_ascii("HASH") 

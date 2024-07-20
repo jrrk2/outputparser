@@ -1,6 +1,5 @@
 open Rtlil_input_rewrite_types
-open Source_text_rewrite_types
-open Source_text_rewrite
+open Generic_rewrite
 
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
 

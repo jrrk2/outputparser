@@ -1,4 +1,4 @@
-open Input
+open Rtlil_input
 open Rtlil_input_rewrite_types
 
 let esc string = (if string.[0] <> '\\'  && string.[0] <> '$' then "\\" else "")^string
@@ -65,3 +65,11 @@ let rec dump_ilang ind = function
 | TokEdge -> "edge"
 
 and dump_ilst ind lst = String.concat ind (List.map (dump_ilang "") lst)
+
+let dumprtl ext = fun (nam, lst) ->
+  let nam = String.sub nam 1 (String.length nam - 1)^ext^".ilang" in
+  print_endline nam;
+  let fd = open_out nam in
+  output_string fd (dump_ilst "\n" lst);
+  close_out fd
+

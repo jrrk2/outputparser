@@ -1,14 +1,19 @@
 open Printf
-open Source_text
+open Generic_rewrite
+(*
+ open Source_text
 open Source_text_lex
 open Source_text_rewrite
 open Source_text_rewrite_types
-open Input_rewrite_types
+*)
+open Rtlil_input_rewrite_types
 
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
 let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
 
-let dbgx = ref []
+(*
+ let dbgx = ref []
+ *)
 
 let oth' = ref None
 let othopt = ref None
@@ -208,7 +213,7 @@ let cnv_sat_tree = List.map (fun (nam,itm) ->
       let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
       print_endline ("Converting: "^nam);
       List.iter (cnv_ilang ind) itm;
-      Hashtbl.iter (fun _ (kind,inst,conns) -> Convert.func ind [inst] kind conns) sh;
+      Hashtbl.iter (fun _ (kind,inst,conns) -> Convert_edited.func ind [inst] kind conns) sh;
       let hlst=ref [] in
       Hashtbl.iter (fun k -> function
           | Some x -> othh := x; hlst := (k, fpp x) :: !hlst
@@ -223,19 +228,10 @@ let cnv_sat_tree = List.map (fun (nam,itm) ->
       !hlst, List.sort compare !inffoplst, !widlst
   )
 
-let rewrite_rtlil v =
+let rewrite_rtlil gold rev =
   let status = ref true in
-  print_endline ("Parsing: "^v);
-  Matchmly.modules := [];
-  let p = Source_text_rewrite.parse_output_ast_from_pipe v in
-  let p' = rw p in
-  let x = Matchmly.mly p' in
-  let modlst = ref [] in
-  List.iter (fun (k, x) ->
-                dbgx := x :: !dbgx;
-		) !(Matchmly.modules);
-  let goldlst = cnv_sat_tree Examples_count0_gold.arg in
-  let revlst = cnv_sat_tree Examples_count0_dump.arg in
+  let goldlst = cnv_sat_tree gold in
+  let revlst = cnv_sat_tree rev in
   List.iter2 (fun (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') ->
   let inffoplst1,inffoplst2 = List.split inffoplst in
   let inffoplst1',inffoplst2' = List.split inffoplst' in
@@ -253,9 +249,9 @@ let rewrite_rtlil v =
 	  k' ^ ": not compared"
       ) inffoplst'))
     ) goldlst revlst;
-  !modlst, x, p, p', !status
+  print_endline (if !status then "PASSED: " else "FAILED: ");
+  !status
 
-let _ = if Array.length Sys.argv > 1 then Array.iteri (fun ix itm -> try
-    if ix > 0 then let modlst,x,p,p',status = rewrite_rtlil itm in
-    List.iter (fun (k,_) -> print_endline ((if status then "PASSED: " else "FAILED: ")^itm^"("^k^")")) modlst
-    with err -> print_endline ("FAILED: "^itm)) Sys.argv
+let _ = try rewrite_rtlil
+    (snd (Rtlil_input_rewrite.parse (Rtlil_input_rewrite.parse_output_ast_from_pipe (Sys.getenv "GOLD_RTLIL"))))
+    (snd (Rtlil_input_rewrite.parse (Rtlil_input_rewrite.parse_output_ast_from_file (Sys.getenv "REV_RTLIL")))) with _ -> false
