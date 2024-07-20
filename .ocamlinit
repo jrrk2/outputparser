@@ -138,6 +138,7 @@ let termlst' = List.sort compare (List.filter (fun (_, (t, _)) -> t) !lst);;
 let found = List.assoc "TK_XZDigits" !lst;;
 *)
 
+(*
 open Base__String
 open Source_text_verible_rewrite_types
 open Source_text_verible_lex
@@ -204,3 +205,6 @@ let tree = Source_text_rewrite.parse_output_ast_from_string rtl in
 othrtl := Some tree;
 Input_dump.dump' "_tmp" cnvrted;
 *)
+*)
+
+open Source_text_convert_liberty
