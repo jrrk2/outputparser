@@ -1,6 +1,6 @@
 open Source_text_rewrite_types
 open Source_text_lex
-open Source_text_dummy
+open Source_text
 
 let verbose = try int_of_string (Sys.getenv ("DESCEND_VERBOSE")) > 0 with _ -> false
 
@@ -396,7 +396,7 @@ let rec rw = function
 | HYPHEN_EQ
 | FLOATING_HYPHEN_POINT_NUMBER _
 | EOF_TOKEN) as oth) -> oth
-| oth -> failwith ("rw fail: "^Source_text_tokens_dummy.getstr oth)
+| oth -> failwith ("rw fail: "^Source_text_tokens.getstr oth)
 
 and flatten lst = List.flatten (List.map (function ELIST lst -> List.map rw lst | oth -> [rw oth]) lst)
  
@@ -698,4 +698,4 @@ let parse_output_ast_from_string s =
       let n = Lexing.lexeme_start lb in
       failwith (Printf.sprintf "Output.parse: parse error at character %d" n);
   in
-  output
+  Matchmly.mly (rw output)
