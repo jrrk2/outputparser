@@ -135,3 +135,5 @@ Rtlil_input_lex.ml
 Rtlil_input.mly
 Rtlil_input_old.mly
 Source_text_convert_liberty_top
+Rtlil_input_types.mli
+Source_text_verible_types.mli
