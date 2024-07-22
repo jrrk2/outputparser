@@ -132,3 +132,5 @@ rtl_parser.mli
 synth
 verible_pat.ml-e
 *#
+Source_text_convert_liberty_top
+Source_text.mly

@@ -62,6 +62,7 @@
 %token <token*token> CONS2
 %token <token*token*token> CONS3
 %token <token*token*token*token> CONS4
+%token <token*token*token*token*token> CONS5
 %token  Case
 %token  Casex
 %token  Casez
@@ -244,6 +245,7 @@
 %token  EQ_EQ_QUERY
 %token  EQ_GT
 %token  ERROR
+%token  Error
 %token  ERROR_TOKEN
 %token  Edge
 %token  Else
@@ -376,10 +378,10 @@
 %token  PLUS_COLON
 %token  PLUS_EQ
 %token  PLUS_PLUS
-%token  PRLOWER_THAN_ELSE
-%token  PRNEGATION
-%token  PRREDUCTION
-%token  PRUNARYARITH
+%token  PrLOWER_THAN_ELSE
+%token  PrNEGATION
+%token  PrREDUCTION
+%token  PrUNARYARITH
 %token  Package
 %token  Packed
 %token  Parallel_case
