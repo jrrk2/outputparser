@@ -64,10 +64,12 @@ let epp itm =
   Format.pp_print_flush buf ();
   print_endline (Buffer.contents buf')
 
-let stash' ind = function
+let stash' kind ind = function
   | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> pin, idx signal ix
   | TokConn ([TokID pin], [TokID signal]) -> pin, scalar signal
   | TokConn ([TokID pin], [TokVal lev]) -> pin, cnv_pwr lev
+  | TokConn ([TokID pin], [Sigspecrange (signal, hi, lo)]) ->
+    failwith (kind^": "^pin^" pin range ["^string_of_int hi^":"^string_of_int lo^"] not implemented") (* pin, range signal hi lo *)
   | oth -> othconn := Some oth; failwith "conn'"
 
 let dbgstash = ref None
@@ -76,7 +78,7 @@ let stash_ops = function TokConn ([TokID pin], _) -> (match trim pin with "Y" ->
 
 let stash ind kind inst conns =
   dbgstash := Some (kind, inst, conns);
-  let pin, net = stash' ind (List.hd (List.filter stash_ops conns)) in
+  let pin, net = stash' kind ind (List.hd (List.filter stash_ops conns)) in
   if trim pin = "Q" then addff ind net; (* prevent infinite recursion *)
   if Hashtbl.mem ind.stash net then failwith ("Multiple gates driving: "^E.string_of_signal net);
   Hashtbl.replace ind.stash net (kind,inst,conns)
