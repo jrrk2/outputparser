@@ -1049,7 +1049,7 @@ and tranp' itms = function
 | Vsub_expr (lhs, rhs) -> (match tranp' itms lhs, tranp' itms rhs with
   | (wlhs, HEX lhs), (wrhs, HEX rhs) -> max wlhs wrhs, HEX (lhs-rhs)
   | lhs, rhs -> otha := (Some lhs, Some rhs); failwith "tranp' expr")
-| oth -> fail "tran'" oth
+| oth -> fail "tranp'" oth
 
 and tran' itms x = snd (tranp' itms x)
 
@@ -1058,7 +1058,10 @@ and tranw' itms = function
 | Vunqualified_id1 (id, Vempty) -> (match enum'' itms id with
 					  | None -> failwith "tranw'"
                                           | Some x -> x)
-| oth -> fail "tran'" oth
+| Vbin_based_number1 (radix, bin) -> Scanf.sscanf radix "%d'b" (fun rad -> Input_types.CNST(rad, HEX (bin_to_native bin)))
+| Vdec_based_number1 (radix, bin) -> Scanf.sscanf radix "%d'd" (fun rad -> Input_types.CNST(rad, HEX (int_of_string bin)))
+| Vhex_based_number1 (radix, bin) -> Scanf.sscanf (radix^bin) "%d'h%x" (fun rad dig -> Input_types.CNST(rad, HEX dig))
+| oth -> fail "tranw'" oth
 
 and tran'' itms = function
 | Vbin_based_number1 (radix, bin) -> Scanf.sscanf radix "%d'b" (fun rad -> Input_types.CNST(rad, HEX (bin_to_native bin)))
