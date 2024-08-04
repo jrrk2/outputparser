@@ -2563,8 +2563,10 @@ let rec proc_template bufh typhash modules = function
     let dhash = Hashtbl.create 255 in
     let inst = "procdff$"^newnam() in
     dbgproc := Some (typhash, dhash, inst, edglst, body);
+(*
     let (p,u,s) = cnv' bufh dhash typhash (Id inst) body in
     let sync_lst = List.sort_uniq compare s in
+*)
     let param = TokParam ([TokID "\\CLK_POLARITY"], [TokInt 1]) :: TokParam ([TokID "\\WIDTH"], [TokInt 8]) :: [] in
     let pins = TokConn ([TokID "CLK"], [TokID (clk)]) ::
                TokConn ([TokID "D"], [TokID (d)]) ::

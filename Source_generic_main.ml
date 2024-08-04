@@ -251,9 +251,10 @@ let rewrite_rtlil gold rev =
 	  k' ^ ": not compared"
       ) inffoplst'))
     ) goldlst revlst;
-  print_endline (if !status then "PASSED: " else "FAILED: ");
-  !status
+  if !status then "PASSED" else "FAILED"
 
+(*  
 let _ = try rewrite_rtlil
     (snd (Rtlil_input_rewrite.parse (Rtlil_input_rewrite.parse_output_ast_from_pipe (Sys.getenv "GOLD_RTLIL"))))
     (snd (Rtlil_input_rewrite.parse (Rtlil_input_rewrite.parse_output_ast_from_file (Sys.getenv "REV_RTLIL")))) with _ -> false
+*)

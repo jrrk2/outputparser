@@ -188,7 +188,7 @@ and recurse ind klst signal = function
   Hashtbl.find ind.wires signal
 | None ->
   othklst := klst;
-  failwith ("recurse into "^E.string_of_signal signal^" failed"); None
+  failwith ("recurse into "^E.string_of_signal signal^" failed")
 
 and getcon ind klst pin = function
   | E.GND -> Some F.f_false
