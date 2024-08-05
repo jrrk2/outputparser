@@ -173,8 +173,8 @@ let parse_output_ast_from_file arg =
   close_in ch;
   output
 
-let parse_output_ast_from_pipe v =
-  let ch = Unix.open_process_in ("yosys -q -q -p 'read_verilog -sv "^v^"; synth; write_ilang'") in
+let parse_output_ast_from_rtlil_pipe pipe =
+  let ch = Unix.open_process_in pipe in
   let lb = Lexing.from_channel ch in
   let output = try
       Rtlil_input.ml_start token lb
@@ -183,6 +183,7 @@ let parse_output_ast_from_pipe v =
       let n = Lexing.lexeme_start lb in
       failwith (Printf.sprintf "Output.parse: parse error at character %d" n);
   in
+  let _ = Unix.close_process_in ch in  
   output
 
 let parse_output_ast_from_string s =
