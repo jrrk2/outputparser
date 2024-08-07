@@ -8,7 +8,7 @@ let othst = ref []
 let othclst = ref []
 let othwlst = ref []
 let othconn = ref None
-let othklst = ref []
+let conlst = ref []
 
 let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | "", ["",E.GND,None] -> failwith "GND" (* dummy to force type inference *)
@@ -172,8 +172,7 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
       othst := List.map (fun (pin, net, _) -> Hashtbl.find_opt ind.stash net) lst;
       failwith ("func: unmatched "^oth)
 
-and recurse ind klst signal = function
-| Some (kind, inst, conns) ->
+and recurse ind klst signal (kind, inst, conns) =
   if not (List.mem inst klst) then
     begin
     if verbose then print_endline ("recurse into " ^ E.string_of_signal signal ^ " (instance: " ^ inst ^ ", kind: " ^ kind ^ " )");
@@ -186,23 +185,23 @@ and recurse ind klst signal = function
     if verbose then print_endline ("instance: " ^ inst ^ " (kind : " ^ kind ^ " ) already searched")
     end;
   Hashtbl.find ind.wires signal
-| None ->
-  othklst := klst;
-  failwith ("recurse into "^E.string_of_signal signal^" failed")
 
 and getcon ind klst pin = function
   | E.GND -> Some F.f_false
   | PWR -> Some F.f_true
   | signal -> match Hashtbl.find_opt ind.wires signal with
     | Some (Some _ as x) -> x
-    | Some None -> if pin <> "Y" then recurse ind klst signal (Hashtbl.find_opt ind.stash signal) else None
+    | Some None -> if pin <> "Y" then (match Hashtbl.find_opt ind.stash signal with
+        | Some s -> recurse ind klst signal s
+        | None -> print_endline ("Undriven signal: "^E.string_of_signal signal^" assumed to be ground"); Some F.f_false) else None
     | None -> failwith (E.string_of_signal signal ^" not declared")
 
 and conn' ind klst = function
   | TokConn ([TokID pin], [Sigspec90 (signal, ix)]) -> let s = idx signal ix in pin, s, getcon ind klst pin s
   | TokConn ([TokID pin], [TokID signal]) -> let s = (scalar signal) in pin, s, getcon ind klst pin s
   | TokConn ([TokID pin], [TokVal lev]) -> let s = (cnv_pwr lev) in pin, s, getcon ind klst pin s
-  | oth -> othconn := Some oth; failwith "conn'"
+  | oth -> othconn := Some oth; Verible_typ.fail_json ilang_to_yojson oth;
+    try failwith "othconn" with _ -> Printexc.print_backtrace stdout; "", E.SCALAR "", None
 
-and pinmap ind klst conns = List.sort compare (List.map (conn' ind klst) conns)
-
+and pinmap ind klst conns = List.sort compare (List.map (fun itm ->
+  conlst := (ind,klst,itm) :: !conlst; let rslt = conn' ind klst itm in conlst := List.tl !conlst; rslt) conns)

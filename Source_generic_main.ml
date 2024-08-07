@@ -1,19 +1,9 @@
 open Printf
 open Generic_rewrite
-(*
- open Source_text
-open Source_text_lex
-open Source_text_rewrite
-open Source_text_rewrite_types
-*)
 open Rtlil_input_rewrite_types
 
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
 let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
-
-(*
- let dbgx = ref []
- *)
 
 let oth' = ref None
 let othopt = ref None
@@ -194,6 +184,7 @@ let rec cnv_ilang ind = function
 let mycnf' = ref F.f_false
 let mycnf = ref [[E.transparent (E.fresh ())]]
 let othh = ref F.f_false
+let othsat = ref []
 
 let ep form =
     if verbose then print_endline "Dumping cnf";
@@ -214,6 +205,7 @@ let cnv_sat_tree = List.map (fun (nam,itm) ->
       let sh = Hashtbl.create 255 in
       let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
       print_endline ("Converting: "^nam);
+      othsat := itm;
       List.iter (cnv_ilang ind) itm;
       Hashtbl.iter (fun _ (kind,inst,conns) -> Convert_edited.func ind [inst] kind conns) sh;
       let hlst=ref [] in
@@ -230,10 +222,8 @@ let cnv_sat_tree = List.map (fun (nam,itm) ->
       !hlst, List.sort compare !inffoplst, !widlst
   )
 
-let rewrite_rtlil gold rev =
+let cmp_sat goldlst revlst =
   let status = ref true in
-  let goldlst = cnv_sat_tree gold in
-  let revlst = cnv_sat_tree rev in
   List.iter2 (fun (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') ->
   let inffoplst1,inffoplst2 = List.split inffoplst in
   let inffoplst1',inffoplst2' = List.split inffoplst' in
@@ -253,8 +243,4 @@ let rewrite_rtlil gold rev =
     ) goldlst revlst;
   if !status then "PASSED" else "FAILED"
 
-(*  
-let _ = try rewrite_rtlil
-    (snd (Rtlil_input_rewrite.parse (Rtlil_input_rewrite.parse_output_ast_from_pipe (Sys.getenv "GOLD_RTLIL"))))
-    (snd (Rtlil_input_rewrite.parse (Rtlil_input_rewrite.parse_output_ast_from_file (Sys.getenv "REV_RTLIL")))) with _ -> false
-*)
+  

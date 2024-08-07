@@ -57,5 +57,4 @@ type ilang =
 | TokStr of string
 | TokPos
 | TokNeg
-| TokEdge
-
+| TokEdge [@@deriving yojson]
