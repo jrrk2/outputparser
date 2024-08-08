@@ -1,6 +1,7 @@
 open Printf
 open Generic_rewrite
 open Rtlil_input_rewrite_types
+open Source_text_rewrite_types
 
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
 let sep_rtl = try int_of_string (Sys.getenv "CNF_SEP_RTL") > 0 with err -> false
@@ -18,23 +19,23 @@ let cnv_sig = function
 let getw ind = function
   | E.GND -> Some F.f_false
   | PWR -> Some F.f_true
-  | signal -> match Hashtbl.find_opt ind.wires signal with
+  | signal -> match List.assoc_opt signal !(ind.wires) with
     | Some x -> x
     | None -> failwith (E.string_of_signal signal^" not declared")
 
 let addinp idx idx' ind signal =
-  Hashtbl.add ind.inffop signal ();
-  match Hashtbl.find_opt ind.wires signal with
+  ind.inffop := (signal, ()) :: !(ind.inffop);
+  match List.assoc_opt signal !(ind.wires) with
     | Some x -> print_endline (E.string_of_signal signal^" redeclared")
-    | None -> Hashtbl.add ind.wires signal ( Some ( atom signal ) )
+    | None -> ind.wires := (signal, Some ( atom signal ) ) :: !(ind.wires)
 
 let addoutp idx idx' ind signal =
-  Hashtbl.add ind.inffop signal ();
-  match Hashtbl.find_opt ind.wires signal with
+  ind.inffop := (signal, ()) :: !(ind.inffop);
+  match List.assoc_opt signal !(ind.wires) with
     | Some x -> print_endline (E.string_of_signal signal^" redeclared")
-    | None -> Hashtbl.add ind.wires signal None
+    | None -> ind.wires := (signal, None ) :: !(ind.wires)
 
-let addff ind signal = let op = atom signal in Hashtbl.replace ind.wires signal ( Some op )
+let addff ind signal = let op = atom signal in ind.wires := (signal, Some op ) :: !(ind.wires)
 
 (* convert and print a cnf *)
 
@@ -70,8 +71,8 @@ let stash ind kind inst conns =
   dbgstash := Some (kind, inst, conns);
   let pin, net = stash' kind ind (List.hd (List.filter stash_ops conns)) in
   if trim pin = "Q" then addff ind net; (* prevent infinite recursion *)
-  if Hashtbl.mem ind.stash net then failwith ("Multiple gates driving: "^E.string_of_signal net);
-  Hashtbl.replace ind.stash net (kind,inst,conns)
+  if List.mem_assoc net !(ind.stash) then failwith ("Multiple gates driving: "^E.string_of_signal net);
+  ind.stash := (net, (kind,inst,conns)) :: !(ind.stash)
 
 let othx = ref []
 let othxlst = ref []
@@ -91,7 +92,7 @@ let rec explode_lst = function
   | oth -> othx := oth; failwith "explode_lst"
 
 let explode_signal ind = function
-  | TokID id -> (match Hashtbl.find_opt ind.wid (trim id) with None -> scalar id :: [] | Some n -> List.init n (fun i -> idx id i))
+  | TokID id -> (match List.assoc_opt (trim id) !(ind.wid) with None -> scalar id :: [] | Some n -> List.init n (fun i -> idx id i))
   | (Sigspec90 _ | Sigspecrange _ | TokVal _ | TokInt _) as x -> explode_lst (x :: [])
   | Sigspec92 conc -> explode_lst conc
   | oth -> oth' := Some oth; failwith "explode_signal"
@@ -101,7 +102,7 @@ let rec cnv_ilang ind = function
 | Attr_stmt(string,ilang_lst') -> ()
 | Module12(string,ilang_lst') -> print_endline string; List.iter (cnv_ilang ind) ilang_lst'
 | Wire_stmt(options,string') -> let wid = ref None and fn = ref addwire in List.iter (function
-    | Wire_optionswidth n -> wid := Some n; Hashtbl.replace ind.wid (trim string') n
+    | Wire_optionswidth n -> wid := Some n; ind.wid := (trim string', n) :: !(ind.wid)
     | Wire_optionsinput n -> fn := addinp n;
     | Wire_optionsoutput n -> fn := addoutp n;
     | Signed -> ()
@@ -117,12 +118,12 @@ let rec cnv_ilang ind = function
   if List.length lhs <> List.length rhs then
     begin
       let othlst = ref [] in
-      Hashtbl.iter (fun k x -> othlst := (k,x) :: !othlst) ind.wires;
-      let signal' = match conc1 with TokID id -> Hashtbl.find_opt ind.wid id | _ -> None in
+      List.iter (fun (k,x) -> othlst := (k,x) :: !othlst) !(ind.wires);
+      let signal' = match conc1 with TokID id -> List.assoc_opt id !(ind.wid) | _ -> None in
       othexp := Some (conc1,conc2,lhs,rhs,ind,signal');
       failwith "conn_stmt_fail"
     end;
-  List.iter2 (fun lhs' rhs' -> stash ind "$_BUF_" ("$B"^string_of_int (Hashtbl.length ind.stash)) [ TokConn ([TokID "\\A"], [cnv_sig rhs']) ; TokConn ([TokID "\\Y"], [cnv_sig lhs']) ]) lhs rhs
+  List.iter2 (fun lhs' rhs' -> stash ind "$_BUF_" ("$B"^string_of_int (List.length !(ind.stash))) [ TokConn ([TokID "\\A"], [cnv_sig rhs']) ; TokConn ([TokID "\\Y"], [cnv_sig lhs']) ]) lhs rhs
 | Param_defval_stmt24(string,ilang_lst') -> () (* does not seem to be used yet *)
 
 (*
@@ -185,62 +186,61 @@ let mycnf' = ref F.f_false
 let mycnf = ref [[E.transparent (E.fresh ())]]
 let othh = ref F.f_false
 let othsat = ref []
+let sath = Hashtbl.create 257
 
-let ep form =
+let ep k' form =
     if verbose then print_endline "Dumping cnf";
     mycnf' := form;
     if verbose then print_endline "Building cnf";
     let m = F.make_cnf form in
-    mycnf := List.map (List.map E.transparent) m;
+    if verbose then mycnf := List.map (List.map E.transparent) m;
+    Hashtbl.add sath k' m;
     let solver = Msat_sat_slit.create () in
     Msat_sat_slit.assume solver m ();
     match Msat_sat_slit.solve solver with
       | Msat_sat_slit.Sat _ -> if verbose then print_endline "SATISFIABLE (netlists mismatched)"; false
       | Msat_sat_slit.Unsat _ -> if verbose then print_endline "UNSATISFIABLE (netlists match)"; true
 
-let cnv_sat_tree = List.map (fun (nam,itm) ->
-      let wh = Hashtbl.create 255 in
-      let wid = Hashtbl.create 255 in
-      let ffh = Hashtbl.create 255 in
-      let sh = Hashtbl.create 255 in
-      let ind = {wires=wh;inffop=ffh;stash=sh;wid=wid} in
+let cnv_sat_tree' (nam,itm) =
+      let ind = {wires=ref [];inffop=ref [];stash=ref [];wid=ref [];hlst=ref [];inffoplst=ref []} in
       print_endline ("Converting: "^nam);
       othsat := itm;
       List.iter (cnv_ilang ind) itm;
-      Hashtbl.iter (fun _ (kind,inst,conns) -> Convert_edited.func ind [inst] kind conns) sh;
-      let hlst=ref [] in
-      Hashtbl.iter (fun k -> function
-          | Some x -> othh := x; hlst := (k, fpp x) :: !hlst
-          | None -> if verbose then print_endline (E.string_of_signal k^" is not used")) wh;
-      let inffoplst=ref [] in
-      Hashtbl.iter (fun k () -> inffoplst := (k, match Hashtbl.find wh k with
-        | Some x -> x
-        | None -> print_endline ("ffh: " ^ E.string_of_signal k^" is undefined"); atom (scalar "\\")) :: !inffoplst) ffh;
-      let widlst=ref [] in
-      Hashtbl.iter (fun k n -> widlst := (k, n) :: !widlst) wid;
-      print_endline ("inffopslt length: "^string_of_int (List.length !inffoplst));
-      !hlst, List.sort compare !inffoplst, !widlst
-  )
+      List.iter (fun (_ , (kind,inst,conns)) -> Convert_edited.func ind [inst] kind conns) !(ind.stash);
+      List.iter (function
+          | k, Some x -> othh := x; ind.hlst := (k, fpp x) :: !(ind.hlst)
+          | k, None -> if verbose then print_endline (E.string_of_signal k^" is not used")) !(ind.wires);
+      List.iter (fun ((k:E.signal), ()) -> ind.inffoplst := (k, match List.assoc k !(ind.wires) with
+        | Some (x:F.t) -> x
+        | None -> print_endline ("ffh: " ^ E.string_of_signal k^" is undefined"); atom (scalar "\\")) :: !(ind.inffoplst)) !(ind.inffop);
+      print_endline ("inffopslt length: "^string_of_int (List.length !(ind.inffoplst)));
+      ind.inffoplst := List.sort compare !(ind.inffoplst);
+      ind
 
-let cmp_sat goldlst revlst =
+let json' ind = Verible_typ.strip_json_typ (ind_to_yojson ind)
+		     
+let cnv_sat_arg ind = !(ind.hlst), !(ind.inffoplst), !(ind.wid)
+
+let cnv_sat_tree (nam,itm) = cnv_sat_arg (cnv_sat_tree' (nam, itm))
+		     
+let cmp_sat (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') =
   let status = ref true in
-  List.iter2 (fun (hlst, inffoplst, wlst) (hlst', inffoplst', wlst') ->
   let inffoplst1,inffoplst2 = List.split inffoplst in
   let inffoplst1',inffoplst2' = List.split inffoplst' in
   print_endline ("Golden (yosys) primary inputs/flipflop inputs/final outputs: "^String.concat "; " (List.map E.string_of_signal inffoplst1));
   print_endline ("Revised (our) primary inputs/flipflop inputs/final outputs: "^String.concat "; " (List.map E.string_of_signal inffoplst1'));
-  print_endline ("Endpoint comparison: "^String.concat "; " (List.map (fun (k, itm) ->
+  print_string ("Endpoint comparison: ");
+  List.iter (fun (k, itm) ->
       let k' = E.string_of_signal k in
-      match List.assoc_opt k inffoplst with
+      print_string (match List.assoc_opt k inffoplst with
 	| Some itm' -> 
-	  let stat = ep (xor2 itm itm') in
+	  let stat = ep k' (xor2 itm itm') in
 	  if not stat then status := false;
-	  k' ^ ": " ^ string_of_bool stat
+	  k' ^ ": " ^ string_of_bool stat ^ "; "
 	| None ->
 	  status := false;
-	  k' ^ ": not compared"
-      ) inffoplst'))
-    ) goldlst revlst;
+	  k' ^ ": not compared; "); flush stdout;
+      ) inffoplst';
   if !status then "PASSED" else "FAILED"
 
   

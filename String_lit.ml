@@ -2,15 +2,15 @@ type signal =
 | PWR
 | GND
 | SCALAR of string
-| INDEXED of string * int
+| INDEXED of string * int  [@@deriving yojson]
 
 type atom' =
 | Fresh of int
-| Made of signal
+| Made of signal [@@deriving yojson]
 
-type atom = bool * atom'
+type atom = bool * atom' [@@deriving yojson]
 
-type t = atom
+type t = atom [@@deriving yojson]
 
 (* Counters *)
 let max_fresh = ref (-1)

@@ -235,13 +235,16 @@ type rw =
   | WireExpr of rw * rw
   | Xnor of rw * rw
   | Xor of rw * rw
+ [@@deriving yojson]
 
 module E = Msat_sat_slit.String_lit (* expressions *)
 module F = Msat_tseitin.MakeCNF
 
 type ind = {
-  wires:(E.signal, F.t option) Hashtbl.t;
-  inffop:(E.signal, unit) Hashtbl.t;
-  stash:(E.signal, string * string * Rtlil_input_rewrite_types.ilang list) Hashtbl.t;
-  wid:(string, int) Hashtbl.t;
-}
+  wires:(E.signal * F.t option) list ref;
+  inffop:(E.signal * unit) list ref;
+  stash:(E.signal * (string * string * Rtlil_input_rewrite_types.ilang list)) list ref;
+  wid:(string * int) list ref;
+  hlst:(E.signal * string) list ref;
+  inffoplst:(E.signal * F.t) list ref;
+} [@@deriving yojson]

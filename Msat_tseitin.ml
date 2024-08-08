@@ -19,30 +19,12 @@ module F = String_lit
 
 module MakeCNF = struct
 
-  type combinator = And | Or | Imp | Not
+  type combinator = And | Or | Imp | Not [@@deriving yojson]
 
   type t =
     | True
     | Lit of String_lit.atom
-    | Comb of combinator * t list
-
-(*
-  let rec mypp fmt phi =
-    match phi with
-    | True -> Format.fprintf fmt "true"
-    | Lit a -> F.pp fmt a
-    | Comb (Not, [f]) ->
-      Format.fprintf fmt "not (%a)" mypp f
-    | Comb (And, l) -> Format.fprintf fmt "(%a)" (mypp_list "and") l
-    | Comb (Or, l) ->  Format.fprintf fmt "(%a)" (mypp_list "or") l
-    | Comb (Imp, [f1; f2]) ->
-      Format.fprintf fmt "(%a => %a)" mypp f1 mypp f2
-    | _ -> assert false
-  and mypp_list sep fmt = function
-    | [] -> ()
-    | [f] -> mypp fmt f
-    | f::l -> Format.fprintf fmt "%a %s %a" mypp f sep (mypp_list sep) l
-*)
+    | Comb of combinator * t list [@@deriving yojson]
 
   let make comb l = Comb (comb, l)
 

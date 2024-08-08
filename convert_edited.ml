@@ -1,4 +1,5 @@
 open Rtlil_input_rewrite_types
+open Source_text_rewrite_types
 open Generic_rewrite
 
 let verbose = try int_of_string (Sys.getenv "CNF_VERBOSE") > 0 with err -> false
@@ -165,11 +166,11 @@ let rec func ind klst kind conns = match kind, pinmap ind klst conns with
   | oth,lst ->
       othclst := lst;
       othwlst := [];
-      Hashtbl.iter (fun k -> function
-          | Some x -> othwlst := (k,fpp x) :: !othwlst
-          | None -> othwlst := (k,"") :: !othwlst) ind.wires;
+      List.iter (function
+          | k, Some x -> othwlst := (k,fpp x) :: !othwlst
+          | k, None -> othwlst := (k,"") :: !othwlst) !(ind.wires);
       othwlst := List.sort compare !othwlst;
-      othst := List.map (fun (pin, net, _) -> Hashtbl.find_opt ind.stash net) lst;
+      othst := List.map (fun (pin, net, _) -> List.assoc_opt net !(ind.stash)) lst;
       failwith ("func: unmatched "^oth)
 
 and recurse ind klst signal (kind, inst, conns) =
@@ -181,17 +182,17 @@ and recurse ind klst signal (kind, inst, conns) =
     end
   else
     begin
-    dbgfunc := (kind,conns,signal,Hashtbl.find ind.wires signal) :: !dbgfunc;
+    dbgfunc := (kind,conns,signal,List.assoc signal !(ind.wires)) :: !dbgfunc;
     if verbose then print_endline ("instance: " ^ inst ^ " (kind : " ^ kind ^ " ) already searched")
     end;
-  Hashtbl.find ind.wires signal
+  List.assoc signal !(ind.wires)
 
 and getcon ind klst pin = function
   | E.GND -> Some F.f_false
   | PWR -> Some F.f_true
-  | signal -> match Hashtbl.find_opt ind.wires signal with
+  | signal -> match List.assoc_opt signal !(ind.wires) with
     | Some (Some _ as x) -> x
-    | Some None -> if pin <> "Y" then (match Hashtbl.find_opt ind.stash signal with
+    | Some None -> if pin <> "Y" then (match List.assoc_opt signal !(ind.stash) with
         | Some s -> recurse ind klst signal s
         | None -> print_endline ("Undriven signal: "^E.string_of_signal signal^" assumed to be ground"); Some F.f_false) else None
     | None -> failwith (E.string_of_signal signal ^" not declared")

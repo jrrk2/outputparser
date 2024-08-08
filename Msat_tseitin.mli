@@ -27,12 +27,8 @@ module MakeCNF with type atom = String_lit.t
 
 module MakeCNF :
     sig
-      type combinator = And | Or | Imp | Not
-      type t = True | Lit of String_lit.atom | Comb of combinator * t list
-(*
-      val mypp : Format.formatter -> t -> unit
-      val mypp_list : string -> Format.formatter -> t list -> unit
-*)
+      type combinator = And | Or | Imp | Not [@@deriving yojson]
+      type t = True | Lit of String_lit.atom | Comb of combinator * t list [@@deriving yojson]
       val make : combinator -> t list -> t
       val make_atom : String_lit.t -> t
       val f_true : t

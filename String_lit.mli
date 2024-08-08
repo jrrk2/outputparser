@@ -14,13 +14,13 @@ type signal =
 | PWR
 | GND
 | SCALAR of string
-| INDEXED of string * int
+| INDEXED of string * int [@@deriving yojson]
 
 type atom' =
 | Fresh of int
-| Made of signal
+| Made of signal [@@deriving yojson]
 
-type atom = bool * atom'
+type atom = bool * atom' [@@deriving yojson]
 
 val make : signal -> t
 (** Make a proposition from a signal. *)

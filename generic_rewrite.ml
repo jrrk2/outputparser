@@ -1,12 +1,4 @@
-module E = Msat_sat_slit.String_lit (* expressions *)
-module F = Msat_tseitin.MakeCNF
-
-type ind = {
-  wires:(E.signal, F.t option) Hashtbl.t;
-  inffop:(E.signal, unit) Hashtbl.t;
-  stash:(E.signal, string * string * Rtlil_input_rewrite_types.ilang list) Hashtbl.t;
-  wid:(string, int) Hashtbl.t;
-}
+open Source_text_rewrite_types
 
 let verbose = try int_of_string (Sys.getenv ("DESCEND_VERBOSE")) > 0 with _ -> false
 
@@ -30,15 +22,15 @@ let cnv_pwr = function
   | oth -> othstr := Some oth; failwith "cnv_pwr"
 
 let addwire idx' ind signal =
-  match Hashtbl.find_opt ind.wires signal with
+  match List.assoc_opt signal !(ind.wires) with
     | Some x -> print_endline (E.string_of_signal signal^" redeclared")
-    | None -> Hashtbl.add ind.wires signal None
+    | None -> ind.wires := (signal, None) :: !(ind.wires)
 
 let addfunc ind signal func =
-  match Hashtbl.find_opt ind.wires signal with
+  match List.assoc_opt signal !(ind.wires) with
     | Some None ->
         if verbose then print_endline ("Installed function for wire: "^E.string_of_signal signal);
-        Hashtbl.replace ind.wires signal (Some func)
+        ind.wires := (signal, Some func) :: !(ind.wires)
     | Some _ -> print_endline (E.string_of_signal signal ^" redeclared")
     | None -> print_endline (E.string_of_signal signal ^" undefined")
 
@@ -51,7 +43,7 @@ let addnxt' pat = function
 let addnxt pat ind d q =
    let lhs' = addnxt' pat q in
    addwire 0 ind lhs';
-   Hashtbl.add ind.inffop lhs' ();
+   ind.inffop := (lhs', ()) :: !(ind.inffop);
    addfunc ind lhs' d
 
 (* dump a cnf in ASCII *)
