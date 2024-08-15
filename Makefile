@@ -20,7 +20,7 @@
 
 PARSER=ocamlyacc
 MENHIRFLAGS= --infer # --trace
-# MENHIRFLAGS= --infer --trace
+MENHIRFLAGST= --infer --trace
 PARSER=menhir $(MENHIRFLAGS)
 
 all: output_parser output_parser.top Source_text_top Source_text
